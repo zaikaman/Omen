@@ -11,6 +11,12 @@ export type BackendEnv = {
   runtimeMode: RuntimeMode;
   allowConcurrentRuns: boolean;
   logLevel: "debug" | "info" | "warn" | "error";
+  twitterApi: {
+    baseUrl: string;
+    apiKey: string | null;
+    loginCookies: string | null;
+    proxy: string | null;
+  };
 };
 
 const parseBoolean = (value: string | undefined, fallback: boolean) => {
@@ -69,5 +75,11 @@ export const createBackendEnv = (
     runtimeMode: normalizeRuntimeMode(env.RUNTIME_MODE),
     allowConcurrentRuns: parseBoolean(env.ALLOW_CONCURRENT_RUNS, false),
     logLevel: normalizeLogLevel(env.LOG_LEVEL),
+    twitterApi: {
+      baseUrl: env.TWITTERAPI_BASE_URL ?? "https://api.twitterapi.io",
+      apiKey: env.TWITTERAPI_API_KEY ?? null,
+      loginCookies: env.TWITTERAPI_LOGIN_COOKIES ?? null,
+      proxy: env.TWITTERAPI_PROXY ?? null,
+    },
   };
 };
