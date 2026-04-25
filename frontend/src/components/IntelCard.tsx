@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Calendar01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 
-const AGENT_AVATAR = '/logo.webp';
+const AGENT_AVATAR = '/logo.png';
 
 interface IntelCardProps {
   intel: any;
@@ -15,8 +15,8 @@ export function IntelCard({ intel, onClick }: IntelCardProps) {
   const { content, created_at, type } = intel;
   const title = content.topic || "Market Intelligence Report";
   const excerpt = content.tweet_text || content.formatted_thread?.slice(0, 150) + '...';
-  const date = new Date(created_at).toLocaleDateString(undefined, { 
-    month: 'short', 
+  const date = new Date(created_at).toLocaleDateString(undefined, {
+    month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
@@ -24,7 +24,7 @@ export function IntelCard({ intel, onClick }: IntelCardProps) {
 
   const isDeepDive = type === 'deep_dive';
   const badgeText = isDeepDive ? 'DEEP DIVE' : 'ALPHA REPORT';
-  const badgeClass = isDeepDive 
+  const badgeClass = isDeepDive
     ? 'bg-gradient-to-r from-amber-500/90 to-orange-500/90 backdrop-blur-md text-white border-amber-400/30 font-bold'
     : 'bg-black/50 backdrop-blur-md text-white border-white/20';
 
@@ -41,21 +41,21 @@ export function IntelCard({ intel, onClick }: IntelCardProps) {
   const imageUrl = content.image_url;
 
   return (
-    <Card 
+    <Card
       className="bg-gray-900/50 border-gray-800 overflow-hidden group cursor-pointer hover:border-gray-700 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-900/10"
       onClick={onClick}
     >
       {/* Hero Image / Gradient Area */}
       <div className={`h-40 w-full bg-gradient-to-br ${gradient} relative p-5 flex flex-col justify-end`}>
         {imageUrl && (
-          <img 
-            src={imageUrl} 
-            alt={title} 
+          <img
+            src={imageUrl}
+            alt={title}
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         )}
         <div className={`absolute inset-0 ${imageUrl ? 'bg-black/60' : 'bg-black/20'} group-hover:bg-black/40 transition-colors`} />
-        
+
         {/* Overlay Content */}
         <div className="relative z-10">
           <Badge className={`${badgeClass} mb-2 hover:bg-black/60 text-xs h-6 px-2.5`}>
@@ -77,10 +77,10 @@ export function IntelCard({ intel, onClick }: IntelCardProps) {
           <div className="flex items-center gap-2.5">
             <Avatar className="h-7 w-7 border border-gray-700">
               <AvatarImage src={AGENT_AVATAR} />
-              <AvatarFallback className="bg-cyan-950 text-cyan-400 text-[10px]">RA</AvatarFallback>
+              <AvatarFallback className="bg-cyan-950 text-cyan-400 text-[10px]">OM</AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-white">Rogue Agent</span>
+              <span className="text-xs font-bold text-white">Omen</span>
               <span className="text-[10px] text-gray-500 flex items-center gap-1">
                 <HugeiconsIcon icon={Calendar01Icon} className="w-3 h-3" />
                 {date}

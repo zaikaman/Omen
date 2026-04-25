@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardHome } from "./pages/DashboardHome";
+import { SignalsPage } from "./pages/SignalsPage";
 
 export default function App() {
   return (
@@ -11,6 +12,11 @@ export default function App() {
         <Route path="/app" element={
           <DashboardLayout>
             <DashboardHome />
+          </DashboardLayout>
+        } />
+        <Route path="/app/signals" element={
+          <DashboardLayout>
+            <SignalsPage />
           </DashboardLayout>
         } />
         <Route path="/docs" element={<Home />} />

@@ -68,7 +68,7 @@ export function DashboardHome() {
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Latest Signal</h3>
-                            <Link to="/app" className="text-xs text-cyan-500 hover:text-cyan-400 flex items-center gap-1">
+                            <Link to="/app/signals" className="text-xs text-cyan-500 hover:text-cyan-400 flex items-center gap-1">
                                 View All <HugeiconsIcon icon={ArrowRight01Icon} className="w-3 h-3" />
                             </Link>
                         </div>

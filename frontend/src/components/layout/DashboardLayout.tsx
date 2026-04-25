@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Home01Icon, Menu01Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
+import { Home01Icon, Menu01Icon, Cancel01Icon, GpsSignal01Icon } from '@hugeicons/core-free-icons';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -13,9 +13,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
     const navItems = [
         { icon: Home01Icon, label: 'Dashboard', path: '/app' },
+        { icon: GpsSignal01Icon, label: 'Signals', path: '/app/signals' },
     ];
 
-    const currentTitle = 'MISSION CONTROL';
+    const pageTitles: Record<string, string> = {
+        '/app': 'MISSION CONTROL',
+        '/app/signals': 'SIGNAL INTERCEPT',
+    };
+
+    const currentTitle = pageTitles[location.pathname] || 'SYSTEM OVERVIEW';
 
     return (
         <div className="min-h-screen bg-black text-gray-300 font-sans selection:bg-cyan-500/30 flex">
@@ -36,7 +42,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800">
                     <Link to="/" className="flex items-center gap-3 no-underline" onClick={() => setIsMobileMenuOpen(false)}>
                         <div className="p-1 bg-cyan-500/10 rounded-lg border border-cyan-500/20 flex items-center justify-center">
-                            <img src="/logo.webp" alt="Omen" className="h-6 w-6 object-contain rounded" />
+                            <img src="/logo.png" alt="Omen" className="h-6 w-6 object-contain rounded" />
                         </div>
                         <span className="font-bold text-white tracking-tight">OMEN</span>
                     </Link>
@@ -57,8 +63,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                                 to={item.path}
                                 onClick={() => setIsMobileMenuOpen(false)}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${isActive
-                                        ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                                        : 'text-gray-400 hover:text-white hover:bg-gray-900'
+                                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                    : 'text-gray-400 hover:text-white hover:bg-gray-900'
                                     }`}
                             >
                                 <HugeiconsIcon icon={item.icon} className={`w-5 h-5 ${isActive ? 'text-cyan-400' : 'text-gray-500 group-hover:text-white'}`} />

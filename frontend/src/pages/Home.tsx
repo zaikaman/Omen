@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { WalletConnect } from '../components/WalletConnect'
+
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import { Send } from 'lucide-react'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -115,7 +115,12 @@ export default function Home() {
                                 <Send className="w-4 h-4 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
                                 <span className="text-sm font-medium">Telegram Bot</span>
                             </a>
-                            <WalletConnect />
+                            <Link
+                                to="/app"
+                                className="px-5 py-2 rounded-lg bg-teal-glow hover:bg-teal-dark text-noir-black font-bold text-sm transition-all duration-300 shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:shadow-[0_0_25px_rgba(0,212,255,0.4)]"
+                            >
+                                Open Terminal
+                            </Link>
                         </div>
 
                         {/* Mobile Menu Toggle */}
@@ -149,7 +154,12 @@ export default function Home() {
                                 <span>Telegram Bot</span>
                             </a>
                             <div className="pt-3 mt-1 border-t border-white/10 flex justify-center">
-                                <WalletConnect />
+                                <Link
+                                    to="/app"
+                                    className="w-full text-center px-4 py-3 rounded-lg bg-teal-glow hover:bg-teal-dark text-noir-black font-bold transition-all duration-300"
+                                >
+                                    Open Terminal
+                                </Link>
                             </div>
                         </motion.div>
                     )}
