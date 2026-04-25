@@ -17,14 +17,14 @@
 
 **Purpose**: Initialize the monorepo, workspace tooling, and base package structure.
 
-- [ ] T001 Create pnpm workspace manifests in `package.json`, `pnpm-workspace.yaml`, and `turbo.json`
-- [ ] T002 Create shared TypeScript base configs in `tsconfig.json` and `tsconfig.base.json`
-- [ ] T003 [P] Create root quality tooling in `eslint.config.mjs`, `prettier.config.mjs`, and `.editorconfig`
-- [ ] T004 [P] Create root environment templates in `.env.example`, `apps/web/.env.example`, and `apps/runtime/.env.example`
-- [ ] T005 Create package manifests for `apps/web/package.json` and `apps/runtime/package.json`
-- [ ] T006 [P] Create package manifests for `packages/agents/package.json`, `packages/axl/package.json`, `packages/zero-g/package.json`, `packages/market-data/package.json`, `packages/db/package.json`, `packages/shared/package.json`, `packages/indicators/package.json`, and `packages/execution/package.json`
-- [ ] T007 [P] Create initial directory scaffolding placeholders in `apps/web/app/.gitkeep`, `apps/runtime/src/.gitkeep`, `packages/*/src/.gitkeep`, `tests/integration/.gitkeep`, `tests/fixtures/.gitkeep`, and `tests/e2e/.gitkeep`
-- [ ] T008 Configure root scripts for linting, typechecking, testing, Supabase, and AXL node helpers in `package.json`
+- [x] T001 Create pnpm workspace manifests in `package.json`, `pnpm-workspace.yaml`, and `turbo.json`
+- [x] T002 Create shared TypeScript base configs in `tsconfig.json` and `tsconfig.base.json`
+- [x] T003 [P] Create root quality tooling in `eslint.config.mjs`, `prettier.config.mjs`, and `.editorconfig`
+- [x] T004 [P] Create a single root environment file and template in `.env` and `.env.example`
+- [x] T005 Create package manifests for `apps/web/package.json` and `apps/runtime/package.json`
+- [x] T006 [P] Create package manifests for `packages/agents/package.json`, `packages/axl/package.json`, `packages/zero-g/package.json`, `packages/market-data/package.json`, `packages/db/package.json`, `packages/shared/package.json`, `packages/indicators/package.json`, and `packages/execution/package.json`
+- [x] T007 [P] Create initial directory scaffolding placeholders in `apps/web/app/.gitkeep`, `apps/runtime/src/.gitkeep`, `packages/*/src/.gitkeep`, `tests/integration/.gitkeep`, `tests/fixtures/.gitkeep`, and `tests/e2e/.gitkeep`
+- [x] T008 Configure root scripts for linting, typechecking, testing, Supabase, and AXL node helpers in `package.json`
 
 ---
 

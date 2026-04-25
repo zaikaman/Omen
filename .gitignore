@@ -1,3 +1,10 @@
+node_modules
+.next
+.turbo
+coverage
+dist
+*.tsbuildinfo
+playwright-report
 template
 .env
 0g-ts-sdk

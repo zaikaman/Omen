@@ -5,7 +5,7 @@
 **Status**: Draft  
 **Input**: User description: "Build Omen as a production-oriented hackathon web platform and long-running autonomous agent runtime for decentralized crypto market intelligence."
 
-## User Scenarios & Validation *(mandatory)*
+## User Scenarios & Validation _(mandatory)_
 
 ### User Story 1 - Launch a Transparent Demo Run (Priority: P1)
 
@@ -75,7 +75,7 @@ A hackathon presenter follows a short scripted walkthrough that starts multiple 
 - If a previous project name, token, asset, or branded copy appears in source or UI content, the build must treat it as a defect because Omen is a clean-room identity.
 - If a monitor or reflection update arrives after a signal has already been invalidated or expired, the status history must remain auditable and ordered rather than overwriting earlier state.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -185,10 +185,10 @@ A hackathon presenter follows a short scripted walkthrough that starts multiple 
 
 - **FR-072**: The README MUST explain the project overview, hackathon prize alignment, architecture, setup, environment variables, frontend startup, control-plane startup, runtime startup, local node startup, 0G usage, compute usage, demo script, limitations, and safety disclaimers.
 - **FR-073**: The project MUST include a `DEMO.md` with an exact judge walkthrough covering node startup, runtime startup, dashboard startup, run trigger, decentralized message inspection, memory/log inspection, final report inspection, and critic/proof inspection.
-- **FR-074**: The project MUST include example environment files for local setup.
+- **FR-074**: The project MUST include a single root `.env` and `.env.example` for local setup, and MUST NOT require app-specific environment files.
 - **FR-075**: The codebase MUST include unit coverage for schemas, adapter mocks, indicator logic, quality gates, critic logic, and sponsor adapter mocks, plus integration coverage for one deterministic mocked swarm run and its resulting trace, signal, memory references, and message records.
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **Run**: A single autonomous swarm session with a unique ID, lifecycle status, market bias, configuration snapshot, checkpoint state, timestamps, and final outcome summary.
 - **Agent Node**: A logical swarm participant with identity, role, node status, tool permissions, peer health, and latest heartbeat or status summary.
@@ -202,7 +202,7 @@ A hackathon presenter follows a short scripted walkthrough that starts multiple 
 - **Signal Status Update**: A post-publication lifecycle entry such as active, invalidated, target hit, stopped, expired, or watchlist only, with timestamps and reflection notes.
 - **App Configuration**: A mutable demo-safe configuration profile controlling market universe, runtime mode, data adapters, thresholds, and execution permissions.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

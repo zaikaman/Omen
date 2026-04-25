@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "incremental": true
+  },
+  "exclude": [
+    "node_modules",
+    ".turbo",
+    ".next",
+    "coverage",
+    "dist",
+    "template",
+    "axl",
+    "0g-doc",
+    "0g-ts-sdk",
+    "langgraphjs"
+  ]
+}

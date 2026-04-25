@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "allowJs": false,
+    "checkJs": false,
+    "strict": true,
+    "noEmit": true,
+    "declaration": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@omen/agents": ["packages/agents/src"],
+      "@omen/axl": ["packages/axl/src"],
+      "@omen/db": ["packages/db/src"],
+      "@omen/execution": ["packages/execution/src"],
+      "@omen/indicators": ["packages/indicators/src"],
+      "@omen/market-data": ["packages/market-data/src"],
+      "@omen/shared": ["packages/shared/src"],
+      "@omen/zero-g": ["packages/zero-g/src"]
+    }
+  }
+}
