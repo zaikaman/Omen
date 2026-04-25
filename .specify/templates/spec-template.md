@@ -5,17 +5,17 @@
 **Status**: Draft  
 **Input**: User description: "$ARGUMENTS"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Validation *(mandatory)*
 
 <!--
   IMPORTANT: User stories should be PRIORITIZED as user journeys ordered by importance.
-  Each user story/journey must be INDEPENDENTLY TESTABLE - meaning if you implement just ONE of them,
+  Each user story/journey must be INDEPENDENTLY VALIDATABLE - meaning if you implement just ONE of them,
   you should still have a viable MVP (Minimum Viable Product) that delivers value.
   
   Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
   Think of each story as a standalone slice of functionality that can be:
   - Developed independently
-  - Tested independently
+  - Validated independently
   - Deployed independently
   - Demonstrated to users independently
 -->
@@ -26,7 +26,7 @@
 
 **Why this priority**: [Explain the value and why it has this priority level]
 
-**Independent Test**: [Describe how this can be tested independently - e.g., "Can be fully tested by [specific action] and delivers [specific value]"]
+**Independent Validation**: [Describe how this can be validated independently - e.g., "Can be validated by [specific action] and delivers [specific value]"]
 
 **Acceptance Scenarios**:
 
@@ -41,7 +41,7 @@
 
 **Why this priority**: [Explain the value and why it has this priority level]
 
-**Independent Test**: [Describe how this can be tested independently]
+**Independent Validation**: [Describe how this can be validated independently]
 
 **Acceptance Scenarios**:
 
@@ -55,7 +55,7 @@
 
 **Why this priority**: [Explain the value and why it has this priority level]
 
-**Independent Test**: [Describe how this can be tested independently]
+**Independent Validation**: [Describe how this can be validated independently]
 
 **Acceptance Scenarios**:
 

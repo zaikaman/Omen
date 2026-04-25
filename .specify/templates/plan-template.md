@@ -20,7 +20,7 @@
 **Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
 **Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
 **Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Validation Strategy**: [e.g., manual QA checklist, smoke script, optional automated tests or NEEDS CLARIFICATION]  
 **Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
 **Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
 **Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
@@ -31,7 +31,10 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- Code Quality: Define linting/static-analysis gates and code review expectations.
+- Validation: Define requirement-level validation; include automated tests only if explicitly requested.
+- UX Consistency: Define how existing UX patterns/accessibility conventions are preserved.
+- Performance: Define measurable budgets and planned verification method.
 
 ## Project Structure
 

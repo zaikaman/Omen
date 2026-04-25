@@ -8,9 +8,9 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Validation**: Every user story MUST include validation tasks. Automated tests are OPTIONAL and only included when explicitly requested in the feature specification.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+**Organization**: Tasks are grouped by user story to enable independent implementation and validation of each story.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -37,7 +37,7 @@ description: "Task list template for feature implementation"
   
   Tasks MUST be organized by user story so each story can be:
   - Implemented independently
-  - Tested independently
+  - Validated independently
   - Delivered as an MVP increment
   
   DO NOT keep these sample tasks in the generated tasks.md file.
@@ -77,11 +77,11 @@ Examples of foundational tasks (adjust based on your project):
 
 **Goal**: [Brief description of what this story delivers]
 
-**Independent Test**: [How to verify this story works on its own]
+**Independent Validation**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Validation for User Story 1 (automated tests OPTIONAL) ⚠️
 
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+> **NOTE: Define validation steps before marking implementation complete.**
 
 - [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
@@ -103,9 +103,9 @@ Examples of foundational tasks (adjust based on your project):
 
 **Goal**: [Brief description of what this story delivers]
 
-**Independent Test**: [How to verify this story works on its own]
+**Independent Validation**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+### Validation for User Story 2 (automated tests OPTIONAL) ⚠️
 
 - [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
@@ -125,9 +125,9 @@ Examples of foundational tasks (adjust based on your project):
 
 **Goal**: [Brief description of what this story delivers]
 
-**Independent Test**: [How to verify this story works on its own]
+**Independent Validation**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+### Validation for User Story 3 (automated tests OPTIONAL) ⚠️
 
 - [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
@@ -178,7 +178,7 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Within Each User Story
 
-- Tests (if included) MUST be written and FAIL before implementation
+- Validation tasks (manual and/or automated) MUST be completed before closing the story
 - Models before services
 - Services before endpoints
 - Core implementation before integration
@@ -189,7 +189,7 @@ Examples of foundational tasks (adjust based on your project):
 - All Setup tasks marked [P] can run in parallel
 - All Foundational tasks marked [P] can run in parallel (within Phase 2)
 - Once Foundational phase completes, all user stories can start in parallel (if team capacity allows)
-- All tests for a user story marked [P] can run in parallel
+- All validation tasks for a user story marked [P] can run in parallel
 - Models within a story marked [P] can run in parallel
 - Different user stories can be worked on in parallel by different team members
 
@@ -198,7 +198,7 @@ Examples of foundational tasks (adjust based on your project):
 ## Parallel Example: User Story 1
 
 ```bash
-# Launch all tests for User Story 1 together (if tests requested):
+# Launch all validation tasks for User Story 1 together:
 Task: "Contract test for [endpoint] in tests/contract/test_[name].py"
 Task: "Integration test for [user journey] in tests/integration/test_[name].py"
 
@@ -216,15 +216,15 @@ Task: "Create [Entity2] model in src/models/[entity2].py"
 1. Complete Phase 1: Setup
 2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
 3. Complete Phase 3: User Story 1
-4. **STOP and VALIDATE**: Test User Story 1 independently
+4. **STOP and VALIDATE**: Validate User Story 1 independently
 5. Deploy/demo if ready
 
 ### Incremental Delivery
 
 1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
-3. Add User Story 2 → Test independently → Deploy/Demo
-4. Add User Story 3 → Test independently → Deploy/Demo
+2. Add User Story 1 → Validate independently → Deploy/Demo (MVP!)
+3. Add User Story 2 → Validate independently → Deploy/Demo
+4. Add User Story 3 → Validate independently → Deploy/Demo
 5. Each story adds value without breaking previous stories
 
 ### Parallel Team Strategy
@@ -244,8 +244,8 @@ With multiple developers:
 
 - [P] tasks = different files, no dependencies
 - [Story] label maps task to specific user story for traceability
-- Each user story should be independently completable and testable
-- Verify tests fail before implementing
+- Each user story should be independently completable and validatable
+- Capture validation evidence before marking tasks complete
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence

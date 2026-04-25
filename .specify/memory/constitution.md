@@ -1,50 +1,92 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: 0.0.0 -> 1.0.0
+- Modified principles:
+	- Template principle slot 1 -> I. Code Quality Is Non-Negotiable
+	- Template principle slot 2 -> II. Validation Over Mandatory Test Suites
+	- Template principle slot 3 -> III. User Experience Consistency
+	- Template principle slot 4 -> IV. Performance Budgets Are Required
+- Added sections:
+	- Engineering Standards
+	- Delivery Workflow & Quality Gates
+- Removed sections:
+	- Template principle slot 5 (removed in favor of a four-principle model)
+- Templates requiring updates:
+	- ✅ .specify/templates/plan-template.md
+	- ✅ .specify/templates/spec-template.md
+	- ✅ .specify/templates/tasks-template.md
+	- ⚠ pending: .specify/templates/commands/*.md (directory not present)
+- Deferred TODOs:
+	- None
+-->
+
+# Omen Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Code Quality Is Non-Negotiable
+All production code MUST be readable, maintainable, and reviewable. Every
+change MUST pass formatting, linting, and static analysis checks configured for
+the repository before merge. Complex implementations MUST include concise
+rationale in code comments or design docs when intent is not obvious.
+Rationale: high code quality reduces regressions, onboarding time, and long-term
+maintenance cost.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Validation Over Mandatory Test Suites
+Automated tests are OPTIONAL by default and MUST be required only when the
+feature specification explicitly asks for them. Every delivered change MUST
+include explicit validation evidence (manual checks, acceptance walkthroughs,
+or automated checks) tied to requirements, so quality does not depend on a
+single testing approach.
+Rationale: this project optimizes for delivery flexibility while preserving
+accountability for correctness.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. User Experience Consistency
+User-facing behavior MUST follow established interaction patterns, visual style,
+terminology, and accessibility expectations already present in the product.
+Any intentional UX deviation MUST be documented with rationale and user impact
+in the relevant specification or plan before implementation.
+Rationale: consistency improves trust, usability, and supportability.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Performance Budgets Are Required
+Each feature MUST define measurable performance expectations (for example,
+latency, throughput, rendering speed, or memory use) during planning. Changes
+MUST NOT introduce significant regressions against agreed budgets, and validation
+results MUST be captured in implementation artifacts.
+Rationale: performance is a core quality attribute and must be managed as a
+first-class requirement.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+## Engineering Standards
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+- Specifications and plans MUST state code quality checks, UX consistency checks,
+	and performance expectations before implementation starts.
+- Pull requests MUST include evidence that the selected validation strategy was
+	executed and passed for the implemented scope.
+- Dependencies, architecture choices, and technical debt tradeoffs SHOULD be
+	explicit when they affect maintainability or performance.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## Delivery Workflow & Quality Gates
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- The Constitution Check in planning MUST evaluate all four core principles.
+- Tasks MUST include requirement-level validation activities; automated tests are
+	included only when explicitly requested by the feature spec.
+- Reviews MUST reject work that lacks quality, UX consistency, or performance
+	evidence for the claimed scope.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes conflicting workflow guidance in repository
+artifacts. Amendments require: (1) a documented proposal, (2) explicit update
+of dependent templates and guidance files, and (3) a recorded semantic version
+increment rationale.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+Versioning policy is semantic:
+- MAJOR: backward-incompatible governance or principle removals/redefinitions.
+- MINOR: new principle/section or materially expanded mandatory guidance.
+- PATCH: clarifications, wording improvements, and non-semantic refinements.
+
+Compliance reviews are mandatory at planning and pull request review time.
+Non-compliant work MUST be corrected or explicitly approved as a documented
+exception by project maintainers.
+
+**Version**: 1.0.0 | **Ratified**: 2026-04-25 | **Last Amended**: 2026-04-25
