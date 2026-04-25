@@ -165,9 +165,6 @@ importers:
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0
-      zod:
-        specifier: ^3.24.3
-        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^20.11.24
@@ -229,6 +226,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@omen/axl':
+        specifier: workspace:*
+        version: link:../axl
       '@omen/shared':
         specifier: workspace:*
         version: link:../shared
