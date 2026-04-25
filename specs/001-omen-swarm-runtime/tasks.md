@@ -72,7 +72,7 @@
 - [x] T025 [P] [US1] Add contract tests for scheduled run history and runtime status endpoints in `tests/integration/contracts/runtime-runs-api.contract.test.ts`
 - [x] T026 [P] [US1] Add integration test for one deterministic signal-producing swarm run in `tests/integration/runtime/full-mocked-signal-run.test.ts`
 - [x] T027 [P] [US1] Add integration test for one deterministic intel-producing swarm run in `tests/integration/runtime/full-mocked-intel-run.test.ts`
-- [ ] T028 [P] [US1] Add integration test for hourly scheduler triggering, no-overlap behavior, and idempotent scheduler-tick handling in `tests/integration/runtime/hourly-scheduler.test.ts`
+- [x] T028 [P] [US1] Add integration test for hourly scheduler triggering, no-overlap behavior, and idempotent scheduler-tick handling in `tests/integration/runtime/hourly-scheduler.test.ts`
 - [ ] T085 [P] [US1] Add integration test for AXL MCP/A2A delegation across multiple local peers in `tests/integration/runtime/axl-mcp-a2a-delegation.test.ts`
 - [ ] T086 [P] [US1] Add integration test for 0G manifest assembly and proof-link integrity in `tests/integration/runtime/zero-g-manifest-integrity.test.ts`
 
