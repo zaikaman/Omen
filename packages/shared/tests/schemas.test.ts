@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  axlA2ADelegationEnvelopeSchema,
+  axlMcpResponseSchema,
   runSchema,
   signalSchema,
   twitterApiCreateTweetRequestSchema,
@@ -124,5 +126,57 @@ describe("shared schemas", () => {
         createdAt: "2026-04-25T08:00:00.000Z",
       }),
     ).toThrow(/compute metadata/i);
+  });
+
+  it("rejects MCP responses that contain both result and error", () => {
+    expect(() =>
+      axlMcpResponseSchema.parse({
+        jsonrpc: "2.0",
+        id: "req-1",
+        result: { ok: true },
+        error: {
+          code: -32000,
+          message: "bad request",
+          data: {},
+        },
+      }),
+    ).toThrow(/both result and error/i);
+  });
+
+  it("accepts A2A delegation envelopes with receipt and final result", () => {
+    expect(() =>
+      axlA2ADelegationEnvelopeSchema.parse({
+        request: {
+          delegationId: "delegation-1",
+          runId: "run-1",
+          correlationId: "corr-1",
+          fromPeerId: "peer-orchestrator",
+          fromRole: "orchestrator",
+          toPeerId: "peer-analyst",
+          requestedRole: "analyst",
+          taskType: "thesis.generate",
+          requiredServices: ["analyst.generate"],
+          payload: { asset: "BTC" },
+          timeoutMs: 15000,
+          routeHints: ["low-latency"],
+        },
+        receipt: {
+          delegationId: "delegation-1",
+          state: "accepted",
+          assignedPeerId: "peer-analyst",
+          assignedRole: "analyst",
+          acceptedAt: "2026-04-25T08:00:01.000Z",
+        },
+        result: {
+          delegationId: "delegation-1",
+          state: "completed",
+          responderPeerId: "peer-analyst",
+          responderRole: "analyst",
+          output: { verdict: "bullish" },
+          error: null,
+          completedAt: "2026-04-25T08:00:03.000Z",
+        },
+      }),
+    ).not.toThrow();
   });
 });
