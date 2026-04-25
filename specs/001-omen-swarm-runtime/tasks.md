@@ -63,16 +63,16 @@
 
 ## Phase 3: User Story 1 - Run the Hourly Swarm End-to-End (Priority: P1)
 
-**Goal**: Allow an operator to trigger or wait for an hourly swarm run that executes in the backend, coordinates multiple LangGraph agent roles across real AXL peers, writes canonical swarm state and proof bundles to 0G, and persists either one approved signal, one publishable intel item, or a transparent no-conviction outcome.
+**Goal**: Ensure the backend executes the swarm automatically on the hourly schedule, coordinates multiple LangGraph agent roles across real AXL peers, writes canonical swarm state and proof bundles to 0G, and persists either one approved signal, one publishable intel item, or a transparent no-conviction outcome.
 
-**Independent Validation**: Start one deterministic mocked run and one hourly scheduled run, then confirm at least four specialist roles participate, at least three AXL exchanges are recorded through raw or MCP/A2A routes, 0G KV/log/file refs are written, one run manifest is assembled, and the run ends in a persisted signal, persisted intel, or explicit no-signal result.
+**Independent Validation**: Execute one deterministic mocked scheduled run and one hourly scheduled run, then confirm at least four specialist roles participate, at least three AXL exchanges are recorded through raw or MCP/A2A routes, 0G KV/log/file refs are written, one run manifest is assembled, and the run ends in a persisted signal, persisted intel, or explicit no-signal result.
 
 ### Validation for User Story 1
 
-- [ ] T025 [P] [US1] Add contract tests for manual run, run history, and runtime status endpoints in `tests/integration/contracts/runtime-runs-api.contract.test.ts`
+- [ ] T025 [P] [US1] Add contract tests for scheduled run history and runtime status endpoints in `tests/integration/contracts/runtime-runs-api.contract.test.ts`
 - [ ] T026 [P] [US1] Add integration test for one deterministic signal-producing swarm run in `tests/integration/runtime/full-mocked-signal-run.test.ts`
 - [ ] T027 [P] [US1] Add integration test for one deterministic intel-producing swarm run in `tests/integration/runtime/full-mocked-intel-run.test.ts`
-- [ ] T028 [P] [US1] Add integration test for hourly scheduler triggering, no-overlap behavior, and idempotent start handling in `tests/integration/runtime/hourly-scheduler.test.ts`
+- [ ] T028 [P] [US1] Add integration test for hourly scheduler triggering, no-overlap behavior, and idempotent scheduler-tick handling in `tests/integration/runtime/hourly-scheduler.test.ts`
 - [ ] T085 [P] [US1] Add integration test for AXL MCP/A2A delegation across multiple local peers in `tests/integration/runtime/axl-mcp-a2a-delegation.test.ts`
 - [ ] T086 [P] [US1] Add integration test for 0G manifest assembly and proof-link integrity in `tests/integration/runtime/zero-g-manifest-integrity.test.ts`
 
@@ -89,12 +89,12 @@
 - [ ] T037 [P] [US1] Implement the memory node for checkpoint updates, evidence refs, and final report snapshots in `packages/agents/src/definitions/memory-agent.ts` and `packages/agents/src/prompts/memory/system.ts`
 - [ ] T038 [P] [US1] Implement the publisher-prep node that formats public signal alerts, intel summaries, and dashboard-friendly copy in `packages/agents/src/definitions/publisher-agent.ts` and `packages/agents/src/prompts/publisher/system.ts`
 - [ ] T039 [US1] Assemble the LangGraph supervisor workflow and checkpoint integration in `packages/agents/src/framework/omen-swarm-graph.ts` and `packages/agents/src/framework/graph-factory.ts`
-- [ ] T040 [US1] Implement the backend run coordinator and manual demo pipeline in `backend/src/coordinator/run-coordinator.ts`, `backend/src/pipelines/demo-run-pipeline.ts`, and `backend/src/commands/command-poller.ts`
+- [ ] T040 [US1] Implement the backend run coordinator and scheduler-driven demo pipeline in `backend/src/coordinator/run-coordinator.ts`, `backend/src/pipelines/demo-run-pipeline.ts`, and `backend/src/scheduler/scheduler-tick.ts`
 - [ ] T041 [US1] Implement the hourly scheduler worker, overlap lock, and interval-driven execution loop in `backend/src/scheduler/hourly-scheduler.ts`, `backend/src/scheduler/run-lock.ts`, and `backend/src/workers/runtime-worker.ts`
 - [ ] T042 [US1] Implement AXL-backed logical node registration and message send/receive orchestration for scanner, research, analyst, critic, and orchestrator roles in `backend/src/nodes/axl-node-manager.ts`, `backend/src/nodes/axl-peer-registry.ts`, and `packages/axl/src/adapter/axl-http-adapter.ts`
 - [ ] T043 [US1] Implement 0G KV state writes, append-only log writes, and one compute-backed report/reflection example path in `packages/zero-g/src/storage/zero-g-state-store.ts`, `packages/zero-g/src/storage/zero-g-log-store.ts`, `packages/zero-g/src/compute/zero-g-report-synthesis.ts`, and `backend/src/publishers/zero-g-publisher.ts`
 - [ ] T044 [US1] Persist runtime events, node status, AXL receipts, and 0G refs during execution in `backend/src/publishers/event-publisher.ts`, `backend/src/publishers/axl-message-recorder.ts`, and `backend/src/publishers/zero-g-ref-recorder.ts`
-- [ ] T045 [US1] Implement manual run and runtime status APIs in `backend/src/api/runs.controller.ts`, `backend/src/api/status.controller.ts`, `backend/src/api/logs.controller.ts`, and `backend/src/api/routes.ts`
+- [ ] T045 [US1] Implement read-only run history, runtime status, and logs APIs in `backend/src/api/runs.controller.ts`, `backend/src/api/status.controller.ts`, `backend/src/api/logs.controller.ts`, and `backend/src/api/routes.ts`
 - [ ] T087 [P] [US1] Implement AXL-hosted MCP services for scanner, research, analyst, and critic capabilities in `backend/src/nodes/services/scanner-mcp.ts`, `backend/src/nodes/services/research-mcp.ts`, `backend/src/nodes/services/analyst-mcp.ts`, and `backend/src/nodes/services/critic-mcp.ts`
 - [ ] T088 [P] [US1] Implement A2A delegation client and response handling for orchestrator-to-specialist workflows in `packages/axl/src/a2a/a2a-client.ts`, `backend/src/nodes/a2a/orchestrator-delegator.ts`, and `backend/src/nodes/a2a/response-correlator.ts`
 - [ ] T089 [US1] Implement topology-aware peer discovery, service registration, and rerouting logic in `backend/src/nodes/topology/topology-poller.ts`, `backend/src/nodes/topology/service-registry-sync.ts`, and `backend/src/nodes/topology/peer-failover.ts`
@@ -102,7 +102,7 @@
 - [ ] T091 [US1] Persist chart renders, evidence packs, and final report bundles as 0G files in `packages/zero-g/src/storage/zero-g-file-store.ts`, `backend/src/publishers/evidence-bundle-publisher.ts`, and `backend/src/publishers/report-bundle-publisher.ts`
 - [ ] T092 [US1] Strengthen 0G Compute usage by moving final adjudication or report synthesis onto a verifiable compute-backed path and recording provider/proof metadata in `packages/zero-g/src/compute/zero-g-adjudication.ts`, `backend/src/publishers/compute-proof-recorder.ts`, and `packages/shared/src/schemas/compute-proof.ts`
 
-**Checkpoint**: The backend can execute the MVP swarm on demand and on the hourly schedule, with LangGraph, AXL, and 0G visibly participating in the run.
+**Checkpoint**: The backend can execute the MVP swarm automatically on the hourly schedule, with LangGraph, AXL, and 0G visibly participating in the run.
 
 ---
 
@@ -131,7 +131,7 @@
 - [ ] T057 [US2] Wire `frontend/src/pages/SignalsPage.tsx` and `frontend/src/components/ui/SearchAndSort.tsx` to real signal history, filter, sort, and pagination responses
 - [ ] T058 [US2] Wire `frontend/src/pages/IntelPage.tsx`, `frontend/src/components/IntelBlog.tsx`, and `frontend/src/components/IntelThread.tsx` to live intel feed and detail responses
 - [ ] T059 [US2] Wire `frontend/src/pages/AnalyticsPage.tsx`, `frontend/src/pages/analytics/AnalyticsOverview.tsx`, `frontend/src/pages/analytics/SignalAnalytics.tsx`, `frontend/src/pages/analytics/MarketAnalytics.tsx`, and `frontend/src/pages/analytics/PerformanceAnalytics.tsx` to live analytics snapshots
-- [ ] T060 [US2] Surface manual run controls, next scheduled run, and latest posting state in `frontend/src/pages/DashboardHome.tsx`, `frontend/src/components/layout/DashboardLayout.tsx`, and `frontend/src/components/ui/button.tsx`
+- [ ] T060 [US2] Surface next scheduled run, runtime mode, and latest posting state in `frontend/src/pages/DashboardHome.tsx` and `frontend/src/components/layout/DashboardLayout.tsx`
 - [ ] T093 [P] [US2] Build dashboard sponsor panels for AXL peer graph, service registry, and route history in `frontend/src/components/network/PeerTopologyPanel.tsx`, `frontend/src/components/network/ServiceRegistryPanel.tsx`, and `frontend/src/components/network/RouteTimeline.tsx`
 - [ ] T094 [P] [US2] Build 0G proof surfaces for run manifests, artifact refs, compute verification, and optional chain anchors in `frontend/src/components/proofs/RunManifestPanel.tsx`, `frontend/src/components/proofs/ArtifactList.tsx`, `frontend/src/components/proofs/ComputeProofCard.tsx`, and `frontend/src/components/proofs/ChainAnchorCard.tsx`
 - [ ] T095 [US2] Surface sponsor proof data in `frontend/src/pages/DashboardHome.tsx`, `frontend/src/pages/SignalsPage.tsx`, and `frontend/src/pages/IntelPage.tsx` without adding a new non-essential page
