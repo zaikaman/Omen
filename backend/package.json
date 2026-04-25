@@ -1,0 +1,31 @@
+{
+  "name": "omen-backend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Node backend for the Omen frontend.",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "start": "node dist/src/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "lint": "eslint \"src/**/*.ts\" --no-error-on-unmatched-pattern",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix --no-error-on-unmatched-pattern",
+    "test": "node -e \"process.exit(0)\"",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^24.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3"
+  }
+}

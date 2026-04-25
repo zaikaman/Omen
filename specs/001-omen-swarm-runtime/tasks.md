@@ -21,9 +21,9 @@
 - [x] T002 Create shared TypeScript base configs in `tsconfig.json` and `tsconfig.base.json`
 - [x] T003 [P] Create root quality tooling in `eslint.config.mjs`, `prettier.config.mjs`, and `.editorconfig`
 - [x] T004 [P] Create a single root environment file and template in `.env` and `.env.example`
-- [x] T005 Create package manifests for `apps/web/package.json` and `apps/runtime/package.json`
+- [x] T005 Create package manifests for `frontend/package.json` and `backend/package.json`
 - [x] T006 [P] Create package manifests for `packages/agents/package.json`, `packages/axl/package.json`, `packages/zero-g/package.json`, `packages/market-data/package.json`, `packages/db/package.json`, `packages/shared/package.json`, `packages/indicators/package.json`, and `packages/execution/package.json`
-- [x] T007 [P] Create initial directory scaffolding placeholders in `apps/web/app/.gitkeep`, `apps/runtime/src/.gitkeep`, `packages/*/src/.gitkeep`, `tests/integration/.gitkeep`, `tests/fixtures/.gitkeep`, and `tests/e2e/.gitkeep`
+- [x] T007 [P] Create initial directory scaffolding placeholders in `frontend/src/.gitkeep`, `backend/src/.gitkeep`, `packages/*/src/.gitkeep`, `tests/integration/.gitkeep`, `tests/fixtures/.gitkeep`, and `tests/e2e/.gitkeep`
 - [x] T008 Configure root scripts for linting, typechecking, testing, Supabase, and AXL node helpers in `package.json`
 
 ---
@@ -40,25 +40,25 @@
 - [ ] T012 [P] Implement Supabase client and repository base in `packages/db/src/client/supabase.ts`, `packages/db/src/repositories/base-repository.ts`, and `packages/db/src/realtime/events.ts`
 - [ ] T013 Create initial database migrations for `runs`, `agent_events`, `axl_messages`, `zero_g_refs`, `signals`, `signal_evidence`, `signal_status_updates`, `agent_nodes`, `app_config`, and `paper_positions` in `packages/db/migrations/001_initial_schema.sql`
 - [ ] T014 [P] Create deterministic seed data for mocked demo mode in `packages/db/src/seeds/demo-config.ts`, `packages/db/src/seeds/demo-runs.ts`, and `tests/fixtures/mock-demo-run.json`
-- [ ] T015 [P] Implement runtime command trigger contract in `packages/shared/src/schemas/commands.ts`, `packages/db/src/repositories/runtime-commands-repository.ts`, and `apps/web/app/api/runs/start-demo/route.ts`
+- [ ] T015 [P] Implement runtime command trigger contract in `packages/shared/src/schemas/commands.ts`, `packages/db/src/repositories/runtime-commands-repository.ts`, `backend/src/api/runs.controller.ts`, and `backend/src/api/routes.ts`
 - [ ] T016 [P] Implement AXL adapter interface and HTTP node client base in `packages/axl/src/adapter/axl-adapter.ts`, `packages/axl/src/node-client/http-node-client.ts`, `packages/axl/src/message-envelope/omen-message.ts`, and `packages/axl/src/peer-status/peer-status.ts`
 - [ ] T017 [P] Implement 0G adapter interface and storage/compute client base in `packages/zero-g/src/adapters/zero-g-adapter.ts`, `packages/zero-g/src/storage/storage-adapter.ts`, `packages/zero-g/src/compute/compute-adapter.ts`, and `packages/zero-g/src/chain/chain-adapter.ts`
 - [ ] T018 [P] Implement market-data adapter interfaces in `packages/market-data/src/types.ts`, `packages/market-data/src/hyperliquid/hyperliquid-adapter.ts`, `packages/market-data/src/binance/binance-adapter.ts`, `packages/market-data/src/coingecko/coingecko-adapter.ts`, and `packages/market-data/src/defillama/defillama-adapter.ts`
 - [ ] T019 [P] Implement indicator library foundation in `packages/indicators/src/basic/rsi.ts`, `packages/indicators/src/basic/macd.ts`, `packages/indicators/src/basic/moving-averages.ts`, `packages/indicators/src/basic/bollinger-bands.ts`, and `packages/indicators/src/chart-analysis/support-resistance.ts`
 - [ ] T020 [P] Implement paper execution primitives in `packages/execution/src/paper/paper-position.ts`, `packages/execution/src/paper/paper-execution-service.ts`, and `packages/execution/src/safeguards/execution-guards.ts`
-- [ ] T021 Create runtime bootstrap, logging, and graceful shutdown shell in `apps/runtime/src/bootstrap/runtime.ts`, `apps/runtime/src/bootstrap/env.ts`, `apps/runtime/src/bootstrap/logger.ts`, and `apps/runtime/src/index.ts`
-- [ ] T022 Create web app shell and dark design system foundation in `apps/web/app/layout.tsx`, `apps/web/app/globals.css`, `apps/web/components/layout/app-shell.tsx`, and `apps/web/components/ui/status-badge.tsx`
+- [ ] T021 Create backend bootstrap, logging, and graceful shutdown shell in `backend/src/bootstrap/runtime.ts`, `backend/src/bootstrap/env.ts`, `backend/src/bootstrap/logger.ts`, and `backend/src/index.ts`
+- [ ] T022 Create frontend shell and dark design system foundation in `frontend/src/App.tsx`, `frontend/src/index.css`, `frontend/src/components/layout/AppShell.tsx`, and `frontend/src/components/ui/StatusBadge.tsx`
 - [ ] T023 [P] Add foundational unit tests for shared schemas and adapter interfaces in `packages/shared/tests/schemas.test.ts`, `packages/axl/tests/axl-adapter.test.ts`, `packages/zero-g/tests/zero-g-adapter.test.ts`, and `packages/market-data/tests/adapter-result.test.ts`
 
 **Checkpoint**: Foundation is ready. User stories can now be implemented in parallel.
 
 ---
 
-## Phase 3: User Story 1 - Launch a Transparent Demo Run (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - Launch a Transparent Demo Run (Priority: P1)
 
-**Goal**: Allow an operator to start a demo run and watch a separate runtime coordinate multiple agents, exchange AXL messages, persist 0G state/log refs, and publish a final report or no-conviction outcome.
+**Goal**: Allow an operator to start a demo run and watch a separate backend/runtime coordinate multiple agents, exchange AXL messages, persist 0G state/log refs, and publish a final report or no-conviction outcome.
 
-**Independent Validation**: From the dashboard, trigger a mocked demo run and verify the runtime starts separately, at least four specialist agents participate, at least three AXL exchanges are recorded, 0G refs are written, and one final report or transparent no-signal result appears.
+**Independent Validation**: From the dashboard, trigger a mocked demo run and verify the backend/runtime starts separately, at least four specialist agents participate, at least three AXL exchanges are recorded, 0G refs are written, and one final report or transparent no-signal result appears.
 
 ### Validation for User Story 1
 
@@ -75,15 +75,15 @@
 - [ ] T031 [P] [US1] Implement memory and publisher graph nodes in `packages/agents/src/definitions/memory-agent.ts` and `packages/agents/src/definitions/publisher-agent.ts`
 - [ ] T032 [US1] Implement quality-gate evaluation in `packages/agents/src/quality-gates/quality-gates.ts` and `packages/agents/src/quality-gates/critic-gate.ts`
 - [ ] T033 [US1] Implement LangGraph supervisor workflow and checkpointer integration in `packages/agents/src/framework/omen-swarm-graph.ts` and `packages/agents/src/framework/graph-factory.ts`
-- [ ] T034 [US1] Implement runtime command loop and run coordinator in `apps/runtime/src/commands/command-poller.ts`, `apps/runtime/src/coordinator/run-coordinator.ts`, and `apps/runtime/src/pipelines/demo-run-pipeline.ts`
-- [ ] T035 [US1] Implement AXL-backed node registration and message send/receive orchestration in `apps/runtime/src/nodes/axl-node-manager.ts` and `packages/axl/src/adapter/axl-http-adapter.ts`
-- [ ] T036 [US1] Implement 0G mutable state writes and log appends in `packages/zero-g/src/storage/zero-g-state-store.ts`, `packages/zero-g/src/storage/zero-g-log-store.ts`, and `apps/runtime/src/publishers/zero-g-publisher.ts`
-- [ ] T037 [US1] Implement runtime event emission to Supabase in `apps/runtime/src/publishers/event-publisher.ts` and `packages/db/src/repositories/agent-events-repository.ts`
-- [ ] T038 [US1] Implement `POST /api/runs/start-demo` and `GET /api/runs` in `apps/web/app/api/runs/start-demo/route.ts` and `apps/web/app/api/runs/route.ts`
-- [ ] T039 [US1] Implement `GET /api/runs/[id]` and `GET /api/agents/status` in `apps/web/app/api/runs/[id]/route.ts` and `apps/web/app/api/agents/status/route.ts`
-- [ ] T040 [US1] Build Mission Control page in `apps/web/app/mission-control/page.tsx`, `apps/web/components/mission-control/run-launch-form.tsx`, `apps/web/components/mission-control/run-status-panel.tsx`, and `apps/web/components/mission-control/agent-status-grid.tsx`
-- [ ] T041 [US1] Build landing page sponsor-positioning sections in `apps/web/app/(marketing)/page.tsx`, `apps/web/components/marketing/hero.tsx`, and `apps/web/components/marketing/integration-strip.tsx`
-- [ ] T042 [US1] Add realtime run-status hooks for Mission Control in `apps/web/lib/realtime/subscribe-run.ts` and `apps/web/lib/queries/use-run-status.ts`
+- [ ] T034 [US1] Implement backend command loop and run coordinator in `backend/src/commands/command-poller.ts`, `backend/src/coordinator/run-coordinator.ts`, and `backend/src/pipelines/demo-run-pipeline.ts`
+- [ ] T035 [US1] Implement AXL-backed node registration and message send/receive orchestration in `backend/src/nodes/axl-node-manager.ts` and `packages/axl/src/adapter/axl-http-adapter.ts`
+- [ ] T036 [US1] Implement 0G mutable state writes and log appends in `packages/zero-g/src/storage/zero-g-state-store.ts`, `packages/zero-g/src/storage/zero-g-log-store.ts`, and `backend/src/publishers/zero-g-publisher.ts`
+- [ ] T037 [US1] Implement runtime event emission to Supabase in `backend/src/publishers/event-publisher.ts` and `packages/db/src/repositories/agent-events-repository.ts`
+- [ ] T038 [US1] Implement `POST /api/runs/start-demo` and `GET /api/runs` in `backend/src/api/runs.controller.ts`, `backend/src/api/routes.ts`, and `frontend/src/lib/api/runs.ts`
+- [ ] T039 [US1] Implement `GET /api/runs/[id]` and `GET /api/agents/status` in `backend/src/api/runs.controller.ts`, `backend/src/api/agents.controller.ts`, and `backend/src/api/routes.ts`
+- [ ] T040 [US1] Build Mission Control page in `frontend/src/pages/MissionControl.tsx`, `frontend/src/components/mission-control/RunLaunchForm.tsx`, `frontend/src/components/mission-control/RunStatusPanel.tsx`, and `frontend/src/components/mission-control/AgentStatusGrid.tsx`
+- [ ] T041 [US1] Build landing page sponsor-positioning sections in `frontend/src/pages/Home.tsx`, `frontend/src/components/marketing/Hero.tsx`, and `frontend/src/components/marketing/IntegrationStrip.tsx`
+- [ ] T042 [US1] Add realtime run-status hooks for Mission Control in `frontend/src/lib/realtime/subscribeRun.ts` and `frontend/src/hooks/useRunStatus.ts`
 
 **Checkpoint**: User Story 1 delivers a complete MVP demo run with separate runtime execution and visible live status.
 
@@ -104,14 +104,14 @@
 ### Implementation for User Story 2
 
 - [ ] T046 [P] [US2] Implement message, ref, evidence, and signal repositories in `packages/db/src/repositories/axl-messages-repository.ts`, `packages/db/src/repositories/zero-g-refs-repository.ts`, `packages/db/src/repositories/signal-evidence-repository.ts`, and `packages/db/src/repositories/signals-repository.ts`
-- [ ] T047 [P] [US2] Implement event-to-trace projection and filtering helpers in `packages/shared/src/utils/trace-filtering.ts` and `apps/web/lib/trace/trace-presenter.ts`
-- [ ] T048 [P] [US2] Implement `GET /api/runs/[id]/trace`, `GET /api/signals`, and `GET /api/signals/[id]` in `apps/web/app/api/runs/[id]/trace/route.ts`, `apps/web/app/api/signals/route.ts`, and `apps/web/app/api/signals/[id]/route.ts`
-- [ ] T049 [P] [US2] Implement `GET /api/axl/peers` and `GET /api/0g/refs/[runId]` in `apps/web/app/api/axl/peers/route.ts` and `apps/web/app/api/0g/refs/[runId]/route.ts`
-- [ ] T050 [US2] Persist important AXL receipts and 0G refs during runtime execution in `apps/runtime/src/publishers/axl-message-recorder.ts` and `apps/runtime/src/publishers/zero-g-ref-recorder.ts`
-- [ ] T051 [US2] Build Agent Trace page and filters in `apps/web/app/agent-trace/page.tsx`, `apps/web/components/trace/trace-timeline.tsx`, `apps/web/components/trace/trace-filters.tsx`, and `apps/web/components/trace/axl-message-card.tsx`
-- [ ] T052 [US2] Build Signals list page in `apps/web/app/signals/page.tsx`, `apps/web/components/signals/signals-table.tsx`, and `apps/web/components/signals/signal-status-chip.tsx`
-- [ ] T053 [US2] Build Signal Detail page in `apps/web/app/signals/[id]/page.tsx`, `apps/web/components/signals/signal-thesis-panel.tsx`, `apps/web/components/signals/evidence-pack.tsx`, `apps/web/components/signals/critic-review-panel.tsx`, and `apps/web/components/signals/proof-references.tsx`
-- [ ] T054 [US2] Add realtime trace and signal hooks in `apps/web/lib/queries/use-run-trace.ts`, `apps/web/lib/queries/use-signals.ts`, and `apps/web/lib/queries/use-signal-detail.ts`
+- [ ] T047 [P] [US2] Implement event-to-trace projection and filtering helpers in `packages/shared/src/utils/trace-filtering.ts` and `frontend/src/lib/trace/tracePresenter.ts`
+- [ ] T048 [P] [US2] Implement `GET /api/runs/[id]/trace`, `GET /api/signals`, and `GET /api/signals/[id]` in `backend/src/api/trace.controller.ts`, `backend/src/api/signals.controller.ts`, and `backend/src/api/routes.ts`
+- [ ] T049 [P] [US2] Implement `GET /api/axl/peers` and `GET /api/0g/refs/[runId]` in `backend/src/api/axl.controller.ts`, `backend/src/api/zero-g.controller.ts`, and `backend/src/api/routes.ts`
+- [ ] T050 [US2] Persist important AXL receipts and 0G refs during runtime execution in `backend/src/publishers/axl-message-recorder.ts` and `backend/src/publishers/zero-g-ref-recorder.ts`
+- [ ] T051 [US2] Build Agent Trace page and filters in `frontend/src/pages/AgentTrace.tsx`, `frontend/src/components/trace/TraceTimeline.tsx`, `frontend/src/components/trace/TraceFilters.tsx`, and `frontend/src/components/trace/AxlMessageCard.tsx`
+- [ ] T052 [US2] Build Signals list page in `frontend/src/pages/Signals.tsx`, `frontend/src/components/signals/SignalsTable.tsx`, and `frontend/src/components/signals/SignalStatusChip.tsx`
+- [ ] T053 [US2] Build Signal Detail page in `frontend/src/pages/SignalDetail.tsx`, `frontend/src/components/signals/SignalThesisPanel.tsx`, `frontend/src/components/signals/EvidencePack.tsx`, `frontend/src/components/signals/CriticReviewPanel.tsx`, and `frontend/src/components/signals/ProofReferences.tsx`
+- [ ] T054 [US2] Add realtime trace and signal hooks in `frontend/src/hooks/useRunTrace.ts`, `frontend/src/hooks/useSignals.ts`, and `frontend/src/hooks/useSignalDetail.ts`
 
 **Checkpoint**: User Story 2 adds full auditability and post-run inspection without depending on US3 or US4.
 
@@ -134,11 +134,11 @@
 - [ ] T058 [P] [US3] Implement advanced market-data adapter fallbacks and typed degraded-mode results in `packages/market-data/src/dexscreener/dexscreener-adapter.ts`, `packages/market-data/src/sentiment/news-adapter.ts`, and `packages/market-data/src/fallbacks/provider-fallbacks.ts`
 - [ ] T059 [P] [US3] Implement remaining indicators and chart-analysis helpers in `packages/indicators/src/basic/volume-trend.ts`, `packages/indicators/src/chart-analysis/multi-timeframe-alignment.ts`, `packages/indicators/src/advanced/supertrend.ts`, and `packages/indicators/src/advanced/fibonacci-zones.ts`
 - [ ] T060 [P] [US3] Implement execution safeguards and testnet adapter in `packages/execution/src/safeguards/mainnet-guard.ts`, `packages/execution/src/hyperliquid-testnet/hyperliquid-testnet-adapter.ts`, and `packages/execution/src/paper/paper-position-monitor.ts`
-- [ ] T061 [P] [US3] Implement config update endpoint and validation in `apps/web/app/api/config/demo/route.ts` and `packages/shared/src/schemas/demo-config-update.ts`
-- [ ] T062 [US3] Implement monitor/reflection graph node and runtime monitoring loop in `packages/agents/src/definitions/monitor-agent.ts`, `apps/runtime/src/monitors/paper-position-monitor.ts`, and `apps/runtime/src/publishers/reflection-publisher.ts`
+- [ ] T061 [P] [US3] Implement config update endpoint and validation in `backend/src/api/config.controller.ts`, `backend/src/api/routes.ts`, and `packages/shared/src/schemas/demo-config-update.ts`
+- [ ] T062 [US3] Implement monitor/reflection graph node and runtime monitoring loop in `packages/agents/src/definitions/monitor-agent.ts`, `backend/src/monitors/paper-position-monitor.ts`, and `backend/src/publishers/reflection-publisher.ts`
 - [ ] T063 [US3] Implement uncertainty, disclaimer, and missing-data enforcement in `packages/agents/src/quality-gates/report-safety.ts` and `packages/agents/src/prompts/reporting/disclaimer.ts`
-- [ ] T064 [US3] Build demo-config controls and safety banners in `apps/web/components/mission-control/demo-config-form.tsx`, `apps/web/components/ui/safety-mode-banner.tsx`, and `apps/web/lib/queries/use-demo-config.ts`
-- [ ] T065 [US3] Surface paper-position and monitor status in `apps/web/components/signals/paper-position-panel.tsx` and `apps/web/components/signals/monitor-history.tsx`
+- [ ] T064 [US3] Build demo-config controls and safety banners in `frontend/src/components/mission-control/DemoConfigForm.tsx`, `frontend/src/components/ui/SafetyModeBanner.tsx`, and `frontend/src/hooks/useDemoConfig.ts`
+- [ ] T065 [US3] Surface paper-position and monitor status in `frontend/src/components/signals/PaperPositionPanel.tsx` and `frontend/src/components/signals/MonitorHistory.tsx`
 
 **Checkpoint**: User Story 3 delivers safe demo defaults, resilient fallbacks, and paper/testnet monitoring without changing the audit flows from US2.
 
@@ -157,8 +157,8 @@
 
 ### Implementation for User Story 4
 
-- [ ] T068 [P] [US4] Build Architecture / Demo page in `apps/web/app/architecture/page.tsx`, `apps/web/components/architecture/system-diagram.tsx`, `apps/web/components/architecture/axl-network-visualization.tsx`, and `apps/web/components/architecture/judge-walkthrough.tsx`
-- [ ] T069 [P] [US4] Add LangGraph, AXL, 0G, Supabase, and Hyperliquid explainer content in `apps/web/components/architecture/integration-cards.tsx` and `apps/web/components/marketing/technical-highlights.tsx`
+- [ ] T068 [P] [US4] Build Architecture / Demo page in `frontend/src/pages/Architecture.tsx`, `frontend/src/components/architecture/SystemDiagram.tsx`, `frontend/src/components/architecture/AxlNetworkVisualization.tsx`, and `frontend/src/components/architecture/JudgeWalkthrough.tsx`
+- [ ] T069 [P] [US4] Add LangGraph, AXL, 0G, Supabase, and Hyperliquid explainer content in `frontend/src/components/architecture/IntegrationCards.tsx` and `frontend/src/components/marketing/TechnicalHighlights.tsx`
 - [ ] T070 [US4] Write project overview, setup, and sponsor integration docs in `README.md`
 - [ ] T071 [US4] Write exact judge walkthrough in `DEMO.md`
 - [ ] T072 [US4] Add local AXL node run helpers and docs scripts in `scripts/axl/start-orchestrator-node.ps1`, `scripts/axl/start-scanner-node.ps1`, `scripts/axl/start-research-node.ps1`, `scripts/axl/start-analyst-node.ps1`, and `scripts/axl/start-critic-node.ps1`
@@ -175,8 +175,8 @@
 - [ ] T074 [P] Add AXL and 0G real-path smoke tests with clearly flagged fallbacks in `tests/integration/runtime/axl-smoke.test.ts` and `tests/integration/runtime/zero-g-smoke.test.ts`
 - [ ] T075 Run full workspace lint/typecheck/test commands and record outputs in `README.md`
 - [ ] T076 Run quickstart walkthrough validation and update troubleshooting notes in `specs/001-omen-swarm-runtime/quickstart.md`
-- [ ] T077 [P] Perform copy audit for Omen-only branding in `apps/web/app`, `apps/runtime/src`, `README.md`, and `DEMO.md`
-- [ ] T078 [P] Optimize realtime rendering and loading states in `apps/web/components/trace/trace-timeline.tsx`, `apps/web/components/mission-control/run-status-panel.tsx`, and `apps/web/components/signals/signals-table.tsx`
+- [ ] T077 [P] Perform copy audit for Omen-only branding in `frontend/src`, `backend/src`, `README.md`, and `DEMO.md`
+- [ ] T078 [P] Optimize realtime rendering and loading states in `frontend/src/components/trace/TraceTimeline.tsx`, `frontend/src/components/mission-control/RunStatusPanel.tsx`, and `frontend/src/components/signals/SignalsTable.tsx`
 
 ---
 
@@ -202,8 +202,8 @@
 ### Within Each User Story
 
 - Validation tasks should be written before story implementation is considered done.
-- Repositories and schemas come before runtime services and API routes.
-- Runtime/service logic comes before UI integration.
+- Repositories and schemas come before backend services and API routes.
+- Backend/service logic comes before frontend integration.
 - Story-specific UI work comes after the relevant API/query surface exists.
 
 ### Parallel Opportunities
@@ -228,7 +228,7 @@ Task: "Add integration test for runtime command trigger and idempotent run start
 # Implementation
 Task: "Implement market-bias and scanner graph nodes in packages/agents/src/definitions/market-bias-agent.ts and packages/agents/src/definitions/scanner-agent.ts"
 Task: "Implement research, chart/vision, analyst, and critic graph nodes in packages/agents/src/definitions/research-agent.ts, packages/agents/src/definitions/chart-vision-agent.ts, packages/agents/src/definitions/analyst-agent.ts, and packages/agents/src/definitions/critic-agent.ts"
-Task: "Build Mission Control page in apps/web/app/mission-control/page.tsx and related components"
+Task: "Build Mission Control page in frontend/src/pages/MissionControl.tsx and related components"
 ```
 
 ---
@@ -241,9 +241,9 @@ Task: "Add contract tests for trace, signal, and 0G-ref endpoints in tests/integ
 Task: "Add Playwright audit-flow test for trace and signal detail pages in tests/e2e/audit-trace-and-signal-detail.spec.ts"
 
 # Implementation
-Task: "Implement GET /api/runs/[id]/trace, GET /api/signals, and GET /api/signals/[id] in apps/web/app/api/runs/[id]/trace/route.ts, apps/web/app/api/signals/route.ts, and apps/web/app/api/signals/[id]/route.ts"
-Task: "Build Agent Trace page in apps/web/app/agent-trace/page.tsx and related components"
-Task: "Build Signal Detail page in apps/web/app/signals/[id]/page.tsx and related components"
+Task: "Implement GET /api/runs/[id]/trace, GET /api/signals, and GET /api/signals/[id] in backend/src/api/trace.controller.ts, backend/src/api/signals.controller.ts, and backend/src/api/routes.ts"
+Task: "Build Agent Trace page in frontend/src/pages/AgentTrace.tsx and related components"
+Task: "Build Signal Detail page in frontend/src/pages/SignalDetail.tsx and related components"
 ```
 
 ---
@@ -258,7 +258,7 @@ Task: "Add unit tests for critic logic and paper execution calculations in packa
 # Implementation
 Task: "Implement advanced market-data adapter fallbacks in packages/market-data/src/dexscreener/dexscreener-adapter.ts, packages/market-data/src/sentiment/news-adapter.ts, and packages/market-data/src/fallbacks/provider-fallbacks.ts"
 Task: "Implement remaining indicators and chart-analysis helpers in packages/indicators/src/basic/volume-trend.ts, packages/indicators/src/chart-analysis/multi-timeframe-alignment.ts, packages/indicators/src/advanced/supertrend.ts, and packages/indicators/src/advanced/fibonacci-zones.ts"
-Task: "Build demo-config controls and safety banners in apps/web/components/mission-control/demo-config-form.tsx and apps/web/components/ui/safety-mode-banner.tsx"
+Task: "Build demo-config controls and safety banners in frontend/src/components/mission-control/DemoConfigForm.tsx and frontend/src/components/ui/SafetyModeBanner.tsx"
 ```
 
 ---
@@ -270,7 +270,7 @@ Task: "Build demo-config controls and safety banners in apps/web/components/miss
 1. Complete Phase 1: Setup.
 2. Complete Phase 2: Foundational.
 3. Complete Phase 3: User Story 1.
-4. Validate the separate runtime, AXL messaging, 0G refs, and final report flow.
+4. Validate the separate backend/runtime, AXL messaging, 0G refs, and final report flow.
 5. Demo the MVP before expanding the audit and safety surfaces.
 
 ### Incremental Delivery
@@ -286,9 +286,9 @@ Task: "Build demo-config controls and safety banners in apps/web/components/miss
 With multiple contributors:
 
 1. One contributor owns workspace/setup and database foundation.
-2. One contributor owns runtime orchestration, LangGraph graphs, and event emission.
+2. One contributor owns backend orchestration, LangGraph graphs, and event emission.
 3. One contributor owns AXL and 0G adapters.
-4. One contributor owns dashboard surfaces and realtime query hooks.
+4. One contributor owns frontend surfaces and realtime query hooks.
 5. One contributor owns tests, fixtures, and demo documentation.
 
 ---
@@ -299,5 +299,5 @@ With multiple contributors:
 - User story labels map directly to the prioritized stories in `spec.md`.
 - Every story includes explicit validation tasks.
 - The suggested MVP scope is **US1 only**.
-- Avoid mixing long-running runtime logic into Next.js route handlers.
+- Avoid mixing long-running runtime logic into frontend code paths.
 - Keep `main` as the working branch for this repository workflow.

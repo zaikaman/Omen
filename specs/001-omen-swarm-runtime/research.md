@@ -2,12 +2,12 @@
 
 ## Decision 1: Use a pnpm TypeScript monorepo with two executable apps
 
-**Decision**: Structure the project as `apps/web` and `apps/runtime` plus focused shared packages.
+**Decision**: Structure the project as top-level `frontend` and `backend` applications plus focused shared packages.
 
-**Rationale**: The dashboard and the swarm runtime have different lifecycles, failure modes, and scaling needs. A monorepo keeps types and contracts synchronized while allowing the runtime to remain long-lived and operationally separate from Next.js.
+**Rationale**: The dashboard and the swarm runtime have different lifecycles, failure modes, and scaling needs. A monorepo keeps types and contracts synchronized while allowing the backend/runtime to remain long-lived and operationally separate from the React + Vite frontend.
 
 **Alternatives considered**:
-- Single Next.js app with background jobs: rejected because it blurs control-plane and compute-plane concerns.
+- Single frontend app with background jobs: rejected because it blurs control-plane and compute-plane concerns.
 - Separate repos: rejected because shared schemas, adapter contracts, and demo coordination would become harder to keep in sync during the hackathon.
 
 ## Decision 2: Use Supabase for queryable app state and 0G for durable sponsor-critical memory
@@ -20,21 +20,21 @@
 - Supabase only: rejected because it weakens the sponsor-critical 0G story.
 - 0G only: rejected because dashboard queries, filters, and realtime UX become unnecessarily heavy.
 
-## Decision 3: Model 0G integration around adapter boundaries, not direct SDK use in app code
+## Decision 3: Model 0G integration around adapter boundaries, not direct SDK use in product code
 
 **Decision**: Implement `packages/zero-g` with explicit operations for mutable state, log appends, compute submission, result polling, and optional chain proof registration.
 
-**Rationale**: The local 0G TypeScript SDK exposes storage-centric primitives such as file upload/download, node selection, and KV writes. Those capabilities are lower level than Omen’s business actions, so an adapter layer is required to keep the runtime stable if SDK mechanics or endpoints change.
+**Rationale**: The local 0G TypeScript SDK exposes storage-centric primitives such as file upload/download, node selection, and KV writes. Those capabilities are lower level than Omen's business actions, so an adapter layer is required to keep the runtime stable if SDK mechanics or endpoints change.
 
 **Alternatives considered**:
-- Call the 0G SDK directly from agents and routes: rejected because it tightly couples product logic to low-level storage mechanics.
+- Call the 0G SDK directly from agents, backend controllers, or frontend code: rejected because it tightly couples product logic to low-level storage mechanics.
 - Mock 0G entirely for the demo: rejected because the hackathon requirements call for at least one real 0G-backed path.
 
 ## Decision 4: Use 0G Storage KV for checkpoints and mutable swarm state
 
 **Decision**: Store the latest market bias, current run checkpoint, active candidates, and latest agent statuses in 0G KV.
 
-**Rationale**: The 0G docs describe KV storage as the mutable layer intended for fast key-based retrieval and dynamic state, which fits Omen’s current-status and resume/checkpoint use cases.
+**Rationale**: The 0G docs describe KV storage as the mutable layer intended for fast key-based retrieval and dynamic state, which fits Omen's current-status and resume/checkpoint use cases.
 
 **Alternatives considered**:
 - Put all state into append-only logs: rejected because reconstructing current state becomes slower and more error-prone.
@@ -44,7 +44,7 @@
 
 **Decision**: Persist agent debate traces, AXL receipts, analyst outputs, critic outputs, final reports, and reflection updates as durable 0G log/file artifacts referenced from Supabase.
 
-**Rationale**: The local storage docs describe append-only storage as appropriate for immutable or write-once workloads. Omen’s audit trail is naturally append-only and should remain tamper-evident and externally referenceable.
+**Rationale**: The local storage docs describe append-only storage as appropriate for immutable or write-once workloads. Omen's audit trail is naturally append-only and should remain tamper-evident and externally referenceable.
 
 **Alternatives considered**:
 - Keep full trace history only in Postgres: rejected because it weakens auditability and sponsor alignment.
@@ -61,9 +61,9 @@
 
 ## Decision 7: Use AXL nodes as the actual inter-node transport and wrap them in a TypeScript client
 
-**Decision**: Run multiple AXL node processes locally and communicate with them from `packages/axl` via the node’s HTTP bridge endpoints.
+**Decision**: Run multiple AXL node processes locally and communicate with them from `packages/axl` via the node HTTP bridge endpoints.
 
-**Rationale**: The local AXL docs show a userspace node with a local HTTP API exposing `/topology`, `/send`, `/recv`, `/mcp/{peer}/{service}`, and `/a2a/{peer}`. That makes it practical to treat AXL as a true decentralized transport while keeping Omen’s runtime in TypeScript.
+**Rationale**: The local AXL docs show a userspace node with a local HTTP API exposing `/topology`, `/send`, `/recv`, `/mcp/{peer}/{service}`, and `/a2a/{peer}`. That makes it practical to treat AXL as a true decentralized transport while keeping Omen's runtime in TypeScript.
 
 **Alternatives considered**:
 - Replace AXL with Redis or an internal event bus: rejected because the sponsor-critical path must not be centralized.
@@ -111,7 +111,7 @@
 
 **Decision**: Define a normalized `agent_events` model and emit events for run creation, node communication, 0G writes, research completion, thesis generation, critic decisions, report publication, paper-position lifecycle changes, and reflections.
 
-**Rationale**: The dashboard’s transparency promise depends on a unified trace model rather than ad hoc logging. A single event stream can drive UI timelines, realtime updates, audits, and deterministic replay/testing.
+**Rationale**: The dashboard's transparency promise depends on a unified trace model rather than ad hoc logging. A single event stream can drive UI timelines, realtime updates, audits, and deterministic replay/testing.
 
 **Alternatives considered**:
 - Separate bespoke logs per subsystem: rejected because it fragments observability and complicates replay.

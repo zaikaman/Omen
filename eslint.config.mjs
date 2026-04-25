@@ -1,5 +1,4 @@
 import js from "@eslint/js";
-import nextPlugin from "@next/eslint-plugin-next";
 import prettierConfig from "eslint-config-prettier";
 import globals from "globals";
 import reactPlugin from "eslint-plugin-react";
@@ -54,14 +53,13 @@ export default [
     },
   },
   {
-    files: ["apps/web/**/*.{ts,tsx}"],
+    files: ["frontend/**/*.{ts,tsx}"],
     languageOptions: {
       globals: {
         ...globals.browser,
       },
     },
     plugins: {
-      "@next/next": nextPlugin,
       react: reactPlugin,
       "react-hooks": reactHooksPlugin,
     },
@@ -73,9 +71,8 @@ export default [
     rules: {
       ...reactPlugin.configs.recommended.rules,
       ...reactHooksPlugin.configs.recommended.rules,
-      ...nextPlugin.configs.recommended.rules,
-      ...nextPlugin.configs["core-web-vitals"].rules,
       "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off",
     },
   },
   prettierConfig,

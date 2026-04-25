@@ -3,8 +3,8 @@
 ## Goal
 
 Run Omen locally in deterministic demo mode with:
-- the Next.js dashboard
-- the separate swarm runtime
+- the React + Vite frontend
+- the separate Node.js backend/runtime
 - local Supabase
 - multiple AXL nodes
 - 0G adapters configured for real or fallback development mode
@@ -21,12 +21,12 @@ Run Omen locally in deterministic demo mode with:
 
 ```bash
 pnpm install
-pnpm -r build
+pnpm build
 ```
 
 ## Environment setup
 
-1. Copy root and app-level example environment files.
+1. Copy root and package-level example environment files if present.
 2. Set demo-safe defaults:
    - `OMEN_RUNTIME_MODE=mocked`
    - `OMEN_EXECUTION_MODE=paper`
@@ -34,6 +34,7 @@ pnpm -r build
 3. Configure Supabase connection values.
 4. Add 0G testnet credentials and endpoints if available.
 5. Add Hyperliquid read-only or testnet settings if available.
+6. Set `FRONTEND_ORIGIN=http://localhost:5173` for the backend if local CORS needs to be explicit.
 
 ## Start local infrastructure
 
@@ -47,7 +48,7 @@ pnpm db:seed
 
 ### 2. Start AXL nodes
 
-Run at least three local AXL nodes so the runtime can assign roles across peers.
+Run at least three local AXL nodes so the backend/runtime can assign roles across peers.
 
 ```bash
 pnpm axl:start:orchestrator
@@ -57,25 +58,25 @@ pnpm axl:start:analyst
 pnpm axl:start:critic
 ```
 
-### 3. Start the runtime
+### 3. Start the backend/runtime
 
 ```bash
-pnpm --filter @omen/runtime dev
+pnpm --dir backend dev
 ```
 
 Expected behavior:
-- runtime connects to Supabase
-- runtime registers node status
-- runtime exposes or subscribes to its command trigger channel
-- runtime reports ready state
+- backend connects to Supabase
+- backend registers node status
+- backend exposes its API and runtime command trigger channel
+- backend reports ready state
 
-### 4. Start the dashboard
+### 4. Start the frontend
 
 ```bash
-pnpm --filter @omen/web dev
+pnpm --dir frontend dev
 ```
 
-Open the local dashboard URL shown by Next.js.
+Open the local frontend URL shown by Vite, typically `http://localhost:5173`.
 
 ## Run the demo
 
@@ -96,8 +97,8 @@ Open the local dashboard URL shown by Next.js.
 
 ## Verification checklist
 
-- Dashboard loads locally.
-- Runtime is running in a separate process.
+- Frontend loads locally.
+- Backend/runtime is running in a separate process.
 - Start-demo returns quickly and does not hang on long-running work.
 - At least four specialist agents appear in the trace.
 - At least three AXL node communications are recorded.
@@ -111,3 +112,4 @@ Open the local dashboard URL shown by Next.js.
 - If 0G credentials are missing, use the clearly flagged development fallback path and verify that the UI labels the mode correctly.
 - If market providers rate-limit, keep the runtime in mocked mode and use seeded fixtures.
 - If realtime updates lag, verify Supabase realtime or the selected SSE/WebSocket transport before debugging agent logic.
+- If frontend dependency resolution fails, run `pnpm install` at the repo root and `npm install` inside `frontend` only when you explicitly want a local npm lockfile for direct `npm run dev` usage.
