@@ -1,0 +1,175 @@
+{
+  "run": {
+    "id": "run-signal-001",
+    "mode": "mocked",
+    "status": "completed",
+    "marketBias": "LONG",
+    "startedAt": "2026-04-25T08:00:00.000Z",
+    "completedAt": "2026-04-25T08:06:00.000Z",
+    "triggeredBy": "scheduler",
+    "activeCandidateCount": 2,
+    "currentCheckpointRefId": "proof-signal-kv-001",
+    "finalSignalId": "signal-btc-long-001",
+    "finalIntelId": null,
+    "failureReason": null,
+    "outcome": {
+      "outcomeType": "signal",
+      "summary": "BTC long setup approved after scanner, analyst, and critic convergence.",
+      "signalId": "signal-btc-long-001",
+      "intelId": null
+    },
+    "configSnapshot": {
+      "id": "default",
+      "mode": "mocked",
+      "marketUniverse": ["BTC", "ETH", "SOL", "ARB", "LINK", "PEPE"],
+      "qualityThresholds": {
+        "minConfidence": 85,
+        "minRiskReward": 2,
+        "minConfluences": 2
+      }
+    },
+    "createdAt": "2026-04-25T08:00:00.000Z",
+    "updatedAt": "2026-04-25T08:06:00.000Z"
+  },
+  "signal": {
+    "id": "signal-btc-long-001",
+    "runId": "run-signal-001",
+    "candidateId": "candidate-btc-breakout-001",
+    "asset": "BTC",
+    "direction": "LONG",
+    "confidence": 91,
+    "riskReward": 2.8,
+    "entryZone": {
+      "low": 92450,
+      "high": 92800,
+      "rationale": "Retest of intraday breakout zone"
+    },
+    "invalidation": {
+      "low": 91550,
+      "high": 91800,
+      "rationale": "Loss of breakout structure invalidates thesis"
+    },
+    "targets": [
+      { "label": "TP1", "price": 93900 },
+      { "label": "TP2", "price": 94850 }
+    ],
+    "whyNow": "BTC reclaimed range highs while funding stayed contained and spot-led strength held across majors.",
+    "confluences": [
+      "4H breakout above local resistance",
+      "Positive spot-led order flow",
+      "Critic-approved risk/reward above threshold"
+    ],
+    "uncertaintyNotes": "Macro headlines can still interrupt follow-through if US rates commentary turns risk-off.",
+    "missingDataNotes": "Order-book depth was estimated from fallback market snapshots instead of direct exchange L2.",
+    "criticDecision": "approved",
+    "reportStatus": "published",
+    "finalReportRefId": "proof-signal-manifest-001",
+    "proofRefIds": [
+      "proof-signal-kv-001",
+      "proof-signal-log-001",
+      "proof-signal-compute-001",
+      "proof-signal-manifest-001",
+      "proof-signal-post-001"
+    ],
+    "disclaimer": "Omen market intelligence is for informational purposes only and is not financial advice.",
+    "publishedAt": "2026-04-25T08:06:10.000Z",
+    "createdAt": "2026-04-25T08:04:30.000Z",
+    "updatedAt": "2026-04-25T08:06:10.000Z"
+  },
+  "axlMessages": [
+    {
+      "id": "axl-signal-001",
+      "runId": "run-signal-001",
+      "correlationId": "corr-signal-001",
+      "fromAgentId": "agent-orchestrator-001",
+      "fromRole": "orchestrator",
+      "toAgentId": "agent-scanner-001",
+      "toRole": "scanner",
+      "topic": null,
+      "messageType": "scan.request",
+      "payload": {
+        "universe": ["BTC", "ETH", "SOL", "ARB", "LINK", "PEPE"],
+        "bias": "LONG"
+      },
+      "transportKind": "mcp",
+      "deliveryStatus": "received",
+      "durableRefId": null,
+      "timestamp": "2026-04-25T08:00:15.000Z"
+    },
+    {
+      "id": "axl-signal-003",
+      "runId": "run-signal-001",
+      "correlationId": "corr-signal-003",
+      "fromAgentId": "agent-analyst-001",
+      "fromRole": "analyst",
+      "toAgentId": "agent-critic-001",
+      "toRole": "critic",
+      "topic": null,
+      "messageType": "thesis.review",
+      "payload": {
+        "thesisId": "thesis-btc-long-001",
+        "candidateId": "candidate-btc-breakout-001"
+      },
+      "transportKind": "send",
+      "deliveryStatus": "received",
+      "durableRefId": "proof-signal-compute-001",
+      "timestamp": "2026-04-25T08:04:45.000Z"
+    }
+  ],
+  "proofs": [
+    {
+      "id": "proof-signal-kv-001",
+      "runId": "run-signal-001",
+      "signalId": "signal-btc-long-001",
+      "intelId": null,
+      "refType": "kv_state",
+      "key": "runs/run-signal-001/checkpoint",
+      "locator": "0g://kv/runs/run-signal-001/checkpoint",
+      "metadata": {
+        "checkpoint": "critic-approved",
+        "provider": "0g-storage-kv"
+      },
+      "compute": null,
+      "createdAt": "2026-04-25T08:05:00.000Z"
+    },
+    {
+      "id": "proof-signal-manifest-001",
+      "runId": "run-signal-001",
+      "signalId": "signal-btc-long-001",
+      "intelId": null,
+      "refType": "manifest",
+      "key": "runs/run-signal-001/manifest",
+      "locator": "0g://file/runs/run-signal-001/manifest.json",
+      "metadata": {
+        "artifactCount": 5
+      },
+      "compute": null,
+      "createdAt": "2026-04-25T08:06:00.000Z"
+    }
+  ],
+  "outboundPosts": [
+    {
+      "id": "post-signal-001",
+      "runId": "run-signal-001",
+      "signalId": "signal-btc-long-001",
+      "intelId": null,
+      "target": "x",
+      "kind": "signal_alert",
+      "status": "posted",
+      "payload": {
+        "text": "Omen signal: BTC LONG 92.45k-92.8k, invalidation 91.55k, TP 93.9k / 94.85k. Informational only.",
+        "thread": [],
+        "metadata": {
+          "manifestRefId": "proof-signal-manifest-001"
+        }
+      },
+      "provider": "twitterapi",
+      "providerPostId": "tweet-signal-001",
+      "publishedUrl": "https://x.com/omen/status/1000000000000000001",
+      "lastError": null,
+      "createdAt": "2026-04-25T08:05:50.000Z",
+      "updatedAt": "2026-04-25T08:06:10.000Z",
+      "publishedAt": "2026-04-25T08:06:10.000Z"
+    }
+  ]
+}

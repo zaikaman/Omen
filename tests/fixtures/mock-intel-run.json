@@ -1,0 +1,163 @@
+{
+  "run": {
+    "id": "run-intel-001",
+    "mode": "mocked",
+    "status": "completed",
+    "marketBias": "NEUTRAL",
+    "startedAt": "2026-04-25T09:00:00.000Z",
+    "completedAt": "2026-04-25T09:04:00.000Z",
+    "triggeredBy": "scheduler",
+    "activeCandidateCount": 1,
+    "currentCheckpointRefId": "proof-intel-kv-001",
+    "finalSignalId": null,
+    "finalIntelId": "intel-ai-rotation-001",
+    "failureReason": null,
+    "outcome": {
+      "outcomeType": "intel",
+      "summary": "Narrative intel published on AI infrastructure rotation.",
+      "signalId": null,
+      "intelId": "intel-ai-rotation-001"
+    },
+    "configSnapshot": {
+      "id": "default",
+      "mode": "mocked",
+      "marketUniverse": ["BTC", "ETH", "SOL", "ARB", "LINK", "PEPE"],
+      "qualityThresholds": {
+        "minConfidence": 85,
+        "minRiskReward": 2,
+        "minConfluences": 2
+      }
+    },
+    "createdAt": "2026-04-25T09:00:00.000Z",
+    "updatedAt": "2026-04-25T09:04:00.000Z"
+  },
+  "intel": {
+    "id": "intel-ai-rotation-001",
+    "runId": "run-intel-001",
+    "title": "AI Infrastructure Names Keep Absorbing Attention While Majors Chop",
+    "slug": "ai-infrastructure-rotation-2026-04-25",
+    "summary": "Omen detected sustained attention rotation into AI-linked infrastructure tokens while BTC stayed rangebound.",
+    "body": "Market breadth stayed mixed, but AI-linked infrastructure symbols kept outpacing majors on both mindshare and relative strength. The swarm treated it as intel rather than a trade because BTC posture stayed neutral and catalyst confirmation was narrative-led.",
+    "category": "narrative_shift",
+    "status": "published",
+    "symbols": ["TAO", "RNDR", "AKT"],
+    "confidence": 88,
+    "sources": [
+      {
+        "label": "AI infrastructure narrative thread",
+        "url": "https://example.com/ai-rotation",
+        "provider": "news"
+      },
+      {
+        "label": "Mindshare snapshot",
+        "url": null,
+        "provider": "defillama"
+      }
+    ],
+    "proofRefIds": [
+      "proof-intel-kv-001",
+      "proof-intel-log-001",
+      "proof-intel-manifest-001",
+      "proof-intel-post-001"
+    ],
+    "publishedAt": "2026-04-25T09:04:20.000Z",
+    "createdAt": "2026-04-25T09:02:30.000Z",
+    "updatedAt": "2026-04-25T09:04:20.000Z"
+  },
+  "axlMessages": [
+    {
+      "id": "axl-intel-001",
+      "runId": "run-intel-001",
+      "correlationId": "corr-intel-001",
+      "fromAgentId": "agent-orchestrator-001",
+      "fromRole": "orchestrator",
+      "toAgentId": "agent-research-001",
+      "toRole": "research",
+      "topic": null,
+      "messageType": "intel.research",
+      "payload": {
+        "focus": "narrative_rotation"
+      },
+      "transportKind": "mcp",
+      "deliveryStatus": "received",
+      "durableRefId": null,
+      "timestamp": "2026-04-25T09:00:25.000Z"
+    },
+    {
+      "id": "axl-intel-003",
+      "runId": "run-intel-001",
+      "correlationId": "corr-intel-003",
+      "fromAgentId": "agent-analyst-001",
+      "fromRole": "analyst",
+      "toAgentId": "agent-publisher-001",
+      "toRole": "publisher",
+      "topic": null,
+      "messageType": "intel.publishable",
+      "payload": {
+        "intelId": "intel-ai-rotation-001",
+        "confidence": 88
+      },
+      "transportKind": "send",
+      "deliveryStatus": "received",
+      "durableRefId": "proof-intel-manifest-001",
+      "timestamp": "2026-04-25T09:03:30.000Z"
+    }
+  ],
+  "proofs": [
+    {
+      "id": "proof-intel-kv-001",
+      "runId": "run-intel-001",
+      "signalId": null,
+      "intelId": "intel-ai-rotation-001",
+      "refType": "kv_state",
+      "key": "runs/run-intel-001/checkpoint",
+      "locator": "0g://kv/runs/run-intel-001/checkpoint",
+      "metadata": {
+        "checkpoint": "intel-ready"
+      },
+      "compute": null,
+      "createdAt": "2026-04-25T09:03:10.000Z"
+    },
+    {
+      "id": "proof-intel-manifest-001",
+      "runId": "run-intel-001",
+      "signalId": null,
+      "intelId": "intel-ai-rotation-001",
+      "refType": "manifest",
+      "key": "runs/run-intel-001/manifest",
+      "locator": "0g://file/runs/run-intel-001/manifest.json",
+      "metadata": {
+        "artifactCount": 4
+      },
+      "compute": null,
+      "createdAt": "2026-04-25T09:04:00.000Z"
+    }
+  ],
+  "outboundPosts": [
+    {
+      "id": "post-intel-001",
+      "runId": "run-intel-001",
+      "signalId": null,
+      "intelId": "intel-ai-rotation-001",
+      "target": "x",
+      "kind": "intel_summary",
+      "status": "posted",
+      "payload": {
+        "text": "Omen intel: AI infrastructure names kept absorbing mindshare while BTC stayed neutral. TAO / RNDR / AKT led the rotation.",
+        "thread": [
+          "The swarm kept this as intel, not a signal, because BTC regime confirmation stayed incomplete and catalysts were mostly narrative-led."
+        ],
+        "metadata": {
+          "manifestRefId": "proof-intel-manifest-001"
+        }
+      },
+      "provider": "twitterapi",
+      "providerPostId": "tweet-intel-001",
+      "publishedUrl": "https://x.com/omen/status/1000000000000000002",
+      "lastError": null,
+      "createdAt": "2026-04-25T09:03:40.000Z",
+      "updatedAt": "2026-04-25T09:04:20.000Z",
+      "publishedAt": "2026-04-25T09:04:20.000Z"
+    }
+  ]
+}
