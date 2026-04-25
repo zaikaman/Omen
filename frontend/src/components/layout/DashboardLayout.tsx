@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Home01Icon, Menu01Icon, Cancel01Icon, GpsSignal01Icon, News01Icon } from '@hugeicons/core-free-icons';
+import { Home01Icon, Menu01Icon, Cancel01Icon, GpsSignal01Icon, News01Icon, ChartHistogramIcon } from '@hugeicons/core-free-icons';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -15,12 +15,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         { icon: Home01Icon, label: 'Dashboard', path: '/app' },
         { icon: GpsSignal01Icon, label: 'Signals', path: '/app/signals' },
         { icon: News01Icon, label: 'Intel', path: '/app/intel' },
+        { icon: ChartHistogramIcon, label: 'Analytics', path: '/app/analytics' },
     ];
 
     const pageTitles: Record<string, string> = {
         '/app': 'MISSION CONTROL',
         '/app/signals': 'SIGNAL INTERCEPT',
         '/app/intel': 'INTELLIGENCE FEED',
+        '/app/analytics': 'SYSTEM ANALYTICS',
     };
 
     const currentTitle = pageTitles[location.pathname] || 'SYSTEM OVERVIEW';

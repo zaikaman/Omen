@@ -4,6 +4,11 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardHome } from "./pages/DashboardHome";
 import { SignalsPage } from "./pages/SignalsPage";
 import { IntelPage } from "./pages/IntelPage";
+import { AnalyticsPage } from "./pages/AnalyticsPage";
+import { AnalyticsOverview } from "./pages/analytics/AnalyticsOverview";
+import { PerformanceAnalytics } from "./pages/analytics/PerformanceAnalytics";
+import { MarketAnalytics } from "./pages/analytics/MarketAnalytics";
+import { SignalAnalytics } from "./pages/analytics/SignalAnalytics";
 
 export default function App() {
   return (
@@ -30,6 +35,16 @@ export default function App() {
             <IntelPage />
           </DashboardLayout>
         } />
+        <Route path="/app/analytics" element={
+          <DashboardLayout>
+            <AnalyticsPage />
+          </DashboardLayout>
+        }>
+          <Route index element={<AnalyticsOverview />} />
+          <Route path="performance" element={<PerformanceAnalytics />} />
+          <Route path="market" element={<MarketAnalytics />} />
+          <Route path="signals" element={<SignalAnalytics />} />
+        </Route>
         <Route path="/docs" element={<Home />} />
         <Route path="*" element={<Home />} />
       </Routes>
