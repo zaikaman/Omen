@@ -1,0 +1,1 @@
+- 0g-doc and 0g-ts-sdk folders are meant for 0G related docs, axl is meant for Gensyn AXL docs, and you should only read them, not edit them.

@@ -69,7 +69,7 @@
 
 ### Validation for User Story 1
 
-- [ ] T025 [P] [US1] Add contract tests for scheduled run history and runtime status endpoints in `tests/integration/contracts/runtime-runs-api.contract.test.ts`
+- [x] T025 [P] [US1] Add contract tests for scheduled run history and runtime status endpoints in `tests/integration/contracts/runtime-runs-api.contract.test.ts`
 - [ ] T026 [P] [US1] Add integration test for one deterministic signal-producing swarm run in `tests/integration/runtime/full-mocked-signal-run.test.ts`
 - [ ] T027 [P] [US1] Add integration test for one deterministic intel-producing swarm run in `tests/integration/runtime/full-mocked-intel-run.test.ts`
 - [ ] T028 [P] [US1] Add integration test for hourly scheduler triggering, no-overlap behavior, and idempotent scheduler-tick handling in `tests/integration/runtime/hourly-scheduler.test.ts`
