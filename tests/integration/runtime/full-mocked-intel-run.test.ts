@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { demoIntelRunBundle } from "../../../packages/db/src/index.ts";
+import { demoIntelRunBundle } from "../../../packages/db/src/index";
 
 describe("full mocked intel run", () => {
   it("produces a completed scheduler-driven intel run with aligned final records", () => {

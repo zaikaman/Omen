@@ -4,12 +4,12 @@ import {
   runListItemSchema,
   runtimeModeSchema,
   schedulerStatusSchema,
-} from "../../../packages/shared/src/index.ts";
+} from "../../../packages/shared/src/index";
 import {
   demoRunBundles,
   demoRuntimeConfig,
   demoSchedulerStatus,
-} from "../../../packages/db/src/index.ts";
+} from "../../../packages/db/src/index";
 
 describe("runtime runs api contract", () => {
   it("accepts the read-only scheduled run history response contract for GET /api/runs", () => {

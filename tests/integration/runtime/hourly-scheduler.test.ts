@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type Logger } from "../../../backend/src/bootstrap/logger.ts";
-import { HourlyScheduler } from "../../../backend/src/scheduler/hourly-scheduler.ts";
-import { RunLock } from "../../../backend/src/scheduler/run-lock.ts";
-import { getRuntimeModeFlags } from "../../../backend/src/scheduler/runtime-mode.ts";
+import { type Logger } from "../../../backend/src/bootstrap/logger";
+import { HourlyScheduler } from "../../../backend/src/scheduler/hourly-scheduler";
+import { RunLock } from "../../../backend/src/scheduler/run-lock";
+import { getRuntimeModeFlags } from "../../../backend/src/scheduler/runtime-mode";
 
 const createMockLogger = (): Logger => ({
   debug: vi.fn(),
@@ -26,13 +26,18 @@ describe("hourly scheduler", () => {
     vi.useFakeTimers();
 
     const logger = createMockLogger();
-    const task = vi.fn(async () => undefined);
+    const taskCalls: Array<{ trigger: string; modeLabel: string }> = [];
     const scheduler = new HourlyScheduler({
       logger,
       runLock: new RunLock(false),
       mode: getRuntimeModeFlags("mocked"),
       intervalMs: 1_000,
-      task,
+      task: async (context) => {
+        taskCalls.push({
+          trigger: context.trigger,
+          modeLabel: context.mode.label,
+        });
+      },
     });
 
     scheduler.start();
@@ -47,13 +52,10 @@ describe("hourly scheduler", () => {
     await vi.advanceTimersByTimeAsync(1_000);
     await flushAsync();
 
-    expect(task).toHaveBeenCalledTimes(1);
-    expect(task.mock.calls[0]?.[0]).toMatchObject({
+    expect(taskCalls).toHaveLength(1);
+    expect(taskCalls[0]).toMatchObject({
       trigger: "interval",
-      mode: {
-        mode: "mocked",
-        label: "Mocked demo",
-      },
+      modeLabel: "Mocked demo",
     });
 
     const status = scheduler.getStatus();
@@ -69,37 +71,37 @@ describe("hourly scheduler", () => {
     vi.useFakeTimers();
 
     const logger = createMockLogger();
-    let resolveTask: (() => void) | null = null;
-    const task = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveTask = resolve;
-        }),
-    );
+    let resolveTask: () => void = () => undefined;
+    let taskCalls = 0;
 
     const scheduler = new HourlyScheduler({
       logger,
       runLock: new RunLock(false),
       mode: getRuntimeModeFlags("mocked"),
       intervalMs: 1_000,
-      task,
+      task: () => {
+        taskCalls += 1;
+        return new Promise<void>((resolve) => {
+          resolveTask = resolve;
+        });
+      },
     });
 
     scheduler.start();
 
     await vi.advanceTimersByTimeAsync(1_000);
     await flushAsync();
-    expect(task).toHaveBeenCalledTimes(1);
+    expect(taskCalls).toBe(1);
     expect(scheduler.getStatus().isRunning).toBe(true);
 
     await vi.advanceTimersByTimeAsync(1_000);
     await flushAsync();
 
-    expect(task).toHaveBeenCalledTimes(1);
+    expect(taskCalls).toBe(1);
     expect(scheduler.getStatus().overlapPrevented).toBe(true);
     expect(logger.warn).toHaveBeenCalledTimes(1);
 
-    resolveTask?.();
+    resolveTask();
     await flushAsync();
 
     expect(scheduler.getStatus().isRunning).toBe(false);
@@ -111,13 +113,15 @@ describe("hourly scheduler", () => {
     vi.useFakeTimers();
 
     const logger = createMockLogger();
-    const task = vi.fn(async () => undefined);
+    let taskCalls = 0;
     const scheduler = new HourlyScheduler({
       logger,
       runLock: new RunLock(false),
       mode: getRuntimeModeFlags("mocked"),
       intervalMs: 1_000,
-      task,
+      task: async () => {
+        taskCalls += 1;
+      },
     });
 
     scheduler.start();
@@ -126,12 +130,12 @@ describe("hourly scheduler", () => {
     await vi.advanceTimersByTimeAsync(1_000);
     await flushAsync();
 
-    expect(task).toHaveBeenCalledTimes(1);
+    expect(taskCalls).toBe(1);
 
     await vi.advanceTimersByTimeAsync(1_000);
     await flushAsync();
 
-    expect(task).toHaveBeenCalledTimes(2);
+    expect(taskCalls).toBe(2);
 
     await scheduler.stop();
   });
