@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omen.local/schemas/runtime-events.schema.json",
+  "title": "Omen Runtime Event Envelope",
+  "type": "object",
+  "required": [
+    "id",
+    "runId",
+    "agentId",
+    "eventType",
+    "status",
+    "payload",
+    "timestamp"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "run_created",
+        "market_bias_generated",
+        "candidate_found",
+        "axl_message_sent",
+        "axl_message_received",
+        "zero_g_kv_write",
+        "zero_g_log_append",
+        "research_completed",
+        "chart_generated",
+        "thesis_generated",
+        "critic_decision",
+        "report_published",
+        "paper_position_created",
+        "monitor_update",
+        "reflection_written",
+        "warning",
+        "error"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "info", "success", "warning", "error"]
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "axlMessageId": {
+      "type": ["string", "null"]
+    },
+    "zeroGRef": {
+      "type": ["object", "null"],
+      "required": ["refType", "locator"],
+      "properties": {
+        "refType": {
+          "type": "string",
+          "enum": ["kv_state", "log_entry", "log_bundle", "compute_job", "compute_result", "chain_proof"]
+        },
+        "locator": {
+          "type": "string"
+        },
+        "key": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "signalId": {
+      "type": ["string", "null"]
+    }
+  },
+  "additionalProperties": false
+}

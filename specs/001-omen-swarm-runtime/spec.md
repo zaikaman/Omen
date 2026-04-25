@@ -101,6 +101,7 @@ A hackathon presenter follows a short scripted walkthrough that starts multiple 
 
 - **FR-013**: The system MUST define typed agent contracts for inputs, outputs, tool permissions, trace logging, and failure handling.
 - **FR-014**: The system MUST support framework abstraction so the orchestration layer can be swapped later without rewriting business logic.
+- **FR-014a**: The initial implementation SHOULD use LangGraph.js as the primary agent orchestration framework for graph-based multi-agent control flow, checkpointing, and streaming.
 - **FR-015**: Every agent MUST have a unique identity, role description, input contract, output contract, tool permission policy, trace log, failure behavior, and deterministic fallback for external API failures.
 - **FR-016**: The system MUST include, at minimum, the following roles: orchestrator, market bias, scanner, research, chart/vision, analyst, critic/risk, memory, publisher, and monitor/reflection.
 - **FR-017**: At least four specialist agents MUST participate in each demo run.
