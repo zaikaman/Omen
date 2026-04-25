@@ -2,11 +2,13 @@ import path from "path";
 
 import dotenv from "dotenv";
 
+import { normalizeRuntimeMode, type RuntimeMode } from "../scheduler/runtime-mode";
+
 export type BackendEnv = {
   nodeEnv: "development" | "test" | "production";
   port: number;
   frontendOrigin: string;
-  runtimeMode: "mocked" | "live" | "production_like";
+  runtimeMode: RuntimeMode;
   allowConcurrentRuns: boolean;
   logLevel: "debug" | "info" | "warn" | "error";
 };
@@ -30,16 +32,6 @@ const normalizeNodeEnv = (value: string | undefined): BackendEnv["nodeEnv"] => {
   }
 
   return "development";
-};
-
-const normalizeRuntimeMode = (
-  value: string | undefined,
-): BackendEnv["runtimeMode"] => {
-  if (value === "live" || value === "production_like") {
-    return value;
-  }
-
-  return "mocked";
 };
 
 const normalizeLogLevel = (
