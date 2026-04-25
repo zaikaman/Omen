@@ -8,6 +8,7 @@ export * from "./proofs.js";
 export * from "./run.js";
 export * from "./signal.js";
 export * from "./x-post.js";
+export * from "./zero-g-manifest.js";
 
 export * from "./api/dashboard.js";
 export * from "./api/intel.js";
