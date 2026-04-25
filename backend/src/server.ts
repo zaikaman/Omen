@@ -3,22 +3,34 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
-import apiRoutes from "./api/routes";
-import { config } from "./config/env.config";
-import { logger } from "./utils/logger.util";
 
-export const createServer = () => {
+import apiRoutes from "./api/routes";
+import type { BackendEnv } from "./bootstrap/env";
+import type { Logger } from "./bootstrap/logger";
+
+export const createServer = (input: {
+  env: Pick<BackendEnv, "frontendOrigin" | "nodeEnv">;
+  logger: Logger;
+}) => {
   const app = express();
 
   app.use(
     cors({
-      origin: config.FRONTEND_ORIGIN,
+      origin: input.env.frontendOrigin,
       credentials: true,
     }),
   );
   app.use(helmet());
   app.use(express.json());
-  app.use(morgan(config.NODE_ENV === "development" ? "dev" : "combined"));
+  app.use(
+    morgan(input.env.nodeEnv === "development" ? "dev" : "combined", {
+      stream: {
+        write: (message: string) => {
+          input.logger.info(message.trim());
+        },
+      },
+    }),
+  );
 
   app.use("/api", apiRoutes);
 
@@ -33,7 +45,7 @@ export const createServer = () => {
   app.use(
     (err: Error, _req: Request, res: Response, next: NextFunction) => {
       void next;
-      logger.error("Unhandled error", err);
+      input.logger.error("Unhandled error", err);
       res.status(500).json({
         success: false,
         error: err.message || "Internal Server Error",

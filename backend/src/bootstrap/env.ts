@@ -1,0 +1,81 @@
+import path from "path";
+
+import dotenv from "dotenv";
+
+export type BackendEnv = {
+  nodeEnv: "development" | "test" | "production";
+  port: number;
+  frontendOrigin: string;
+  runtimeMode: "mocked" | "live" | "production_like";
+  allowConcurrentRuns: boolean;
+  logLevel: "debug" | "info" | "warn" | "error";
+};
+
+const parseBoolean = (value: string | undefined, fallback: boolean) => {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  return value.toLowerCase() === "true";
+};
+
+const parsePort = (value: string | undefined, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const normalizeNodeEnv = (value: string | undefined): BackendEnv["nodeEnv"] => {
+  if (value === "production" || value === "test") {
+    return value;
+  }
+
+  return "development";
+};
+
+const normalizeRuntimeMode = (
+  value: string | undefined,
+): BackendEnv["runtimeMode"] => {
+  if (value === "live" || value === "production_like") {
+    return value;
+  }
+
+  return "mocked";
+};
+
+const normalizeLogLevel = (
+  value: string | undefined,
+): BackendEnv["logLevel"] => {
+  if (
+    value === "debug" ||
+    value === "info" ||
+    value === "warn" ||
+    value === "error"
+  ) {
+    return value;
+  }
+
+  return "info";
+};
+
+const loadEnvFiles = () => {
+  dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+  dotenv.config({ path: path.resolve(process.cwd(), "../.env"), override: false });
+};
+
+export const createBackendEnv = (
+  env: NodeJS.ProcessEnv = process.env,
+): BackendEnv => {
+  loadEnvFiles();
+
+  const webPort = parsePort(env.WEB_PORT, 3000);
+
+  return {
+    nodeEnv: normalizeNodeEnv(env.NODE_ENV),
+    port: parsePort(env.RUNTIME_PORT ?? env.PORT, 4001),
+    frontendOrigin:
+      env.FRONTEND_ORIGIN ?? `http://localhost:${webPort.toString()}`,
+    runtimeMode: normalizeRuntimeMode(env.RUNTIME_MODE),
+    allowConcurrentRuns: parseBoolean(env.ALLOW_CONCURRENT_RUNS, false),
+    logLevel: normalizeLogLevel(env.LOG_LEVEL),
+  };
+};
