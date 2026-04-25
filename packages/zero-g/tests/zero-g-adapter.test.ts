@@ -4,6 +4,8 @@ import {
   createZeroGArtifactLink,
   ZeroGClientAdapter,
   ZeroGNamespaceBuilder,
+  ZeroGProofAnchor,
+  ZeroGProofRegistry,
 } from "../src/index.js";
 
 describe("zero-g adapter", () => {
@@ -91,6 +93,60 @@ describe("zero-g adapter", () => {
         category: "file_bundle",
         label: "final-report",
       });
+    }
+  });
+
+  it("builds proof bundles with an attached manifest artifact", () => {
+    const registry = new ZeroGProofRegistry();
+
+    registry.registerArtifacts([
+      {
+        id: "run-1:kv",
+        runId: "run-1",
+        signalId: null,
+        intelId: null,
+        refType: "kv_state",
+        key: "runs/run-1/checkpoint",
+        locator: "https://storage.0g.ai/kv/runs%2Frun-1%2Fcheckpoint",
+        metadata: {},
+        compute: null,
+        createdAt: "2026-04-25T08:00:00.000Z",
+      },
+    ]);
+
+    const bundle = registry.attachManifestArtifact("run-1", {
+      id: "run-1:manifest",
+      runId: "run-1",
+      signalId: null,
+      intelId: null,
+      refType: "manifest",
+      key: "run-1",
+      locator: "https://storage.0g.ai/files/run-1/manifest.json",
+      metadata: {},
+      compute: null,
+      createdAt: "2026-04-25T08:00:01.000Z",
+    });
+
+    expect(bundle.manifestRefId).toBe("run-1:manifest");
+    expect(bundle.artifactRefs).toHaveLength(2);
+  });
+
+  it("creates a chain proof artifact when anchoring is configured", async () => {
+    const proofAnchor = new ZeroGProofAnchor({
+      rpcUrl: "https://rpc.0g.ai",
+      chainId: 16601,
+    });
+
+    const result = await proofAnchor.anchorManifest({
+      runId: "run-1",
+      manifestRoot: "root-1",
+      metadata: { source: "manifest" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value?.chainProof.status).toBe("anchored");
+      expect(result.value?.artifact.refType).toBe("chain_proof");
     }
   });
 });

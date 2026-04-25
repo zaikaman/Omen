@@ -2,6 +2,7 @@ export * from "./analytics.js";
 export * from "./axl-a2a.js";
 export * from "./axl.js";
 export * from "./axl-mcp.js";
+export * from "./chain-proof.js";
 export * from "./config.js";
 export * from "./event.js";
 export * from "./intel.js";

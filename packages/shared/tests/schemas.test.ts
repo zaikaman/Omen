@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   axlA2ADelegationEnvelopeSchema,
   axlMcpResponseSchema,
+  chainProofSchema,
   runSchema,
   signalSchema,
   twitterApiCreateTweetRequestSchema,
@@ -178,5 +179,20 @@ describe("shared schemas", () => {
         },
       }),
     ).not.toThrow();
+  });
+
+  it("rejects anchored chain proofs without an anchoredAt timestamp", () => {
+    expect(() =>
+      chainProofSchema.parse({
+        manifestRoot: "root-1",
+        chainId: "16601",
+        status: "anchored",
+        contractAddress: null,
+        transactionHash: "0xabc",
+        blockNumber: 10,
+        explorerUrl: null,
+        anchoredAt: null,
+      }),
+    ).toThrow();
   });
 });

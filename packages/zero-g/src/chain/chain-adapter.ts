@@ -1,4 +1,4 @@
-import { ok, type Result } from "@omen/shared";
+import { chainProofSchema, ok, type ChainProof, type Result } from "@omen/shared";
 import { z } from "zod";
 
 export const zeroGChainConfigSchema = z.object({
@@ -6,15 +6,8 @@ export const zeroGChainConfigSchema = z.object({
   chainId: z.union([z.string().min(1), z.number().int().positive()]),
 });
 
-export const zeroGChainProofSchema = z.object({
-  manifestRoot: z.string().min(1),
-  contractAddress: z.string().min(1).nullable(),
-  transactionHash: z.string().min(1).nullable(),
-  chainId: z.string().min(1),
-});
-
 export type ZeroGChainConfig = z.infer<typeof zeroGChainConfigSchema>;
-export type ZeroGChainProof = z.infer<typeof zeroGChainProofSchema>;
+export type ZeroGChainProof = ChainProof;
 
 export class ZeroGChainAdapter {
   private readonly config: ZeroGChainConfig;
@@ -24,11 +17,15 @@ export class ZeroGChainAdapter {
   }
 
   async createProofAnchor(manifestRoot: string): Promise<Result<ZeroGChainProof, Error>> {
-    return ok({
+    return ok(chainProofSchema.parse({
       manifestRoot,
+      status: "anchored",
       contractAddress: null,
       transactionHash: null,
       chainId: this.config.chainId.toString(),
-    });
+      blockNumber: null,
+      explorerUrl: null,
+      anchoredAt: new Date().toISOString(),
+    }));
   }
 }
