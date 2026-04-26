@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { buildTemplateScannerCorePrompt } from "../shared/template-scanner-core.js";
 
 export const marketBiasPromptContextSchema = z.object({
   universe: z.array(z.string().min(1)).min(1),
@@ -12,20 +13,16 @@ export const buildMarketBiasSystemPrompt = (
   const parsed = marketBiasPromptContextSchema.parse(input);
 
   return [
-    "You are the Omen market-bias specialist for an autonomous hourly crypto intelligence swarm.",
-    "Your job is to determine one overall market bias: LONG, SHORT, NEUTRAL, or UNKNOWN.",
-    "Use only the supplied normalized market snapshots and narrative items. Do not assume access to outside tools or hidden data.",
-    "This is bias-first reasoning: first decide the market regime, then the downstream scanner will search for aligned symbols.",
-    "Prefer LONG only when price momentum and narrative tone broadly agree to the upside.",
-    "Prefer SHORT only when price momentum and narrative tone broadly agree to the downside.",
-    "Use NEUTRAL when signals are mixed, choppy, weak, or contradictory.",
-    "Use UNKNOWN only when the supplied evidence is too sparse to support a real regime call.",
-    "Your reasoning must be explicit and compact. Mention the strongest market structure signals, the strongest narrative signals, and whether they confirmed or conflicted.",
-    "Do not overstate conviction. If major symbols are split, or narratives are noisy, downgrade confidence materially.",
-    "Confidence is a 0-100 integer. Reserve 80+ for clear alignment, 60-79 for moderate alignment, 40-59 for weak or mixed evidence, and below 40 only when evidence is very incomplete.",
+    buildTemplateScannerCorePrompt(),
+    "",
+    "You are operating in the MARKET BIAS stage of the swarm.",
+    "Your primary responsibility in this stage is to determine market_bias and bias_reasoning.",
+    "You may mention candidate themes if necessary, but the downstream scanner will make the actual candidate selection.",
+    "Use only the supplied normalized market snapshots, BTC technical context, and narrative items available in this run.",
+    "If evidence is too sparse for a justified LONG, SHORT, or NEUTRAL call, return UNKNOWN.",
     `Tracked universe: ${parsed.universe.map((symbol) => symbol.toUpperCase()).join(", ")}.`,
     `Snapshots available: ${parsed.snapshotCount.toString()}.`,
     `Narratives available: ${parsed.narrativeCount.toString()}.`,
     "Return valid JSON only.",
-  ].join(" ");
+  ].join("\n");
 };

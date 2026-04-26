@@ -171,3 +171,31 @@ export const getHyperliquidSymbol = (symbol: string) =>
 
 export const getTokensByCategory = (category: TradeableTokenCategory) =>
   TRADEABLE_TOKENS.filter((token) => token.category === category);
+
+const categoryLabels: Record<TradeableTokenCategory, string> = {
+  major: "Major Coins",
+  layer2: "Layer 2 & Infrastructure",
+  defi: "DeFi",
+  gaming: "Gaming & Metaverse",
+  ai: "AI & Data",
+  meme: "Meme Coins",
+  ecosystem: "New Ecosystems",
+  infrastructure: "Infrastructure",
+  other: "Other",
+};
+
+export const generateTradeableTokensList = () =>
+  (Object.entries(categoryLabels) as [TradeableTokenCategory, string][])
+    .map(([category, label]) => {
+      const tokens = getTokensByCategory(category);
+
+      if (tokens.length === 0) {
+        return null;
+      }
+
+      return `**${label}:**\n${tokens.map((token) => `${token.symbol} (${token.coingeckoId})`).join(", ")}`;
+    })
+    .filter((entry): entry is string => entry !== null)
+    .join("\n\n");
+
+export const TRADEABLE_TOKENS_LIST = generateTradeableTokensList();
