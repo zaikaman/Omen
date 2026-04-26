@@ -11,6 +11,7 @@ import {
   type RepositoryError,
 } from "./base-repository.js";
 import type { OmenSupabaseClient } from "../client/supabase.js";
+import { normalizeDatabaseTimestamp } from "./timestamp.js";
 
 type AgentNodeRow = {
   id: string;
@@ -43,7 +44,7 @@ const toAgentNode = (row: AgentNodeRow): AgentNode =>
     transport: row.transport,
     status: row.status,
     peerId: row.peer_id,
-    lastHeartbeatAt: row.last_heartbeat_at,
+    lastHeartbeatAt: normalizeDatabaseTimestamp(row.last_heartbeat_at),
     lastError: row.last_error,
     metadata: row.metadata,
   });

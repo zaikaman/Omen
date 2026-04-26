@@ -11,6 +11,7 @@ import {
   type RepositoryError,
 } from "./base-repository.js";
 import type { OmenSupabaseClient } from "../client/supabase.js";
+import { normalizeDatabaseTimestamp } from "./timestamp.js";
 
 type ZeroGRefRow = {
   id: string;
@@ -50,7 +51,7 @@ const toProofArtifact = (row: ZeroGRefRow): ProofArtifact =>
       row.ref_type === "compute_job" || row.ref_type === "compute_result"
         ? ("compute" in row.metadata ? row.metadata.compute : null)
         : null,
-    createdAt: row.created_at,
+    createdAt: normalizeDatabaseTimestamp(row.created_at),
   });
 
 const toInsertRow = (artifact: ProofArtifact): ZeroGRefInsert => ({

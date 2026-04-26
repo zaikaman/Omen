@@ -1,0 +1,17 @@
+INFO:__main__:MCP Router listening on http://127.0.0.1:9003
+INFO:__main__:Endpoints:
+INFO:__main__:  POST   /route              - Route MCP request (called by bridge)
+INFO:__main__:  POST   /register           - Register a service
+INFO:__main__:  DELETE /register/{service} - Deregister a service
+INFO:__main__:  GET    /services           - List registered services
+INFO:__main__:  GET    /health             - Health check
+INFO:__main__:Registered service: scanner -> http://127.0.0.1:7100/mcp/scanner
+INFO:aiohttp.access:127.0.0.1 [26/Apr/2026:18:32:39 +0700] "POST /register HTTP/1.1" 200 205 "-" "node"
+INFO:__main__:Registered service: research -> http://127.0.0.1:7100/mcp/research
+INFO:aiohttp.access:127.0.0.1 [26/Apr/2026:18:32:39 +0700] "POST /register HTTP/1.1" 200 206 "-" "node"
+INFO:__main__:Registered service: analyst -> http://127.0.0.1:7100/mcp/analyst
+INFO:aiohttp.access:127.0.0.1 [26/Apr/2026:18:32:39 +0700] "POST /register HTTP/1.1" 200 205 "-" "node"
+INFO:__main__:Registered service: critic -> http://127.0.0.1:7100/mcp/critic
+INFO:aiohttp.access:127.0.0.1 [26/Apr/2026:18:32:39 +0700] "POST /register HTTP/1.1" 200 204 "-" "node"
+INFO:aiohttp.access:127.0.0.1 [26/Apr/2026:18:32:49 +0700] "GET /health HTTP/1.1" 200 195 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8115"
+INFO:aiohttp.access:127.0.0.1 [26/Apr/2026:18:36:34 +0700] "GET /services HTTP/1.1" 200 688 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8115"

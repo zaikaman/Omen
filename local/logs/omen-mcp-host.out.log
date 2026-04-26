@@ -1,0 +1,10 @@
+
+> omen-backend@1.0.0 mcp:host D:\Omen\backend
+> tsx src/scripts/omen-mcp-host.ts
+
+[omen-mcp-host] listening on http://127.0.0.1:7100
+[omen-mcp-host] router target http://127.0.0.1:9003
+[omen-mcp-host] registered scanner -> http://127.0.0.1:7100/mcp/scanner
+[omen-mcp-host] registered research -> http://127.0.0.1:7100/mcp/research
+[omen-mcp-host] registered analyst -> http://127.0.0.1:7100/mcp/analyst
+[omen-mcp-host] registered critic -> http://127.0.0.1:7100/mcp/critic

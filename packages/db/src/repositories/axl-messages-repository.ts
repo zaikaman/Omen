@@ -11,6 +11,7 @@ import {
   type RepositoryError,
 } from "./base-repository.js";
 import type { OmenSupabaseClient } from "../client/supabase.js";
+import { normalizeDatabaseTimestamp } from "./timestamp.js";
 
 type AxlMessageRow = {
   id: string;
@@ -61,7 +62,7 @@ const toAxlEnvelope = (row: AxlMessageRow): AxlEnvelope =>
     transportKind: row.transport_kind,
     deliveryStatus: row.delivery_status,
     durableRefId: row.durable_ref_id,
-    timestamp: row.timestamp,
+    timestamp: normalizeDatabaseTimestamp(row.timestamp),
   });
 
 const toInsertRow = (message: AxlEnvelope): AxlMessageInsert => ({

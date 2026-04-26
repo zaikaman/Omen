@@ -11,6 +11,7 @@ import {
   type RepositoryError,
 } from "./base-repository.js";
 import type { OmenSupabaseClient } from "../client/supabase.js";
+import { normalizeDatabaseTimestamp } from "./timestamp.js";
 
 type AgentEventRow = {
   id: string;
@@ -56,7 +57,7 @@ const toAgentEvent = (row: AgentEventRow): AgentEvent =>
     status: row.status,
     summary: row.summary,
     payload: row.payload,
-    timestamp: row.timestamp,
+    timestamp: normalizeDatabaseTimestamp(row.timestamp),
     correlationId: row.correlation_id,
     axlMessageId: row.axl_message_id,
     proofRefId: row.proof_ref_id,

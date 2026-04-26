@@ -1,0 +1,16 @@
+[node] Loaded node config from D:\Omen\local\axl\node-config.json
+[node] Max message size: 16777216 bytes
+[node] Max concurrent connections: 128
+[node] Connection read timeout: 1m0s
+[node] Connection idle timeout: 5m0s
+[node] Configured peer: tls://34.46.48.224:9001
+[node] Configured peer: tls://136.111.135.206:9001
+[node] Gensyn Node Started!
+[node] Our IPv6: 200:b8bd:c804:3fc8:f335:fd8f:fe60:6e86
+[node] Our Public Key: a3a11bfde01b8665013800cfc8bcab86edfadecc5d12713b905b76bf499a3675
+[node] MCP Router URL: http://127.0.0.1:9003/route
+[node] A2A Server URL: http://127.0.0.1:9004
+Listening on 127.0.0.1:9002
+TCP Listener started on port 7000
+[node] Connected outbound: 202:5912:49b4:13a2:f9bd:b166:6a6e:fa2e@34.46.48.224:9001, source 192.168.1.13:55265
+[node] Connected outbound: 206:f757:7717:51b8:5af:1a53:c548:8867@136.111.135.206:9001, source 192.168.1.13:55266

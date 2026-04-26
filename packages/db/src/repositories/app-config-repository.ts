@@ -11,6 +11,7 @@ import {
   type RepositoryError,
 } from "./base-repository.js";
 import type { OmenSupabaseClient } from "../client/supabase.js";
+import { normalizeDatabaseTimestamp } from "./timestamp.js";
 
 type AppConfigRow = {
   id: string;
@@ -54,7 +55,7 @@ const toRuntimeConfig = (row: AppConfigRow): RuntimeConfig =>
     mainnetExecutionEnabled: row.mainnet_execution_enabled,
     postToXEnabled: row.post_to_x_enabled,
     scanIntervalMinutes: row.scan_interval_minutes,
-    updatedAt: row.updated_at,
+    updatedAt: normalizeDatabaseTimestamp(row.updated_at),
   });
 
 const toInsertRow = (config: RuntimeConfig): AppConfigInsert => ({

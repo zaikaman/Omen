@@ -14,6 +14,7 @@ import {
   type RepositoryError,
 } from "./base-repository.js";
 import type { OmenSupabaseClient } from "../client/supabase.js";
+import { normalizeDatabaseTimestamp } from "./timestamp.js";
 
 type RunRow = {
   id: string;
@@ -61,8 +62,8 @@ const toRun = (row: RunRow): Run =>
     mode: row.mode,
     status: row.status,
     marketBias: row.market_bias,
-    startedAt: row.started_at,
-    completedAt: row.completed_at,
+    startedAt: normalizeDatabaseTimestamp(row.started_at),
+    completedAt: normalizeDatabaseTimestamp(row.completed_at),
     triggeredBy: row.triggered_by,
     activeCandidateCount: row.active_candidate_count,
     currentCheckpointRefId: row.current_checkpoint_ref_id,
@@ -71,8 +72,8 @@ const toRun = (row: RunRow): Run =>
     failureReason: row.failure_reason,
     outcome: row.outcome,
     configSnapshot: row.config_snapshot,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: normalizeDatabaseTimestamp(row.created_at),
+    updatedAt: normalizeDatabaseTimestamp(row.updated_at),
   });
 
 const toInsertRow = (run: Run): RunInsert => ({
