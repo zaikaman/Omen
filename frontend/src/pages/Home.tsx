@@ -777,7 +777,7 @@ export default function Home() {
                     </div>
                     <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <p className="text-xs text-gray-600">
-                            © 2025 Omen. All rights reserved.
+                            © 2026 Omen. All rights reserved.
                         </p>
                     </div>
                 </div>
