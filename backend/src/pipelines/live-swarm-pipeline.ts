@@ -436,6 +436,11 @@ class LivePipelineExecutionContext {
           node: {
             baseUrl: input.env.axl.nodeBaseUrl,
             requestTimeoutMs: 2_500,
+            defaultHeaders: input.env.axl.apiToken
+              ? {
+                  Authorization: `Bearer ${input.env.axl.apiToken}`,
+                }
+              : {},
           },
         }),
         peerRegistry: this.axlPeerRegistry,

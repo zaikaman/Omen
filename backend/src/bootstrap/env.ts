@@ -10,6 +10,7 @@ export type BackendEnv = {
   frontendOrigin: string;
   runtimeMode: RuntimeMode;
   allowConcurrentRuns: boolean;
+  schedulerEnabled: boolean;
   logLevel: "debug" | "info" | "warn" | "error";
   frontend: {
     appName: string;
@@ -25,6 +26,7 @@ export type BackendEnv = {
   };
   axl: {
     nodeBaseUrl: string;
+    apiToken: string | null;
     nodes: {
       orchestrator: string;
       scanner: string;
@@ -168,6 +170,7 @@ export const createBackendEnv = (
     frontendOrigin,
     runtimeMode: normalizeRuntimeMode(env.RUNTIME_MODE),
     allowConcurrentRuns: parseBoolean(env.ALLOW_CONCURRENT_RUNS, false),
+    schedulerEnabled: parseBoolean(env.SCHEDULER_ENABLED, true),
     logLevel: normalizeLogLevel(env.LOG_LEVEL),
     frontend: {
       appName: env.NEXT_PUBLIC_APP_NAME ?? "Omen",
@@ -186,6 +189,7 @@ export const createBackendEnv = (
     },
     axl: {
       nodeBaseUrl: env.AXL_NODE_BASE_URL ?? "http://127.0.0.1:8080",
+      apiToken: env.AXL_API_TOKEN ?? null,
       nodes: {
         orchestrator: env.AXL_ORCHESTRATOR_NODE_ID ?? "omen-orchestrator",
         scanner: env.AXL_SCANNER_NODE_ID ?? "omen-scanner",

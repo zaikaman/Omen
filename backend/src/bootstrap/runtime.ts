@@ -50,16 +50,23 @@ export const startBackendRuntime = (): BackendRuntime => {
     logger.info(
       `Runtime flags: mock=${runtimeMode.usesMockData.toString()} reads=${runtimeMode.allowsExternalReads.toString()} writes=${runtimeMode.allowsExternalWrites.toString()}`,
     );
-    scheduler.start();
-    logger.info("Hourly scheduler started.");
+
+    if (env.schedulerEnabled) {
+      scheduler.start();
+      logger.info("Hourly scheduler started.");
+    } else {
+      logger.info("Hourly scheduler disabled by env.");
+    }
   });
 
   registerGracefulShutdown({
     server,
     logger,
     onShutdown: async () => {
-      await scheduler.stop();
-      logger.info("Hourly scheduler stopped.");
+      if (env.schedulerEnabled) {
+        await scheduler.stop();
+        logger.info("Hourly scheduler stopped.");
+      }
     },
   });
 

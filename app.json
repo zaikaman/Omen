@@ -1,0 +1,79 @@
+{
+  "name": "omen-backend",
+  "description": "Omen hourly swarm backend for Heroku deployment.",
+  "repository": "https://github.com/your-org/omen",
+  "env": {
+    "NODE_ENV": {
+      "value": "production"
+    },
+    "LOG_LEVEL": {
+      "value": "info"
+    },
+    "RUNTIME_MODE": {
+      "value": "production_like"
+    },
+    "ALLOW_CONCURRENT_RUNS": {
+      "value": "false"
+    },
+    "SCHEDULER_ENABLED": {
+      "value": "false"
+    },
+    "FRONTEND_URL": {
+      "required": true
+    },
+    "SUPABASE_URL": {
+      "required": true
+    },
+    "SUPABASE_SERVICE_KEY": {
+      "required": true
+    },
+    "OPENAI_API_KEY": {
+      "required": true
+    },
+    "OPENAI_BASE_URL": {
+      "value": "https://api.openai.com/v1"
+    },
+    "OPENAI_MODEL": {
+      "value": "gpt-5-nano"
+    },
+    "SCANNER_API_KEY": {
+      "required": true
+    },
+    "SCANNER_BASE_URL": {
+      "value": "https://v98store.com/v1"
+    },
+    "SCANNER_MODEL": {
+      "value": "grok-4-fast"
+    },
+    "TAVILY_API_KEY": {
+      "required": true
+    },
+    "TWITTERAPI_BASE_URL": {
+      "value": "https://api.twitterapi.io"
+    },
+    "TWITTERAPI_API_KEY": {
+      "required": true
+    },
+    "TWITTERAPI_LOGIN_COOKIES": {
+      "required": true
+    },
+    "TWITTERAPI_PROXY": {
+      "required": true
+    },
+    "AXL_NODE_BASE_URL": {
+      "required": true
+    },
+    "AXL_API_TOKEN": {
+      "required": false
+    },
+    "ZERO_G_RPC_URL": {
+      "value": "https://evmrpc-testnet.0g.ai"
+    },
+    "ZERO_G_INDEXER_URL": {
+      "value": "https://indexer-storage-testnet-turbo.0g.ai"
+    },
+    "ZERO_G_COMPUTE_URL": {
+      "required": true
+    }
+  }
+}
