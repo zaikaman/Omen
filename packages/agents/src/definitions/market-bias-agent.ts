@@ -12,6 +12,8 @@ import { z } from "zod";
 import { biasDecisionSchema, orchestrationContextSchema } from "../contracts/common.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import type { SwarmState } from "../framework/state.js";
+import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
+import { buildMarketBiasSystemPrompt } from "../prompts/market-bias/system.js";
 
 export const marketBiasAgentInputSchema = z.object({
   context: orchestrationContextSchema,
@@ -25,6 +27,7 @@ const marketBiasServiceOptionsSchema = z.object({
   binance: z.custom<BinanceMarketService>().optional(),
   coinGecko: z.custom<CoinGeckoMarketService>().optional(),
   narratives: z.custom<TavilyMarketResearchService>().optional(),
+  llmClient: z.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
 });
 
 const average = (values: number[]) =>
@@ -92,11 +95,14 @@ export class MarketBiasAgentFactory {
 
   private readonly narratives: TavilyMarketResearchService;
 
+  private readonly llmClient: OpenAiCompatibleJsonClient | null;
+
   constructor(input: z.input<typeof marketBiasServiceOptionsSchema> = {}) {
     const parsed = marketBiasServiceOptionsSchema.parse(input);
     this.binance = parsed.binance ?? new BinanceMarketService();
     this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
     this.narratives = parsed.narratives ?? new TavilyMarketResearchService();
+    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("scanner");
   }
 
   createDefinition(): RuntimeNodeDefinition<
@@ -126,6 +132,16 @@ export class MarketBiasAgentFactory {
       this.collectSnapshots(state.config.marketUniverse),
       this.collectNarratives(state.config.marketUniverse),
     ]);
+
+    const llmResult = await this.analyzeWithModel({
+      snapshots,
+      narratives,
+      state,
+    });
+
+    if (llmResult !== null) {
+      return llmResult;
+    }
 
     return deriveMarketBias({
       ...parsed,
@@ -157,6 +173,56 @@ export class MarketBiasAgentFactory {
     }
 
     return Array.from(bySymbol.values());
+  }
+
+  private async analyzeWithModel(input: {
+    snapshots: MarketSnapshot[];
+    narratives: AssetNarrative[];
+    state: SwarmState;
+  }) {
+    if (this.llmClient === null) {
+      return null;
+    }
+
+    try {
+      return await this.llmClient.completeJson({
+        schema: marketBiasAgentOutputSchema,
+        systemPrompt: buildMarketBiasSystemPrompt({
+          universe: input.state.config.marketUniverse,
+          snapshotCount: input.snapshots.length,
+          narrativeCount: input.narratives.length,
+        }),
+        userPrompt: JSON.stringify(
+          {
+            marketUniverse: input.state.config.marketUniverse,
+            snapshots: input.snapshots.map((snapshot) => ({
+              symbol: snapshot.symbol,
+              price: snapshot.price,
+              change24hPercent: snapshot.change24hPercent,
+              volume24h: snapshot.volume24h,
+              fundingRate: snapshot.fundingRate,
+              openInterest: snapshot.openInterest,
+              capturedAt: snapshot.capturedAt,
+            })),
+            narratives: input.narratives.map((narrative) => ({
+              symbol: narrative.symbol,
+              title: narrative.title,
+              summary: narrative.summary,
+              sentiment: narrative.sentiment,
+              source: narrative.source,
+              sourceUrl: narrative.sourceUrl,
+              capturedAt: narrative.capturedAt,
+            })),
+            instruction:
+              "Determine one overall market bias for the next swarm cycle. Keep the reasoning compact but explicit about whether market and narrative signals aligned or conflicted.",
+          },
+          null,
+          2,
+        ),
+      });
+    } catch {
+      return null;
+    }
   }
 
   private async collectNarratives(universe: string[]): Promise<AssetNarrative[]> {

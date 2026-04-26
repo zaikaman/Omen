@@ -97,6 +97,36 @@ describe("scanner definitions", () => {
     expect(result.confidence).toBeGreaterThan(50);
   });
 
+  it("uses the scanner model path for market bias when a client is provided", async () => {
+    const agent = createMarketBiasAgent({
+      llmClient: {
+        completeJson: async () => ({
+          marketBias: "SHORT" as const,
+          reasoning:
+            "Majors weakened together and the supplied narrative set leaned risk-off.",
+          confidence: 77,
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+    const state = createInitialSwarmState({ run, config });
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        snapshots: [],
+        narratives: [],
+      },
+      state,
+    );
+
+    expect(result.marketBias).toBe("SHORT");
+    expect(result.reasoning).toContain("risk-off");
+  });
+
   it("selects at most three candidates aligned with the current market bias", async () => {
     const agent = createScannerAgent();
     const state = createInitialSwarmState({ run, config });
