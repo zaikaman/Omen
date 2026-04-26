@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createZeroGArtifactLink,
+  RunManifestBuilder,
   ZeroGClientAdapter,
   ZeroGLogStore,
   ZeroGNamespaceBuilder,
@@ -216,6 +217,111 @@ describe("zero-g adapter", () => {
 
     expect(bundle.manifestRefId).toBe("run-1:manifest");
     expect(bundle.artifactRefs).toHaveLength(2);
+  });
+
+  it("builds categorized run manifests and attaches a manifest artifact", () => {
+    const builder = new RunManifestBuilder();
+    const run = {
+      id: "run-1",
+      mode: "mocked" as const,
+      status: "completed" as const,
+      marketBias: "LONG" as const,
+      startedAt: "2026-04-25T08:00:00.000Z",
+      completedAt: "2026-04-25T08:10:00.000Z",
+      triggeredBy: "scheduler" as const,
+      activeCandidateCount: 1,
+      currentCheckpointRefId: "run-1:kv",
+      finalSignalId: "signal-1",
+      finalIntelId: null,
+      failureReason: null,
+      outcome: {
+        outcomeType: "signal" as const,
+        summary: "BTC approved",
+        signalId: "signal-1",
+        intelId: null,
+      },
+      configSnapshot: {},
+      createdAt: "2026-04-25T08:00:00.000Z",
+      updatedAt: "2026-04-25T08:10:00.000Z",
+    };
+    const manifest = builder.build({
+      environment: "testnet",
+      run,
+      artifacts: [
+        {
+          id: "run-1:kv",
+          runId: "run-1",
+          signalId: "signal-1",
+          intelId: null,
+          refType: "kv_state",
+          key: "omen/testnet/run/run/run-1/checkpoints/kv/latest",
+          locator: "https://storage.0g.ai/kv/run-1",
+          metadata: {},
+          compute: null,
+          createdAt: "2026-04-25T08:00:00.000Z",
+        },
+        {
+          id: "run-1:log",
+          runId: "run-1",
+          signalId: "signal-1",
+          intelId: null,
+          refType: "log_entry",
+          key: "omen/testnet/run/run/run-1/logs/runtime-trace",
+          locator: "https://storage.0g.ai/log/run-1",
+          metadata: {},
+          compute: null,
+          createdAt: "2026-04-25T08:01:00.000Z",
+        },
+        {
+          id: "run-1:report",
+          runId: "run-1",
+          signalId: "signal-1",
+          intelId: null,
+          refType: "compute_result",
+          key: null,
+          locator: "https://storage.0g.ai/compute/run-1",
+          metadata: {},
+          compute: {
+            provider: "0g",
+            model: "glm-5",
+            jobId: "job-1",
+            requestHash: "req-1",
+            responseHash: "res-1",
+            verificationMode: "tee",
+          },
+          createdAt: "2026-04-25T08:02:00.000Z",
+        },
+      ],
+    });
+    const manifestArtifact = builder.createManifestArtifact({
+      run,
+      uploadArtifact: {
+        id: "manifest-upload:file",
+        runId: "unbound",
+        signalId: null,
+        intelId: null,
+        refType: "file_artifact",
+        key: "omen/testnet/proof/run/run-1/signal/signal-1/run-manifests/files/manifest.json",
+        locator: "https://storage.0g.ai/files/manifest.json",
+        metadata: {
+          rootHashHint: "manifest.json:10",
+        },
+        compute: null,
+        createdAt: "2026-04-25T08:03:00.000Z",
+      },
+    });
+    const finalized = builder.build({
+      environment: "testnet",
+      run,
+      artifacts: manifest.relatedArtifacts.map((link) => link.artifact),
+      manifestArtifact,
+    });
+
+    expect(manifest.checkpoints).toHaveLength(1);
+    expect(manifest.logs).toHaveLength(1);
+    expect(manifest.computeProofs).toHaveLength(1);
+    expect(finalized.manifestArtifact?.artifact.refType).toBe("manifest");
+    expect(finalized.summary.artifactCount).toBe(4);
   });
 
   it("creates a chain proof artifact when anchoring is configured", async () => {

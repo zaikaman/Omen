@@ -4,6 +4,7 @@ export * from "./chain/proof-anchor.js";
 export * from "./compute/compute-adapter.js";
 export * from "./compute/zero-g-report-synthesis.js";
 export * from "./proofs/proof-registry.js";
+export * from "./proofs/run-manifest-builder.js";
 export * from "./proofs/proof-types.js";
 export * from "./storage/log-adapter.js";
 export * from "./storage/namespace.js";

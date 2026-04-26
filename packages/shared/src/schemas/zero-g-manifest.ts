@@ -121,21 +121,63 @@ export const zeroGManifestSummarySchema = z.object({
   artifactCount: z.number().int().min(0),
 });
 
-export const zeroGRunManifestSchema = z.object({
-  id: z.string().min(1),
-  runId: z.string().min(1),
-  version: z.literal(1),
-  namespace: zeroGNamespaceDescriptorSchema,
-  manifestArtifact: zeroGManifestArtifactLinkSchema.nullable(),
-  checkpoints: z.array(zeroGMutableStateLinkSchema).default([]),
-  logs: z.array(zeroGImmutableLogLinkSchema).default([]),
-  files: z.array(zeroGFileBundleLinkSchema).default([]),
-  computeProofs: z.array(zeroGComputeProofLinkSchema).default([]),
-  chainAnchors: z.array(zeroGChainAnchorLinkSchema).default([]),
-  relatedArtifacts: z.array(zeroGArtifactLinkSchema).default([]),
-  summary: zeroGManifestSummarySchema,
-  createdAt: z.string().datetime(),
-});
+export const zeroGRunManifestSchema = z
+  .object({
+    id: z.string().min(1),
+    runId: z.string().min(1),
+    version: z.literal(1),
+    namespace: zeroGNamespaceDescriptorSchema,
+    manifestArtifact: zeroGManifestArtifactLinkSchema.nullable(),
+    checkpoints: z.array(zeroGMutableStateLinkSchema).default([]),
+    logs: z.array(zeroGImmutableLogLinkSchema).default([]),
+    files: z.array(zeroGFileBundleLinkSchema).default([]),
+    computeProofs: z.array(zeroGComputeProofLinkSchema).default([]),
+    chainAnchors: z.array(zeroGChainAnchorLinkSchema).default([]),
+    relatedArtifacts: z.array(zeroGArtifactLinkSchema).default([]),
+    summary: zeroGManifestSummarySchema,
+    createdAt: z.string().datetime(),
+  })
+  .superRefine((manifest, ctx) => {
+    const expectedArtifactCount =
+      manifest.checkpoints.length +
+      manifest.logs.length +
+      manifest.files.length +
+      manifest.computeProofs.length +
+      manifest.chainAnchors.length +
+      (manifest.manifestArtifact ? 1 : 0);
+
+    if (manifest.namespace.scope !== "proof") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Run manifests must live under the 0G proof namespace.",
+        path: ["namespace", "scope"],
+      });
+    }
+
+    if (manifest.namespace.runId !== manifest.runId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Manifest namespace runId must match the manifest runId.",
+        path: ["namespace", "runId"],
+      });
+    }
+
+    if (manifest.summary.checkpointCount !== manifest.checkpoints.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Manifest checkpointCount must match the number of checkpoint links.",
+        path: ["summary", "checkpointCount"],
+      });
+    }
+
+    if (manifest.summary.artifactCount !== expectedArtifactCount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Manifest artifactCount must match the number of categorized artifacts.",
+        path: ["summary", "artifactCount"],
+      });
+    }
+  });
 
 export type ZeroGNamespaceScope = z.infer<typeof zeroGNamespaceScopeSchema>;
 export type ZeroGNamespaceDescriptor = z.infer<
