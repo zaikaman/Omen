@@ -43,6 +43,7 @@ export type BackendEnv = {
     computeApiKey: string | null;
     privateKey: string | null;
     flowContractAddress: string | null;
+    checkpointPublishingEnabled: boolean;
     logUploadsEnabled: boolean;
     finalFileUploadsEnabled: boolean;
   };
@@ -211,6 +212,10 @@ export const createBackendEnv = (
       computeApiKey: env.ZERO_G_COMPUTE_API_KEY ?? null,
       privateKey: env.ZERO_G_PRIVATE_KEY ?? null,
       flowContractAddress: env.ZERO_G_FLOW_CONTRACT_ADDRESS ?? null,
+      checkpointPublishingEnabled: parseBoolean(
+        env.ZERO_G_CHECKPOINT_PUBLISHING_ENABLED,
+        false,
+      ),
       logUploadsEnabled: parseBoolean(
         env.ZERO_G_LOG_UPLOADS_ENABLED,
         false,

@@ -17,7 +17,10 @@ import {
   createSupabaseServiceRoleClient,
 } from "@omen/db";
 import {
+  ZeroGLogStore,
+  ZeroGStateStore,
   type ZeroGAdapterConfig,
+  ZeroGClientAdapter,
 } from "@omen/zero-g";
 import type {
   AgentEvent,
@@ -434,6 +437,10 @@ class LivePipelineExecutionContext {
 
   private readonly zeroGPublisher: ZeroGPublisher | null;
 
+  private readonly zeroGStateStore: ZeroGStateStore | null;
+
+  private readonly zeroGLogStore: ZeroGLogStore | null;
+
   private readonly evidenceBundlePublisher: EvidenceBundlePublisher | null;
 
   private readonly reportBundlePublisher: ReportBundlePublisher | null;
@@ -500,11 +507,16 @@ class LivePipelineExecutionContext {
     const zeroGConfig = buildZeroGAdapterConfig(input.env);
 
     if (zeroGConfig) {
+      const adapter = new ZeroGClientAdapter(zeroGConfig);
+      this.zeroGStateStore = new ZeroGStateStore(adapter);
+      this.zeroGLogStore = new ZeroGLogStore(adapter);
       this.zeroGPublisher = new ZeroGPublisher(zeroGConfig);
       this.evidenceBundlePublisher = new EvidenceBundlePublisher(zeroGConfig);
       this.reportBundlePublisher = new ReportBundlePublisher(zeroGConfig);
       this.runManifestPublisher = new RunManifestPublisher(zeroGConfig);
     } else {
+      this.zeroGStateStore = null;
+      this.zeroGLogStore = null;
       this.zeroGPublisher = null;
       this.evidenceBundlePublisher = null;
       this.reportBundlePublisher = null;
@@ -555,6 +567,27 @@ class LivePipelineExecutionContext {
     const stepSummary = summarizeCheckpoint(checkpoint);
     const peerId = this.resolvePeerIdForStep(checkpoint.step);
     const linkedRecordIds = toPersistableLinkedRecordIds();
+
+    if (
+      this.input.env.zeroG.checkpointPublishingEnabled &&
+      this.zeroGStateStore
+    ) {
+      const checkpointArtifact = await this.safePublishCheckpointState(persisted);
+
+      persisted.durableRef = checkpointArtifact;
+      persisted.state = {
+        ...persisted.state,
+        run: {
+          ...persisted.state.run,
+          currentCheckpointRefId: checkpointArtifact.id,
+        },
+        latestCheckpointRefId: checkpointArtifact.id,
+      };
+
+      if (this.input.env.zeroG.logUploadsEnabled && this.zeroGLogStore) {
+        await this.safeAppendCheckpointLog(persisted, stepSummary);
+      }
+    }
 
     if (this.eventPublisher) {
       await this.safePublishNodeStatus(
@@ -924,6 +957,71 @@ class LivePipelineExecutionContext {
     } catch {
       return [];
     }
+  }
+
+  private async safePublishCheckpointState(checkpoint: SwarmCheckpoint) {
+    if (!this.zeroGStateStore) {
+      throw new Error("0G checkpoint storage is not configured.");
+    }
+
+    const artifact = await this.zeroGStateStore.writeRunCheckpoint({
+      environment: this.environment,
+      runId: checkpoint.runId,
+      checkpointLabel: checkpoint.step,
+      state: checkpoint.state,
+      signalId: null,
+      intelId: null,
+      metadata: {
+        checkpointId: checkpoint.checkpointId,
+        threadId: checkpoint.threadId,
+      },
+    });
+
+    if (!artifact.ok) {
+      throw new Error(
+        `Failed to publish 0G checkpoint state for ${checkpoint.step}: ${artifact.error.message}`,
+      );
+    }
+
+    await this.safeRecordArtifact(artifact.value);
+    return artifact.value;
+  }
+
+  private async safeAppendCheckpointLog(
+    checkpoint: SwarmCheckpoint,
+    summary: string,
+  ) {
+    if (!this.zeroGLogStore) {
+      throw new Error("0G checkpoint log storage is not configured.");
+    }
+
+    const artifact = await this.zeroGLogStore.appendRunLog({
+      environment: this.environment,
+      runId: checkpoint.runId,
+      stream: checkpoint.step,
+      content: [
+        summary,
+        JSON.stringify({
+          checkpointId: checkpoint.checkpointId,
+          step: checkpoint.step,
+          stateDelta: checkpoint.stateDelta,
+        }),
+      ],
+      signalId: null,
+      intelId: null,
+      metadata: {
+        checkpointId: checkpoint.checkpointId,
+      },
+    });
+
+    if (!artifact.ok) {
+      throw new Error(
+        `Failed to publish 0G checkpoint log for ${checkpoint.step}: ${artifact.error.message}`,
+      );
+    }
+
+    await this.safeRecordArtifact(artifact.value);
+    return artifact.value;
   }
 
   private async safeRecordArtifact(artifact: ProofArtifact) {
