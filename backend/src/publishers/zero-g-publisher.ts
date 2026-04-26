@@ -10,7 +10,7 @@ import type { ProofArtifact } from "@omen/shared";
 
 export type ZeroGPublisherResult = {
   checkpointArtifact: ProofArtifact;
-  logArtifact: ProofArtifact;
+  logArtifact: ProofArtifact | null;
   computeArtifact: ProofArtifact | null;
   computeOutput: string | null;
   artifacts: ProofArtifact[];
@@ -35,6 +35,7 @@ export class ZeroGPublisher {
     state: SwarmState;
     checkpointLabel: string;
     logStream?: string;
+    logUploadsEnabled?: boolean;
     reportPrompt?: string | null;
   }): Promise<ZeroGPublisherResult> {
     const checkpointArtifact = await this.requireArtifact(
@@ -50,20 +51,27 @@ export class ZeroGPublisher {
         },
       }),
     );
-    const logArtifact = await this.requireArtifact(
-      this.logStore.appendRunLog({
-        environment: input.environment,
-        runId: input.state.run.id,
-        stream: input.logStream ?? "runtime-trace",
-        content: input.state.notes.length > 0 ? input.state.notes : ["run-completed"],
-        signalId: input.state.run.finalSignalId,
-        intelId: input.state.run.finalIntelId,
-        metadata: {
-          noteCount: input.state.notes.length,
-          errorCount: input.state.errors.length,
-        },
-      }),
-    );
+    const logArtifact = input.logUploadsEnabled
+      ? await this.requireArtifact(
+          this.logStore.appendRunLog({
+            environment: input.environment,
+            runId: input.state.run.id,
+            stream: input.logStream ?? "runtime-trace",
+            content:
+              input.state.notes.length > 0 ? input.state.notes : ["run-completed"],
+            signalId: input.state.run.finalSignalId,
+            intelId: input.state.run.finalIntelId,
+            metadata: {
+              noteCount: input.state.notes.length,
+              errorCount: input.state.errors.length,
+            },
+          }),
+        )
+      : null;
+    const baseArtifacts =
+      logArtifact === null
+        ? [checkpointArtifact]
+        : [checkpointArtifact, logArtifact];
 
     if (!input.reportPrompt) {
       return {
@@ -71,7 +79,7 @@ export class ZeroGPublisher {
         logArtifact,
         computeArtifact: null,
         computeOutput: null,
-        artifacts: [checkpointArtifact, logArtifact],
+        artifacts: baseArtifacts,
       };
     }
 
@@ -86,7 +94,13 @@ export class ZeroGPublisher {
     });
 
     if (!computeResult.ok) {
-      throw computeResult.error;
+      return {
+        checkpointArtifact,
+        logArtifact,
+        computeArtifact: null,
+        computeOutput: null,
+        artifacts: baseArtifacts,
+      };
     }
 
     return {
@@ -94,7 +108,7 @@ export class ZeroGPublisher {
       logArtifact,
       computeArtifact: computeResult.value.artifact,
       computeOutput: computeResult.value.output,
-      artifacts: [checkpointArtifact, logArtifact, computeResult.value.artifact],
+      artifacts: [...baseArtifacts, computeResult.value.artifact],
     };
   }
 

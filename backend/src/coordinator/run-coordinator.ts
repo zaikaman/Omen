@@ -42,13 +42,20 @@ export class DefaultRunCoordinator implements RunCoordinator {
       `Run coordinator starting ${request.runId} from ${request.trigger} in ${request.mode.label} mode.`,
     );
 
-    const result = await this.input.pipeline.run(request);
+    try {
+      const result = await this.input.pipeline.run(request);
 
-    this.input.logger.info(
-      `Run coordinator completed ${request.runId} with ${result.outcomeType} after ${result.checkpointCount.toString()} checkpoints.`,
-    );
+      this.input.logger.info(
+        `Run coordinator completed ${request.runId} with ${result.outcomeType} after ${result.checkpointCount.toString()} checkpoints.`,
+      );
 
-    return result;
+      return result;
+    } catch (error) {
+      this.input.logger.error(
+        `Run coordinator failed ${request.runId}: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+      throw error;
+    }
   }
 }
 

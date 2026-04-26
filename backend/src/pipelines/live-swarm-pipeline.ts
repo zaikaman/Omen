@@ -17,9 +17,6 @@ import {
   createSupabaseServiceRoleClient,
 } from "@omen/db";
 import {
-  ZeroGClientAdapter,
-  ZeroGLogStore,
-  ZeroGStateStore,
   type ZeroGAdapterConfig,
 } from "@omen/zero-g";
 import type {
@@ -127,20 +124,20 @@ const buildZeroGAdapterConfig = (
       flowContractAddress: env.zeroG.flowContractAddress ?? undefined,
       expectedReplica: 1,
       namespaceSeed: "omen-zero-g-kv-v1",
-      requestTimeoutMs: 10_000,
+      requestTimeoutMs: 60_000,
     },
     log: {
       baseUrl: env.zeroG.indexerUrl,
       evmRpcUrl: env.zeroG.rpcUrl ?? undefined,
       privateKey: env.zeroG.privateKey ?? undefined,
       expectedReplica: 1,
-      requestTimeoutMs: 10_000,
+      requestTimeoutMs: 60_000,
     },
     compute: env.zeroG.computeUrl
       ? {
           baseUrl: env.zeroG.computeUrl,
           apiKey: env.zeroG.computeApiKey ?? undefined,
-          requestTimeoutMs: 20_000,
+          requestTimeoutMs: 60_000,
         }
       : undefined,
   };
@@ -435,10 +432,6 @@ class LivePipelineExecutionContext {
 
   private readonly axlAdapter: AxlHttpNodeAdapter | null;
 
-  private readonly zeroGStateStore: ZeroGStateStore | null;
-
-  private readonly zeroGLogStore: ZeroGLogStore | null;
-
   private readonly zeroGPublisher: ZeroGPublisher | null;
 
   private readonly evidenceBundlePublisher: EvidenceBundlePublisher | null;
@@ -507,16 +500,11 @@ class LivePipelineExecutionContext {
     const zeroGConfig = buildZeroGAdapterConfig(input.env);
 
     if (zeroGConfig) {
-      const adapter = new ZeroGClientAdapter(zeroGConfig);
-      this.zeroGStateStore = new ZeroGStateStore(adapter);
-      this.zeroGLogStore = new ZeroGLogStore(adapter);
       this.zeroGPublisher = new ZeroGPublisher(zeroGConfig);
       this.evidenceBundlePublisher = new EvidenceBundlePublisher(zeroGConfig);
       this.reportBundlePublisher = new ReportBundlePublisher(zeroGConfig);
       this.runManifestPublisher = new RunManifestPublisher(zeroGConfig);
     } else {
-      this.zeroGStateStore = null;
-      this.zeroGLogStore = null;
       this.zeroGPublisher = null;
       this.evidenceBundlePublisher = null;
       this.reportBundlePublisher = null;
@@ -567,24 +555,6 @@ class LivePipelineExecutionContext {
     const stepSummary = summarizeCheckpoint(checkpoint);
     const peerId = this.resolvePeerIdForStep(checkpoint.step);
     const linkedRecordIds = toPersistableLinkedRecordIds();
-
-    if (this.zeroGStateStore && this.zeroGLogStore) {
-      const checkpointArtifact = await this.safePublishCheckpointState(persisted);
-
-      if (checkpointArtifact) {
-        persisted.durableRef = checkpointArtifact;
-        persisted.state = {
-          ...persisted.state,
-          run: {
-            ...persisted.state.run,
-            currentCheckpointRefId: checkpointArtifact.id,
-          },
-          latestCheckpointRefId: checkpointArtifact.id,
-        };
-      }
-
-      await this.safeAppendCheckpointLog(persisted, stepSummary);
-    }
 
     if (this.eventPublisher) {
       await this.safePublishNodeStatus(
@@ -669,8 +639,49 @@ class LivePipelineExecutionContext {
     return persisted;
   }
 
+  async failRun(input: {
+    fallbackRun: SwarmState["run"];
+    checkpointStore: SwarmCheckpointStore;
+    error: Error;
+  }) {
+    const checkpoints = await input.checkpointStore.listByRun(input.fallbackRun.id);
+    const latestCheckpoint = checkpoints.at(-1) ?? null;
+    const latestRun = latestCheckpoint?.state.run ?? input.fallbackRun;
+    const timestamp = new Date().toISOString();
+    const failedRun = this.toPersistableRun({
+      ...latestRun,
+      status: "failed",
+      completedAt: timestamp,
+      updatedAt: timestamp,
+      failureReason: input.error.message,
+      outcome: {
+        outcomeType: "failed",
+        summary: input.error.message,
+        signalId: null,
+        intelId: null,
+      },
+    });
+
+    await this.safePersistRun(failedRun);
+
+    if (this.eventPublisher) {
+      await this.safePublishEvent(
+        createRunLifecycleEvent({
+          runId: failedRun.id,
+          timestamp,
+          summary: `Live swarm run failed: ${input.error.message}`,
+          status: "error",
+          payload: {
+            finalStatus: failedRun.status,
+            failureReason: failedRun.failureReason,
+          },
+        }),
+      );
+    }
+  }
+
   async finalizeRun(finalState: SwarmState) {
-    const persistedRun = this.toPersistableRun(finalState.run);
+    let persistedRun = this.toPersistableRun(finalState.run);
     await this.safePersistRun(persistedRun);
 
     if (this.zeroGPublisher) {
@@ -678,6 +689,19 @@ class LivePipelineExecutionContext {
         ...finalState,
         run: persistedRun,
       });
+
+      const finalCheckpointArtifact = [...zeroGArtifacts]
+        .reverse()
+        .find((artifact) => artifact.refType === "kv_state");
+
+      if (finalCheckpointArtifact) {
+        persistedRun = {
+          ...persistedRun,
+          currentCheckpointRefId: finalCheckpointArtifact.id,
+          updatedAt: new Date().toISOString(),
+        };
+        await this.safePersistRun(persistedRun);
+      }
 
       if (zeroGArtifacts.length > 0 && this.eventPublisher) {
         await this.safePublishEvent(
@@ -832,67 +856,6 @@ class LivePipelineExecutionContext {
     return { ok: true as const, value: response.value };
   }
 
-  private async safePublishCheckpointState(checkpoint: SwarmCheckpoint) {
-    if (!this.zeroGStateStore) {
-      return null;
-    }
-
-    const artifact = await this.zeroGStateStore.writeRunCheckpoint({
-      environment: this.environment,
-      runId: checkpoint.runId,
-      checkpointLabel: checkpoint.step,
-      state: checkpoint.state,
-      signalId: null,
-      intelId: null,
-      metadata: {
-        checkpointId: checkpoint.checkpointId,
-        threadId: checkpoint.threadId,
-      },
-    });
-
-    if (!artifact.ok) {
-      return null;
-    }
-
-    await this.safeRecordArtifact(artifact.value);
-    return artifact.value;
-  }
-
-  private async safeAppendCheckpointLog(
-    checkpoint: SwarmCheckpoint,
-    summary: string,
-  ) {
-    if (!this.zeroGLogStore) {
-      return null;
-    }
-
-    const artifact = await this.zeroGLogStore.appendRunLog({
-      environment: this.environment,
-      runId: checkpoint.runId,
-      stream: checkpoint.step,
-      content: [
-        summary,
-        JSON.stringify({
-          checkpointId: checkpoint.checkpointId,
-          step: checkpoint.step,
-          stateDelta: checkpoint.stateDelta,
-        }),
-      ],
-      signalId: null,
-      intelId: null,
-      metadata: {
-        checkpointId: checkpoint.checkpointId,
-      },
-    });
-
-    if (!artifact.ok) {
-      return null;
-    }
-
-    await this.safeRecordArtifact(artifact.value);
-    return artifact.value;
-  }
-
   private async safePublishFinalArtifacts(finalState: SwarmState) {
     if (
       !this.zeroGPublisher ||
@@ -914,8 +877,18 @@ class LivePipelineExecutionContext {
         environment: this.environment,
         state: finalState,
         checkpointLabel: "final",
+        logUploadsEnabled: this.input.env.zeroG.logUploadsEnabled,
         reportPrompt: hasZeroGComputeConfig(this.input.env) ? reportPrompt : null,
       });
+
+      for (const artifact of runArtifacts.artifacts) {
+        await this.safeRecordArtifact(artifact);
+      }
+
+      if (!this.input.env.zeroG.finalFileUploadsEnabled) {
+        return runArtifacts.artifacts;
+      }
+
       const evidenceArtifacts = await this.evidenceBundlePublisher.publish({
         environment: this.environment,
         state: finalState,
@@ -938,7 +911,6 @@ class LivePipelineExecutionContext {
         ],
       });
       const artifacts = [
-        ...runArtifacts.artifacts,
         ...evidenceArtifacts.artifacts,
         ...reportArtifacts.artifacts,
         manifestArtifacts.manifestArtifact,
@@ -948,7 +920,7 @@ class LivePipelineExecutionContext {
         await this.safeRecordArtifact(artifact);
       }
 
-      return artifacts;
+      return [...runArtifacts.artifacts, ...artifacts];
     } catch {
       return [];
     }
@@ -1125,27 +1097,39 @@ export class DefaultLiveSwarmRunPipeline implements LiveSwarmPipeline {
       checkpointStore,
       runtimeName: this.input.runtimeName ?? "backend-live-swarm-pipeline",
     });
-    const finalState = await runtime.invoke({
-      threadId: `${request.runId}:thread`,
-      initialState,
-    });
+    try {
+      const finalState = await runtime.invoke({
+        threadId: `${request.runId}:thread`,
+        initialState,
+      });
 
-    await executionContext.finalizeRun(finalState);
+      await executionContext.finalizeRun(finalState);
 
-    const checkpoints = await checkpointStore.listByRun(request.runId);
-    const outcome = finalState.run.outcome ?? {
-      outcomeType: "no_conviction" as const,
-      summary: "The swarm completed without a persisted outcome.",
-      signalId: null,
-      intelId: null,
-    };
+      const checkpoints = await checkpointStore.listByRun(request.runId);
+      const outcome = finalState.run.outcome ?? {
+        outcomeType: "no_conviction" as const,
+        summary: "The swarm completed without a persisted outcome.",
+        signalId: null,
+        intelId: null,
+      };
 
-    return {
-      runId: request.runId,
-      completedAt: finalState.run.completedAt ?? new Date().toISOString(),
-      checkpointCount: checkpoints.length,
-      outcomeType: outcome.outcomeType,
-      finalState,
-    };
+      return {
+        runId: request.runId,
+        completedAt: finalState.run.completedAt ?? new Date().toISOString(),
+        checkpointCount: checkpoints.length,
+        outcomeType: outcome.outcomeType,
+        finalState,
+      };
+    } catch (error) {
+      await executionContext.failRun({
+        fallbackRun: initialState.run,
+        checkpointStore,
+        error:
+          error instanceof Error
+            ? error
+            : new Error("Live swarm pipeline failed."),
+      });
+      throw error;
+    }
   }
 }

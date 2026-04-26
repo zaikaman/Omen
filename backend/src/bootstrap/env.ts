@@ -43,6 +43,8 @@ export type BackendEnv = {
     computeApiKey: string | null;
     privateKey: string | null;
     flowContractAddress: string | null;
+    logUploadsEnabled: boolean;
+    finalFileUploadsEnabled: boolean;
   };
   providers: {
     openaiApiKey: string | null;
@@ -209,6 +211,14 @@ export const createBackendEnv = (
       computeApiKey: env.ZERO_G_COMPUTE_API_KEY ?? null,
       privateKey: env.ZERO_G_PRIVATE_KEY ?? null,
       flowContractAddress: env.ZERO_G_FLOW_CONTRACT_ADDRESS ?? null,
+      logUploadsEnabled: parseBoolean(
+        env.ZERO_G_LOG_UPLOADS_ENABLED,
+        false,
+      ),
+      finalFileUploadsEnabled: parseBoolean(
+        env.ZERO_G_FINAL_FILE_UPLOADS_ENABLED,
+        false,
+      ),
     },
     providers: {
       openaiApiKey: env.OPENAI_API_KEY ?? null,
