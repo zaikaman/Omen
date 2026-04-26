@@ -16,12 +16,20 @@ import {
   type EvidenceItem,
   type SwarmState,
 } from "../framework/state.js";
+import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
 import { buildResearchSystemPrompt } from "../prompts/research/system.js";
 
 const researchServiceOptionsSchema = z.object({
   marketData: z.custom<BinanceMarketService>().optional(),
   protocolData: z.custom<DefiLlamaMarketService>().optional(),
   narratives: z.custom<TavilyMarketResearchService>().optional(),
+  llmClient: z.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
+});
+
+const researchSynthesisSchema = z.object({
+  evidence: z.array(evidenceItemSchema).min(1),
+  narrativeSummary: z.string().min(1),
+  missingDataNotes: z.array(z.string().min(1)).default([]),
 });
 
 const normalizeSourceLabel = (input: string) =>
@@ -117,11 +125,14 @@ export class ResearchAgentFactory {
 
   private readonly narratives: TavilyMarketResearchService;
 
+  private readonly llmClient: OpenAiCompatibleJsonClient | null;
+
   constructor(input: z.input<typeof researchServiceOptionsSchema> = {}) {
     const parsed = researchServiceOptionsSchema.parse(input);
     this.marketData = parsed.marketData ?? new BinanceMarketService();
     this.protocolData = parsed.protocolData ?? new DefiLlamaMarketService();
     this.narratives = parsed.narratives ?? new TavilyMarketResearchService();
+    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("scanner");
   }
 
   createDefinition(): RuntimeNodeDefinition<
@@ -194,6 +205,50 @@ export class ResearchAgentFactory {
       directionHint: parsed.candidate.directionHint,
     });
 
+    const synthesized = await this.synthesizeResearch({
+      candidate: parsed.candidate,
+      prompt,
+      state,
+      snapshot: snapshotResult.ok
+        ? {
+            symbol: snapshotResult.value.symbol,
+            price: snapshotResult.value.price,
+            change24hPercent: snapshotResult.value.change24hPercent,
+            volume24h: snapshotResult.value.volume24h,
+            fundingRate: snapshotResult.value.fundingRate,
+            openInterest: snapshotResult.value.openInterest,
+            capturedAt: snapshotResult.value.capturedAt,
+          }
+        : null,
+      protocolSnapshot: protocolResult.ok ? protocolResult.value : null,
+      narratives: narrativeBundleResult.ok
+        ? [
+            ...narrativeBundleResult.value.narratives,
+            ...narrativeBundleResult.value.macroContext,
+          ]
+        : [],
+      evidence,
+      narrativeSummary,
+      missingDataNotes,
+    });
+
+    if (synthesized !== null) {
+      evidence.splice(
+        0,
+        evidence.length,
+        ...synthesized.evidence.map((item) => evidenceItemSchema.parse(item)),
+      );
+      narrativeSummary = synthesized.narrativeSummary;
+
+      if ((synthesized.missingDataNotes ?? []).length > 0) {
+        missingDataNotes.splice(
+          0,
+          missingDataNotes.length,
+          ...(synthesized.missingDataNotes ?? []),
+        );
+      }
+    }
+
     if (evidence.length === 0) {
       evidence.push(
         evidenceItemSchema.parse({
@@ -224,6 +279,54 @@ export class ResearchAgentFactory {
       narrativeSummary,
       missingDataNotes,
     });
+  }
+
+  private async synthesizeResearch(input: {
+    candidate: CandidateState;
+    prompt: string;
+    state: SwarmState;
+    snapshot: Record<string, unknown> | null;
+    protocolSnapshot: ProtocolSnapshot | null;
+    narratives: AssetNarrative[];
+    evidence: EvidenceItem[];
+    narrativeSummary: string;
+    missingDataNotes: string[];
+  }) {
+    if (this.llmClient === null || input.evidence.length === 0) {
+      return null;
+    }
+
+    try {
+      const response = await this.llmClient.completeJson({
+        schema: researchSynthesisSchema,
+        systemPrompt: input.prompt,
+        userPrompt: JSON.stringify(
+          {
+            candidate: input.candidate,
+            marketBiasReasoning: input.state.marketBiasReasoning,
+            snapshot: input.snapshot,
+            protocolSnapshot: input.protocolSnapshot,
+            narratives: input.narratives,
+            preliminaryEvidence: input.evidence,
+            preliminaryNarrativeSummary: input.narrativeSummary,
+            missingDataNotes: input.missingDataNotes,
+            instruction: [
+              "Rewrite the supplied raw research into a cleaner analyst-ready bundle.",
+              "Use only the facts provided in the input.",
+              "Do not invent extra sources, catalysts, numbers, or claims.",
+              "Preserve contradiction and uncertainty when present.",
+              "Keep evidence concise, factual, and independently readable.",
+            ].join(" "),
+          },
+          null,
+          2,
+        ),
+      });
+
+      return researchSynthesisSchema.parse(response);
+    } catch {
+      return null;
+    }
   }
 }
 

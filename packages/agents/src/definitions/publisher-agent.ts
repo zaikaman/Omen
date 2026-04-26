@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { z as zod } from "zod";
 
 import { publisherInputSchema, publisherOutputSchema } from "../contracts/publisher.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
@@ -8,7 +9,25 @@ import type {
   SwarmState,
   ThesisDraft,
 } from "../framework/state.js";
+import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
 import { buildPublisherSystemPrompt } from "../prompts/publisher/system.js";
+
+const publisherAgentOptionsSchema = zod.object({
+  llmClient: zod.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
+});
+
+const publisherDraftRewriteSchema = zod.object({
+  drafts: zod
+    .array(
+      zod.object({
+        kind: zod.enum(["signal_alert", "intel_summary", "intel_thread", "no_conviction"]),
+        headline: zod.string().min(1),
+        summary: zod.string().min(1),
+        text: zod.string().min(1),
+      }),
+    )
+    .min(1),
+});
 
 const buildSignalAlertDraft = (
   thesis: ThesisDraft,
@@ -177,16 +196,119 @@ export const derivePublisherPacket = (input: z.input<typeof publisherInputSchema
   });
 };
 
-export const createPublisherAgent = (): RuntimeNodeDefinition<
-  z.input<typeof publisherInputSchema>,
-  z.input<typeof publisherOutputSchema>
-> => ({
-  key: "publisher-agent",
-  role: "publisher",
-  inputSchema: publisherInputSchema,
-  outputSchema: publisherOutputSchema,
-  async invoke(input: z.input<typeof publisherInputSchema>, state: SwarmState) {
+const mergeRewrittenDrafts = (input: {
+  baseDrafts: PublisherDraft[];
+  rewrittenDrafts: Array<{
+    kind: PublisherDraft["kind"];
+    headline: string;
+    summary: string;
+    text: string;
+  }>;
+}) =>
+  input.baseDrafts.map((draft, index) => {
+    const rewritten = input.rewrittenDrafts[index];
+
+    if (!rewritten || rewritten.kind !== draft.kind) {
+      return draft;
+    }
+
+    return {
+      ...draft,
+      headline: rewritten.headline,
+      summary: rewritten.summary,
+      text: rewritten.text,
+    } satisfies PublisherDraft;
+  });
+
+export class PublisherAgentFactory {
+  private readonly llmClient: OpenAiCompatibleJsonClient | null;
+
+  constructor(input: zod.input<typeof publisherAgentOptionsSchema> = {}) {
+    const parsed = publisherAgentOptionsSchema.parse(input);
+    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("reasoning");
+  }
+
+  createDefinition(): RuntimeNodeDefinition<
+    z.input<typeof publisherInputSchema>,
+    z.input<typeof publisherOutputSchema>
+  > {
+    return {
+      key: "publisher-agent",
+      role: "publisher",
+      inputSchema: publisherInputSchema,
+      outputSchema: publisherOutputSchema,
+      invoke: async (input, state) => this.publish(input, state),
+    };
+  }
+
+  private async publish(
+    input: z.input<typeof publisherInputSchema>,
+    state: SwarmState,
+  ) {
     void state;
-    return derivePublisherPacket(input);
-  },
-});
+    const basePacket = derivePublisherPacket(input);
+
+    if (this.llmClient === null || basePacket.drafts.length === 0) {
+      return basePacket;
+    }
+
+    const parsed = publisherInputSchema.parse(input);
+    const prompt = buildPublisherSystemPrompt({
+      runId: parsed.context.runId,
+      hasThesis: parsed.thesis !== null,
+      reviewDecision: parsed.review?.decision ?? null,
+      hasIntelSummary: parsed.intelSummary !== null,
+    });
+
+    try {
+      const rewritten = await this.llmClient.completeJson({
+        schema: publisherDraftRewriteSchema,
+        systemPrompt: prompt,
+        userPrompt: JSON.stringify(
+          {
+            outcome: basePacket.outcome,
+            thesis: parsed.thesis,
+            review: parsed.review,
+            intelSummary: parsed.intelSummary,
+            drafts: basePacket.drafts.map((draft) => ({
+              kind: draft.kind,
+              headline: draft.headline,
+              summary: draft.summary,
+              text: draft.text,
+            })),
+            instruction: [
+              "Rewrite the supplied public-facing drafts to sound sharper and more readable.",
+              "Do not change the decision, direction, or factual claims.",
+              "Do not add new metrics, prices, catalysts, or promises.",
+              "Keep the same draft kinds and the same number of drafts.",
+            ].join(" "),
+          },
+          null,
+          2,
+        ),
+      });
+      const drafts = mergeRewrittenDrafts({
+        baseDrafts: basePacket.drafts,
+        rewrittenDrafts: rewritten.drafts,
+      });
+
+      return publisherOutputSchema.parse({
+        ...basePacket,
+        drafts,
+        packet:
+          basePacket.packet === null
+            ? null
+            : {
+                ...basePacket.packet,
+                drafts,
+              },
+      });
+    } catch {
+      return basePacket;
+    }
+  }
+}
+
+export const createPublisherAgent = (
+  input: zod.input<typeof publisherAgentOptionsSchema> = {},
+) => new PublisherAgentFactory(input).createDefinition();

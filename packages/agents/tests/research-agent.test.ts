@@ -1,3 +1,5 @@
+import type { BinanceMarketService, DefiLlamaMarketService, TavilyMarketResearchService } from "@omen/market-data";
+import type { OpenAiCompatibleJsonClient } from "../src/llm/openai-compatible-client.js";
 import { describe, expect, it } from "vitest";
 
 import { createInitialSwarmState, createResearchAgent } from "../src/index.js";
@@ -83,5 +85,118 @@ describe("research agent", () => {
         ["market", "fundamental", "sentiment", "catalyst"].includes(item.category),
       ),
     ).toBe(true);
+  });
+
+  it("uses the model-backed synthesis path when a client is provided", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createResearchAgent({
+      marketData: {
+        getSnapshot: async () => ({
+          ok: true,
+          value: {
+            symbol: "BTC",
+            provider: "binance",
+            price: 102345,
+            change24hPercent: 4.2,
+            volume24h: 123456789,
+            fundingRate: 0.01,
+            openInterest: 555000000,
+            candles: [],
+            capturedAt: "2026-04-25T08:00:00.000Z",
+          },
+        }),
+      } as unknown as BinanceMarketService,
+      protocolData: {
+        getProtocolSnapshot: async () => ({
+          ok: true,
+          value: {
+            protocol: "Bitcoin",
+            chain: "bitcoin",
+            category: "store-of-value",
+            tvlUsd: 900000000,
+            tvlChange1dPercent: 1.2,
+            tvlChange7dPercent: 5.4,
+            sourceUrl: "https://defillama.com/protocol/bitcoin",
+            capturedAt: "2026-04-25T08:00:00.000Z",
+          },
+        }),
+      } as unknown as DefiLlamaMarketService,
+      narratives: {
+        getSymbolResearchBundle: async () => ({
+          ok: true,
+          value: {
+            symbol: "BTC",
+            narratives: [
+              {
+                symbol: "BTC",
+                title: "ETF inflows stay firm",
+                summary: "Spot-led demand remained constructive through the session.",
+                sentiment: "bullish",
+                source: "news",
+                sourceUrl: "https://example.com/etf-flows",
+                capturedAt: "2026-04-25T08:00:00.000Z",
+              },
+            ],
+            macroContext: [],
+          },
+        }),
+      } as unknown as TavilyMarketResearchService,
+      llmClient: {
+        completeJson: async () => ({
+          evidence: [
+            {
+              category: "market" as const,
+              summary: "BTC outperformed the local major set with positive spot momentum and stable funding.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: {
+                symbol: "BTC",
+              },
+            },
+            {
+              category: "sentiment" as const,
+              summary: "ETF-flow headlines kept the tone constructive rather than euphoric.",
+              sourceLabel: "News",
+              sourceUrl: "https://example.com/etf-flows",
+              structuredData: {
+                symbol: "BTC",
+              },
+            },
+          ],
+          narrativeSummary:
+            "BTC remained market-led, with spot strength confirmed by steady bullish flow headlines.",
+          missingDataNotes: [],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        candidate: {
+          id: "candidate-btc-1",
+          symbol: "BTC",
+          reason: "Momentum and narrative alignment",
+          directionHint: "LONG",
+          status: "pending",
+          sourceUniverse: "BTC,ETH,SOL",
+          dedupeKey: "BTC",
+          missingDataNotes: [],
+        },
+      },
+      state,
+    );
+
+    expect(result.candidate.status).toBe("researched");
+    expect(result.narrativeSummary).toContain("spot strength confirmed");
+    expect(result.evidence[0]?.structuredData).toMatchObject({
+      prompt: expect.any(String),
+    });
+    expect(result.evidence.some((item) => item.summary.includes("ETF-flow headlines"))).toBe(true);
   });
 });
