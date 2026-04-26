@@ -58,6 +58,34 @@ const buildConfluences = (evidence: EvidenceItem[]) =>
 const normalizeConfluence = (summary: string) =>
   summary.replace(/\s+/g, " ").trim().replace(/\.$/, "");
 
+const roundTradingPrice = (value: number) => {
+  if (value >= 1_000) {
+    return Number(value.toFixed(0));
+  }
+
+  if (value >= 1) {
+    return Number(value.toFixed(2));
+  }
+
+  if (value >= 0.01) {
+    return Number(value.toFixed(4));
+  }
+
+  return Number(value.toFixed(8));
+};
+
+const extractCurrentPrice = (evidence: EvidenceItem[]) => {
+  for (const item of evidence) {
+    const candidate = item.structuredData.price;
+
+    if (typeof candidate === "number" && Number.isFinite(candidate) && candidate > 0) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
 const estimateRiskReward = (
   direction: "LONG" | "SHORT" | "WATCHLIST" | "NONE",
   evidence: EvidenceItem[],
@@ -102,6 +130,69 @@ const summarizeWhyNow = (symbol: string, evidence: EvidenceItem[], narrativeSumm
   return `${symbol} is actionable because ${leadEvidence} ${narrativeSummary}`.trim();
 };
 
+const deriveTradeSetup = (input: {
+  direction: "LONG" | "SHORT" | "WATCHLIST" | "NONE";
+  confidence: number;
+  riskReward: number | null;
+  confluences: string[];
+  evidence: EvidenceItem[];
+}) => {
+  if ((input.direction !== "LONG" && input.direction !== "SHORT") || input.riskReward === null) {
+    return {
+      orderType: null,
+      tradingStyle: null,
+      expectedDuration: null,
+      currentPrice: null,
+      entryPrice: null,
+      targetPrice: null,
+      stopLoss: null,
+    } as const;
+  }
+
+  const currentPrice = extractCurrentPrice(input.evidence);
+
+  if (currentPrice === null) {
+    return {
+      orderType: "market" as const,
+      tradingStyle:
+        input.confidence >= 90 && input.confluences.length >= 3
+          ? ("swing_trade" as const)
+          : ("day_trade" as const),
+      expectedDuration:
+        input.confidence >= 90 && input.confluences.length >= 3 ? "2-5 days" : "8-16 hours",
+      currentPrice: null,
+      entryPrice: null,
+      targetPrice: null,
+      stopLoss: null,
+    } as const;
+  }
+
+  const tradingStyle =
+    input.confidence >= 90 && input.confluences.length >= 3 ? "swing_trade" : "day_trade";
+  const expectedDuration = tradingStyle === "swing_trade" ? "2-5 days" : "8-16 hours";
+  const stopDistancePercent = tradingStyle === "swing_trade" ? 0.05 : 0.035;
+  const entryPrice = currentPrice;
+  const stopLoss =
+    input.direction === "LONG"
+      ? currentPrice * (1 - stopDistancePercent)
+      : currentPrice * (1 + stopDistancePercent);
+  const riskPerUnit = Math.abs(entryPrice - stopLoss);
+  const targetPrice =
+    input.direction === "LONG"
+      ? entryPrice + riskPerUnit * input.riskReward
+      : entryPrice - riskPerUnit * input.riskReward;
+
+  return {
+    orderType: "market" as const,
+    tradingStyle,
+    expectedDuration,
+    currentPrice: roundTradingPrice(currentPrice),
+    entryPrice: roundTradingPrice(entryPrice),
+    targetPrice: roundTradingPrice(targetPrice),
+    stopLoss: roundTradingPrice(stopLoss),
+  } as const;
+};
+
 const mergeChartVisionSummary = (
   narrativeSummary: string,
   chartVisionSummary: string | null,
@@ -139,6 +230,13 @@ export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) =
     evidence: parsed.research.evidence,
     missingDataNotes: parsed.research.missingDataNotes,
   });
+  const tradeSetup = deriveTradeSetup({
+    direction,
+    confidence,
+    riskReward,
+    confluences,
+    evidence: parsed.research.evidence,
+  });
   const prompt = buildAnalystSystemPrompt({
     symbol: parsed.research.candidate.symbol,
     directionHint: parsed.research.candidate.directionHint,
@@ -155,6 +253,13 @@ export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) =
           ? "NONE"
           : direction,
     confidence,
+    orderType: tradeSetup.orderType,
+    tradingStyle: tradeSetup.tradingStyle,
+    expectedDuration: tradeSetup.expectedDuration,
+    currentPrice: tradeSetup.currentPrice,
+    entryPrice: tradeSetup.entryPrice,
+    targetPrice: tradeSetup.targetPrice,
+    stopLoss: tradeSetup.stopLoss,
     riskReward,
     whyNow: summarizeWhyNow(
       parsed.research.candidate.symbol,
@@ -251,6 +356,7 @@ export class AnalystAgentFactory {
       return analystOutputSchema.parse({
         ...response,
         thesis: {
+          ...fallback.thesis,
           ...response.thesis,
           candidateId: parsed.research.candidate.id,
           asset: parsed.research.candidate.symbol.toUpperCase(),

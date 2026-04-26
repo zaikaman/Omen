@@ -22,12 +22,28 @@ const buildHashtagLine = (values: string[]) =>
 
 export const formatSignalPost = (signal: Pick<
   Signal,
-  "asset" | "direction" | "confidence" | "whyNow" | "riskReward" | "confluences"
+  | "asset"
+  | "direction"
+  | "confidence"
+  | "whyNow"
+  | "riskReward"
+  | "confluences"
+  | "tradingStyle"
+  | "expectedDuration"
+  | "entryPrice"
+  | "targetPrice"
+  | "stopLoss"
+  | "orderType"
 >): XPostDraft =>
   xPostDraftSchema.parse({
     text: trimToLength(
       [
-        `🎯 $${signal.asset} ${signal.direction.toLowerCase()} setup`,
+        `${signal.tradingStyle === "swing_trade" ? "📈" : "🎯"} $${signal.asset} ${signal.tradingStyle === "swing_trade" ? "swing trade" : "day trade"}`,
+        `order: ${signal.orderType ?? "market"}`,
+        `hold: ${signal.expectedDuration ?? "8-16 hours"}`,
+        ...(signal.entryPrice !== null ? [`entry: $${signal.entryPrice}`] : []),
+        ...(signal.targetPrice !== null ? [`target: $${signal.targetPrice}`] : []),
+        ...(signal.stopLoss !== null ? [`stop: $${signal.stopLoss}`] : []),
         `conf: ${signal.confidence}%`,
         `r:r: ${signal.riskReward === null ? "n/a" : `1:${signal.riskReward.toFixed(1)}`}`,
         `thesis: ${signal.whyNow.toLowerCase()}`,

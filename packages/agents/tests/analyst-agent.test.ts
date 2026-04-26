@@ -79,7 +79,10 @@ describe("analyst agent", () => {
               summary: "BTC reclaimed local range highs with positive 24h momentum.",
               sourceLabel: "Binance",
               sourceUrl: null,
-              structuredData: {},
+              structuredData: {
+                price: 65000,
+                change24hPercent: 2.4,
+              },
             },
             {
               category: "technical",
@@ -109,6 +112,13 @@ describe("analyst agent", () => {
     expect(result.thesis.confidence).toBeGreaterThan(0);
     expect((result.thesis.confluences ?? []).length).toBeGreaterThan(0);
     expect((result.analystNotes ?? []).length).toBeGreaterThan(0);
+    expect(result.thesis.orderType).toBe("market");
+    expect(result.thesis.tradingStyle).toBe("day_trade");
+    expect(result.thesis.expectedDuration).toBe("8-16 hours");
+    expect(result.thesis.currentPrice).toBeGreaterThan(0);
+    expect(result.thesis.entryPrice).toBe(result.thesis.currentPrice);
+    expect(result.thesis.targetPrice).toBeGreaterThan(result.thesis.entryPrice ?? 0);
+    expect(result.thesis.stopLoss).toBeLessThan(result.thesis.entryPrice ?? 0);
   });
 
   it("uses the reasoning model path when a client is provided", async () => {
@@ -127,6 +137,13 @@ describe("analyst agent", () => {
             asset: "ignored-by-sanitizer",
             direction: "LONG" as const,
             confidence: 88,
+            orderType: "limit" as const,
+            tradingStyle: "day_trade" as const,
+            expectedDuration: "6-12 hours",
+            currentPrice: 65000,
+            entryPrice: 64850,
+            targetPrice: 68400,
+            stopLoss: 62500,
             riskReward: 2.8,
             whyNow: "BTC held trend support while spot momentum stayed constructive.",
             confluences: ["Trend support held", "Momentum stayed constructive"],
@@ -163,7 +180,9 @@ describe("analyst agent", () => {
               summary: "BTC reclaimed local range highs with positive 24h momentum.",
               sourceLabel: "Binance",
               sourceUrl: null,
-              structuredData: {},
+              structuredData: {
+                price: 65000,
+              },
             },
           ],
           narrativeSummary: "Momentum stayed constructive.",
@@ -175,6 +194,8 @@ describe("analyst agent", () => {
 
     expect(result.thesis.candidateId).toBe("candidate-btc-1");
     expect(result.thesis.asset).toBe("BTC");
+    expect(result.thesis.orderType).toBe("limit");
+    expect(result.thesis.entryPrice).toBe(64850);
     expect((result.analystNotes ?? []).some((note) => note.includes("test-reasoner"))).toBe(
       true,
     );

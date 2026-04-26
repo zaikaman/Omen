@@ -67,6 +67,13 @@ describe("publisher agent", () => {
           asset: "BTC",
           direction: "LONG",
           confidence: 88,
+          orderType: "market",
+          tradingStyle: "day_trade",
+          expectedDuration: "8-16 hours",
+          currentPrice: 65000,
+          entryPrice: 65000,
+          targetPrice: 70980,
+          stopLoss: 62725,
           riskReward: 2.6,
           whyNow: "BTC reclaimed local resistance and volume expanded.",
           confluences: ["Breakout reclaim", "Momentum expansion"],
@@ -88,6 +95,10 @@ describe("publisher agent", () => {
     expect(result.packet?.drafts).toHaveLength(1);
     expect(result.packet?.drafts[0]?.kind).toBe("signal_alert");
     expect(result.packet?.approvedReview?.decision).toBe("approved");
+    expect(result.packet?.drafts[0]?.text).toContain("entry: $65000");
+    expect(result.packet?.drafts[0]?.text).toContain("target: $70980");
+    expect(result.packet?.drafts[0]?.text).toContain("stop: $62725");
+    expect(result.packet?.drafts[0]?.text).toContain("hold: 8-16 hours");
   });
 
   it("builds intel summary and thread drafts for intel-ready runs", async () => {
@@ -131,6 +142,13 @@ describe("publisher agent", () => {
           asset: "SOL",
           direction: "WATCHLIST",
           confidence: 59,
+          orderType: null,
+          tradingStyle: null,
+          expectedDuration: null,
+          currentPrice: null,
+          entryPrice: null,
+          targetPrice: null,
+          stopLoss: null,
           riskReward: null,
           whyNow: "Momentum improved but confirmation is incomplete.",
           confluences: ["Improving breadth"],
@@ -182,6 +200,13 @@ describe("publisher agent", () => {
           asset: "BTC",
           direction: "LONG",
           confidence: 88,
+          orderType: "market",
+          tradingStyle: "day_trade",
+          expectedDuration: "8-16 hours",
+          currentPrice: 65000,
+          entryPrice: 65000,
+          targetPrice: 70980,
+          stopLoss: 62725,
           riskReward: 2.6,
           whyNow: "BTC reclaimed local resistance and volume expanded.",
           confluences: ["Breakout reclaim", "Momentum expansion"],

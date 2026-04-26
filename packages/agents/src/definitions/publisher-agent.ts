@@ -50,6 +50,9 @@ const buildSignalAlertDraft = (
 ): PublisherDraft => {
   const riskRewardText =
     thesis.riskReward === null ? "n/a" : `1:${thesis.riskReward.toFixed(1)}`;
+  const orderTypeText = thesis.orderType ?? "market";
+  const tradingStyleText = thesis.tradingStyle ?? "day_trade";
+  const durationText = thesis.expectedDuration ?? "8-16 hours";
   const whyNowText = toFeedSentence(thesis.whyNow);
   const confluences = thesis.confluences
     .slice(0, 3)
@@ -57,9 +60,14 @@ const buildSignalAlertDraft = (
   const hashtagLine = buildHashtagLine([thesis.asset, "crypto"]);
   const summary = `${thesis.asset} ${thesis.direction.toLowerCase()} setup with ${thesis.confidence}% confidence. ${whyNowText}`;
   const textLines = [
-    `🎯 $${thesis.asset} ${thesis.direction.toLowerCase()} setup`,
-    buildSignalBodyLine("conf", `${thesis.confidence}%`),
+    `${tradingStyleText === "swing_trade" ? "📈" : "🎯"} $${thesis.asset} ${tradingStyleText === "swing_trade" ? "swing trade" : "day trade"}`,
+    buildSignalBodyLine("order", orderTypeText),
+    buildSignalBodyLine("hold", durationText),
+    ...(thesis.entryPrice !== null ? [buildSignalBodyLine("entry", `$${thesis.entryPrice}`)] : []),
+    ...(thesis.targetPrice !== null ? [buildSignalBodyLine("target", `$${thesis.targetPrice}`)] : []),
+    ...(thesis.stopLoss !== null ? [buildSignalBodyLine("stop", `$${thesis.stopLoss}`)] : []),
     buildSignalBodyLine("r:r", riskRewardText),
+    buildSignalBodyLine("conf", `${thesis.confidence}%`),
     buildSignalBodyLine("thesis", whyNowText.toLowerCase()),
     ...(confluences.length > 0 ? confluences : ["- no named confluences recorded"]),
     hashtagLine,

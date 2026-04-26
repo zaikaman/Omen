@@ -72,6 +72,13 @@ const normalizeThesis = (thesis: {
   asset: string;
   direction: "LONG" | "SHORT" | "WATCHLIST" | "NONE";
   confidence: number;
+  orderType?: "market" | "limit" | null;
+  tradingStyle?: "day_trade" | "swing_trade" | null;
+  expectedDuration?: string | null;
+  currentPrice?: number | null;
+  entryPrice?: number | null;
+  targetPrice?: number | null;
+  stopLoss?: number | null;
   riskReward: number | null;
   whyNow: string;
   confluences?: string[];
@@ -79,6 +86,13 @@ const normalizeThesis = (thesis: {
   missingDataNotes: string;
 }) => ({
   ...thesis,
+  orderType: thesis.orderType ?? null,
+  tradingStyle: thesis.tradingStyle ?? null,
+  expectedDuration: thesis.expectedDuration ?? null,
+  currentPrice: thesis.currentPrice ?? null,
+  entryPrice: thesis.entryPrice ?? null,
+  targetPrice: thesis.targetPrice ?? null,
+  stopLoss: thesis.stopLoss ?? null,
   confluences: thesis.confluences ?? [],
 });
 
