@@ -7,6 +7,7 @@ describe("model routing", () => {
     expect(resolveModelProfileForRole("market_bias")).toBe("scanner");
     expect(resolveModelProfileForRole("scanner")).toBe("scanner");
     expect(resolveModelProfileForRole("research")).toBe("scanner");
+    expect(resolveModelProfileForRole("chart_vision")).toBe("scanner");
   });
 
   it("routes thesis, review, and publishing roles to the reasoning profile", () => {

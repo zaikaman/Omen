@@ -51,6 +51,7 @@ const managedStepRoleMap = {
   "market-bias-agent": "market_bias",
   "scanner-agent": "scanner",
   "research-agent": "research",
+  "chart-vision-agent": "chart_vision",
   "analyst-agent": "analyst",
   "critic-agent": "critic",
   "memory-agent": "memory",
@@ -61,6 +62,7 @@ const stepEventTypeMap = {
   "market-bias-agent": "market_bias_generated",
   "scanner-agent": "candidate_found",
   "research-agent": "research_completed",
+  "chart-vision-agent": "chart_generated",
   "analyst-agent": "thesis_generated",
   "critic-agent": "critic_decision",
   "memory-agent": "zero_g_kv_write",
@@ -230,6 +232,8 @@ const summarizeCheckpoint = (checkpoint: SwarmCheckpoint) => {
       return `Scanner retained ${checkpoint.state.activeCandidates.length.toString()} active candidate(s).`;
     case "research-agent":
       return `Research assembled ${checkpoint.state.evidenceItems.length.toString()} evidence item(s).`;
+    case "chart-vision-agent":
+      return `Chart vision generated ${checkpoint.state.chartVisionSummaries.length.toString()} chart summary item(s).`;
     case "analyst-agent":
       return `Analyst drafted ${checkpoint.state.thesisDrafts.length.toString()} thesis item(s).`;
     case "critic-agent": {

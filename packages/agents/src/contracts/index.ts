@@ -1,4 +1,5 @@
 export * from "./analyst.js";
+export * from "./chart-vision.js";
 export * from "./common.js";
 export * from "./critic.js";
 export * from "./memory.js";

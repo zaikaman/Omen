@@ -75,37 +75,23 @@ export class BinanceMarketService {
     input: z.input<typeof binanceCandlesRequestSchema>,
   ): Promise<ProviderResult<MarketCandle[]>> {
     const parsed = binanceCandlesRequestSchema.parse(input);
-    const snapshot = await this.adapter.getMarketSnapshot(parsed.symbol);
+    const candles = await this.adapter.getCandles(parsed);
 
-    if (!snapshot.ok) {
+    if (!candles.ok) {
       return createProviderFailure({
         provider: "binance",
-        code: snapshot.error.code,
-        message: snapshot.error.message,
-        retryable: snapshot.error.retryable,
-        sourceStatus: snapshot.error.sourceStatus,
+        code: candles.error.code,
+        message: candles.error.message,
+        retryable: candles.error.retryable,
+        sourceStatus: candles.error.sourceStatus,
       });
     }
 
-    const basePrice = snapshot.value.price || 100;
-    const candles = Array.from({ length: parsed.limit }, (_, index) =>
-      marketCandleSchema.parse({
-        timestamp: new Date(
-          Date.now() - (parsed.limit - index) * this.intervalToMs(parsed.interval),
-        ).toISOString(),
-        open: basePrice,
-        high: basePrice,
-        low: basePrice,
-        close: basePrice,
-        volume: 0,
-      }),
-    );
-
     return createProviderSuccess({
       provider: "binance",
-      value: candles,
+      value: candles.value.map((candle) => marketCandleSchema.parse(candle)),
       notes: [
-        `Generated ${parsed.limit.toString()} placeholder ${parsed.interval} candles for ${parsed.symbol.toUpperCase()}.`,
+        `Prepared ${candles.value.length.toString()} live ${parsed.interval} candles for ${parsed.symbol.toUpperCase()}.`,
       ],
     });
   }
@@ -131,19 +117,5 @@ export class BinanceMarketService {
       })),
       notes: ["Prepared Binance funding/open-interest view from normalized snapshots."],
     });
-  }
-
-  private intervalToMs(interval: z.infer<typeof binanceCandlesRequestSchema>["interval"]) {
-    switch (interval) {
-      case "15m":
-        return 15 * 60 * 1000;
-      case "4h":
-        return 4 * 60 * 60 * 1000;
-      case "1d":
-        return 24 * 60 * 60 * 1000;
-      case "1h":
-      default:
-        return 60 * 60 * 1000;
-    }
   }
 }

@@ -102,6 +102,14 @@ const summarizeWhyNow = (symbol: string, evidence: EvidenceItem[], narrativeSumm
   return `${symbol} is actionable because ${leadEvidence} ${narrativeSummary}`.trim();
 };
 
+const mergeChartVisionSummary = (
+  narrativeSummary: string,
+  chartVisionSummary: string | null,
+) =>
+  chartVisionSummary && chartVisionSummary.trim().length > 0
+    ? `${narrativeSummary} Chart confirmation: ${chartVisionSummary.trim()}`
+    : narrativeSummary;
+
 const summarizeUncertainty = (missingDataNotes: string[], evidence: EvidenceItem[]) => {
   if (missingDataNotes.length > 0) {
     return missingDataNotes.join(" ");
@@ -151,7 +159,10 @@ export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) =
     whyNow: summarizeWhyNow(
       parsed.research.candidate.symbol,
       parsed.research.evidence,
-      parsed.research.narrativeSummary,
+      mergeChartVisionSummary(
+        parsed.research.narrativeSummary,
+        parsed.research.chartVisionSummary,
+      ),
     ),
     confluences,
     uncertaintyNotes: summarizeUncertainty(
@@ -169,6 +180,9 @@ export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) =
     analystNotes: [
       `Prompt shell: ${prompt}`,
       `Evidence categories: ${parsed.research.evidence.map((item) => item.category).join(", ")}`,
+      ...(parsed.research.chartVisionSummary
+        ? [`Chart vision: ${parsed.research.chartVisionSummary}`]
+        : []),
     ],
   });
 };
@@ -222,6 +236,8 @@ export class AnalystAgentFactory {
           {
             candidate: parsed.research.candidate,
             narrativeSummary: parsed.research.narrativeSummary,
+            chartVisionSummary: parsed.research.chartVisionSummary,
+            chartVisionTimeframes: parsed.research.chartVisionTimeframes,
             missingDataNotes: parsed.research.missingDataNotes,
             evidence: parsed.research.evidence,
             instruction:

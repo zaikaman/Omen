@@ -41,6 +41,8 @@ export const researchBundleSchema = z.object({
   candidate: candidateStateSchema,
   evidence: z.array(evidenceItemSchema).min(1),
   narrativeSummary: z.string().min(1),
+  chartVisionSummary: z.string().min(1).nullable().default(null),
+  chartVisionTimeframes: z.array(z.string().min(1)).default([]),
   missingDataNotes: z.array(z.string().min(1)).default([]),
 });
 

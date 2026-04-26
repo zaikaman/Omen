@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 import type { PublisherOutput } from "../contracts/publisher.js";
+import type { ChartVisionOutput } from "../contracts/chart-vision.js";
 import {
   createAnalystAgent,
+  createChartVisionAgent,
   createCriticAgent,
   createMarketBiasAgent,
   createMemoryAgent,
@@ -18,6 +20,7 @@ export const omenSwarmNodeKeySchema = z.enum([
   "market-bias-agent",
   "scanner-agent",
   "research-agent",
+  "chart-vision-agent",
   "analyst-agent",
   "critic-agent",
   "memory-agent",
@@ -32,6 +35,7 @@ const nodeKeyOrder = [
   "market-bias-agent",
   "scanner-agent",
   "research-agent",
+  "chart-vision-agent",
   "analyst-agent",
   "critic-agent",
   "memory-agent",
@@ -224,6 +228,7 @@ export const createDefaultOmenSwarmNodes = (): readonly RuntimeNodeDefinition<un
   createMarketBiasAgent(),
   createScannerAgent(),
   createResearchAgent(),
+  createChartVisionAgent(),
   createAnalystAgent(),
   createCriticAgent(),
   createMemoryAgent(),
@@ -254,6 +259,10 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "research-agent") {
+    return "chart-vision-agent";
+  }
+
+  if (current === "chart-vision-agent") {
     return "analyst-agent";
   }
 
@@ -336,8 +345,28 @@ export const buildOmenNodeInput = (input: {
         candidate,
         evidence: input.state.evidenceItems,
         narrativeSummary: researchSummary.replace("research-summary:", "").trim(),
+        chartVisionSummary:
+          input.state.chartVisionSummaries.at(-1) ??
+          null,
+        chartVisionTimeframes: input.state.evidenceItems
+          .filter((item) => item.category === "chart")
+          .map((item) => String(item.structuredData.timeframe ?? ""))
+          .filter((value) => value.length > 0),
         missingDataNotes: candidate?.missingDataNotes ?? [],
       },
+    };
+  }
+
+  if (input.nodeKey === "chart-vision-agent") {
+    const candidate = input.state.activeCandidates[0];
+
+    if (!candidate) {
+      throw new Error("Chart vision node requires a researched candidate.");
+    }
+
+    return {
+      context,
+      candidate,
     };
   }
 
@@ -465,6 +494,42 @@ export const applyOmenNodeOutput = (input: {
     const stateDelta = {
       thesisDrafts: [...input.state.thesisDrafts, thesis],
       notes: [...input.state.notes, ...(output.analystNotes ?? [])],
+    };
+
+    return {
+      state: mergeSwarmState(input.state, stateDelta),
+      stateDelta,
+    };
+  }
+
+  if (input.nodeKey === "chart-vision-agent") {
+    const output = createChartVisionAgent().outputSchema.parse(
+      input.output,
+    ) as ChartVisionOutput;
+    const chartEvidence = output.evidence.map(normalizeEvidenceItem);
+    const mergedEvidence = [...input.state.evidenceItems, ...chartEvidence];
+    const nextCandidates = input.state.activeCandidates.map((candidate) =>
+      candidate.id === output.candidate.id
+        ? normalizeCandidate({
+            ...output.candidate,
+            missingDataNotes: output.missingDataNotes,
+          })
+        : candidate,
+    );
+    const stateDelta = {
+      activeCandidates: nextCandidates,
+      evidenceItems: mergedEvidence,
+      chartVisionSummaries: [
+        ...input.state.chartVisionSummaries,
+        output.chartSummary,
+      ],
+      notes: [
+        ...input.state.notes,
+        `chart-vision-summary:${output.chartSummary}`,
+        ...output.frames.map(
+          (frame) => `chart-vision-${frame.timeframe}:${frame.analysis}`,
+        ),
+      ],
     };
 
     return {
