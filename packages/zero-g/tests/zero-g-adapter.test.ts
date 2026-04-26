@@ -1,14 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createZeroGArtifactLink,
   ZeroGClientAdapter,
+  ZeroGLogStore,
   ZeroGNamespaceBuilder,
   ZeroGProofAnchor,
   ZeroGProofRegistry,
+  ZeroGReportSynthesis,
+  ZeroGStateStore,
 } from "../src/index.js";
 
 describe("zero-g adapter", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   const adapter = new ZeroGClientAdapter({
     storage: {
       indexerUrl: "https://indexer-storage-testnet.0g.ai",
@@ -46,6 +53,42 @@ describe("zero-g adapter", () => {
     }
   });
 
+  it("writes run-bound checkpoint artifacts through the state store", async () => {
+    const stateStore = new ZeroGStateStore(adapter);
+    const result = await stateStore.writeRunCheckpoint({
+      environment: "testnet",
+      runId: "run-1",
+      checkpointLabel: "critic-approved",
+      state: { status: "completed" },
+      metadata: { step: "critic" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.runId).toBe("run-1");
+      expect(result.value.key).toContain("/kv/critic-approved");
+      expect(result.value.metadata.checkpointLabel).toBe("critic-approved");
+    }
+  });
+
+  it("writes run-bound immutable log artifacts through the log store", async () => {
+    const logStore = new ZeroGLogStore(adapter);
+    const result = await logStore.appendRunLog({
+      environment: "testnet",
+      runId: "run-1",
+      stream: "debate-trace",
+      content: ["scanner complete", "critic approved"],
+      metadata: { stepCount: 2 },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.runId).toBe("run-1");
+      expect(result.value.locator).toContain("/log/");
+      expect(result.value.metadata.stream).toContain("/logs/debate-trace");
+    }
+  });
+
   it("rejects compute requests when compute is not configured", async () => {
     const result = await adapter.requestCompute({
       model: "glm-5",
@@ -56,6 +99,50 @@ describe("zero-g adapter", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toMatch(/compute adapter is not configured/i);
+    }
+  });
+
+  it("returns a compute proof artifact for report synthesis when compute is configured", async () => {
+    const computeAdapter = new ZeroGClientAdapter({
+      storage: {
+        indexerUrl: "https://indexer-storage-testnet.0g.ai",
+      },
+      log: {
+        baseUrl: "https://indexer-storage-testnet.0g.ai",
+      },
+      compute: {
+        baseUrl: "https://compute.0g.ai/infer",
+      },
+    });
+    const synthesis = new ZeroGReportSynthesis(computeAdapter);
+
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        ({
+          ok: true,
+          json: async () => ({
+            id: "job-1",
+            output: "Synthesized report",
+            verificationMode: "tee",
+            requestHash: "req-hash",
+            responseHash: "res-hash",
+          }),
+        }) as Response,
+    );
+
+    const result = await synthesis.synthesizeRunReport({
+      runId: "run-1",
+      prompt: "Summarize this run",
+      model: "glm-5",
+      metadata: { phase: "demo" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.artifact.refType).toBe("compute_result");
+      expect(result.value.proof.jobId).toBe("job-1");
+      expect(result.value.output).toBe("Synthesized report");
     }
   });
 
