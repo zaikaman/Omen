@@ -38,15 +38,26 @@ EOF
 python3 -m mcp_routing.mcp_router --port "$ROUTER_PORT" &
 ROUTER_PID=$!
 
-python3 -m a2a_serving.a2a_server --host 127.0.0.1 --port "$A2A_PORT" --router "${ROUTER_ADDR}:${ROUTER_PORT}" &
-A2A_PID=$!
+pnpm --dir /app/backend run mcp:host &
+OMEN_MCP_PID=$!
 
 /app/node -config "$CONFIG_PATH" &
 NODE_PID=$!
 
+until wget -qO- "http://127.0.0.1:${AXL_API_PORT:-9002}/topology" >/dev/null 2>&1; do
+  sleep 1
+done
+
+until wget -qO- "http://${OMEN_MCP_HOST:-127.0.0.1}:${OMEN_MCP_PORT:-7100}/health" >/dev/null 2>&1; do
+  sleep 1
+done
+
+python3 -m a2a_serving.a2a_server --host 127.0.0.1 --port "$A2A_PORT" --router "${ROUTER_ADDR}:${ROUTER_PORT}" &
+A2A_PID=$!
+
 cleanup() {
-  kill "$NODE_PID" "$A2A_PID" "$ROUTER_PID" 2>/dev/null || true
-  wait "$NODE_PID" "$A2A_PID" "$ROUTER_PID" 2>/dev/null || true
+  kill "$NODE_PID" "$A2A_PID" "$OMEN_MCP_PID" "$ROUTER_PID" 2>/dev/null || true
+  wait "$NODE_PID" "$A2A_PID" "$OMEN_MCP_PID" "$ROUTER_PID" 2>/dev/null || true
 }
 
 trap cleanup INT TERM EXIT

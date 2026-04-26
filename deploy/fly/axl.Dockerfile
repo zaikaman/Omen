@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25-alpine AS go-builder
 
 WORKDIR /src/axl
 
@@ -8,19 +8,23 @@ RUN go mod download
 COPY axl ./
 RUN go build -o /out/node ./cmd/node
 
-FROM alpine:3.21
+FROM node:22-alpine
 
 RUN apk add --no-cache ca-certificates openssl python3 py3-pip py3-setuptools py3-wheel py3-virtualenv
 
 WORKDIR /app
+ENV PATH="/opt/venv/bin:$PATH"
 
-COPY --from=builder /out/node /app/node
+COPY --from=go-builder /out/node /app/node
 COPY axl/integrations /app/integrations
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.json turbo.json /app/
+COPY backend /app/backend
+COPY packages /app/packages
 COPY deploy/fly/axl-entrypoint.sh /app/axl-entrypoint.sh
 
 RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install /app/integrations
+RUN corepack enable && pnpm install --frozen-lockfile
 RUN chmod +x /app/axl-entrypoint.sh
 
 EXPOSE 9001 9002 9003 9004
