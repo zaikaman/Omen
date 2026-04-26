@@ -30,29 +30,46 @@ const publisherDraftRewriteSchema = zod.object({
     .min(1),
 });
 
+const toFeedSentence = (value: string) =>
+  value.replace(/\s+/g, " ").trim().replace(/\.$/, "");
+
+const toHashtag = (value: string) =>
+  `#${value.replace(/[^a-z0-9]+/gi, "").toLowerCase()}`;
+
+const buildHashtagLine = (values: string[]) => {
+  const unique = [...new Set(values.map(toHashtag))].filter((value) => value.length > 1);
+  return unique.join(" ");
+};
+
+const buildSignalBodyLine = (label: string, value: string) => `${label}: ${value}`;
+
 const buildSignalAlertDraft = (
   thesis: ThesisDraft,
   review: CriticReview,
   prompt: string,
 ): PublisherDraft => {
   const riskRewardText =
-    thesis.riskReward === null ? "RR not available" : `RR ${thesis.riskReward.toFixed(2)}`;
-  const confluenceText =
-    thesis.confluences.length > 0
-      ? thesis.confluences.slice(0, 3).join("; ")
-      : "No named confluences recorded";
+    thesis.riskReward === null ? "n/a" : `1:${thesis.riskReward.toFixed(1)}`;
+  const whyNowText = toFeedSentence(thesis.whyNow);
+  const confluences = thesis.confluences
+    .slice(0, 3)
+    .map((confluence) => `- ${toFeedSentence(confluence).toLowerCase()}`);
+  const hashtagLine = buildHashtagLine([thesis.asset, "crypto"]);
+  const summary = `${thesis.asset} ${thesis.direction.toLowerCase()} setup with ${thesis.confidence}% confidence. ${whyNowText}`;
+  const textLines = [
+    `🎯 $${thesis.asset} ${thesis.direction.toLowerCase()} setup`,
+    buildSignalBodyLine("conf", `${thesis.confidence}%`),
+    buildSignalBodyLine("r:r", riskRewardText),
+    buildSignalBodyLine("thesis", whyNowText.toLowerCase()),
+    ...(confluences.length > 0 ? confluences : ["- no named confluences recorded"]),
+    hashtagLine,
+  ].filter((line) => line.trim().length > 0);
 
   return {
     kind: "signal_alert",
-    headline: `${thesis.asset} ${thesis.direction} signal`,
-    summary: `${thesis.asset} ${thesis.direction} setup with ${thesis.confidence}% confidence and ${riskRewardText}.`,
-    text: [
-      `${thesis.asset} ${thesis.direction} signal`,
-      `Confidence: ${thesis.confidence}%`,
-      riskRewardText,
-      `Why now: ${thesis.whyNow}`,
-      `Confluences: ${confluenceText}`,
-    ].join("\n"),
+    headline: `${thesis.asset} ${thesis.direction.toLowerCase()} setup`,
+    summary,
+    text: textLines.join("\n"),
     metadata: {
       candidateId: thesis.candidateId,
       decision: review.decision,
@@ -69,16 +86,33 @@ const buildIntelSummaryDraft = (
     confidence: number;
   },
   prompt: string,
-): PublisherDraft => ({
-  kind: "intel_summary",
-  headline: input.title,
-  summary: input.summary,
-  text: `${input.title}\n${input.summary}\nConfidence: ${input.confidence}%`,
-  metadata: {
-    confidence: input.confidence,
-    prompt,
-  },
-});
+): PublisherDraft => {
+  const title = toFeedSentence(input.title);
+  const summary = toFeedSentence(input.summary);
+  const hook = title.toLowerCase();
+  const hashtagLine = buildHashtagLine(
+    title.match(/\$?[A-Z0-9]{2,}/g)?.map((token) => token.replace(/^\$/, "")) ?? ["crypto"],
+  );
+
+  return {
+    kind: "intel_summary",
+    headline: title,
+    summary,
+    text: [
+      hook,
+      "",
+      `- ${summary.toLowerCase()}`,
+      `- confidence: ${input.confidence}%`,
+      "",
+      `watch: ${title.toLowerCase()} if follow-through sticks`,
+      hashtagLine,
+    ].join("\n"),
+    metadata: {
+      confidence: input.confidence,
+      prompt,
+    },
+  };
+};
 
 const buildIntelThreadDraft = (
   input: {
@@ -87,21 +121,32 @@ const buildIntelThreadDraft = (
     confidence: number;
   },
   prompt: string,
-): PublisherDraft => ({
-  kind: "intel_thread",
-  headline: `${input.title} thread`,
-  summary: input.summary,
-  text: [
-    input.title,
-    `Key takeaway: ${input.summary}`,
-    `Confidence: ${input.confidence}%`,
-    "Thread this only if the coordinator decides the update deserves more context.",
-  ].join("\n"),
-  metadata: {
-    confidence: input.confidence,
-    prompt,
-  },
-});
+): PublisherDraft => {
+  const title = toFeedSentence(input.title);
+  const summary = toFeedSentence(input.summary);
+  const hashtagLine = buildHashtagLine(
+    title.match(/\$?[A-Z0-9]{2,}/g)?.map((token) => token.replace(/^\$/, "")) ?? ["crypto"],
+  );
+
+  return {
+    kind: "intel_thread",
+    headline: `${title} thread`,
+    summary,
+    text: [
+      title.toLowerCase(),
+      "",
+      `- key takeaway: ${summary.toLowerCase()}`,
+      `- confidence: ${input.confidence}%`,
+      "- context: this deserves extra detail only if the desk wants a full thread",
+      "",
+      hashtagLine,
+    ].join("\n"),
+    metadata: {
+      confidence: input.confidence,
+      prompt,
+    },
+  };
+};
 
 const buildNoConvictionDraft = (
   input: {
@@ -114,17 +159,21 @@ const buildNoConvictionDraft = (
   const decision = input.review?.decision ?? "no_conviction";
   const objectionText =
     (input.review?.objections.length ?? 0) > 0
-      ? input.review?.objections.join("; ")
+      ? input.review!.objections.join("; ")
       : "No publishable edge survived the final gate.";
+  const loweredAssetLabel = assetLabel.toLowerCase();
 
   return {
     kind: "no_conviction",
     headline: `${assetLabel} stays off the board`,
     summary: `${assetLabel} did not clear the final publishing threshold.`,
     text: [
-      `${assetLabel} stays off the board.`,
-      `Outcome: ${decision}.`,
-      `Reasoning: ${input.review?.forcedOutcomeReason ?? objectionText}`,
+      `${loweredAssetLabel} stays off the board`,
+      "",
+      `- outcome: ${decision}`,
+      `- reason: ${toFeedSentence(input.review?.forcedOutcomeReason ?? objectionText).toLowerCase()}`,
+      "",
+      buildHashtagLine([assetLabel, "crypto"]),
     ].join("\n"),
     metadata: {
       decision,
