@@ -99,6 +99,11 @@ const hasZeroGStorageConfig = (env: BackendEnv) =>
 const hasZeroGComputeConfig = (env: BackendEnv) =>
   Boolean(env.zeroG.computeUrl && env.zeroG.computeApiKey);
 
+const toPersistableLinkedRecordIds = () => ({
+  signalId: null as string | null,
+  intelId: null as string | null,
+});
+
 const buildZeroGAdapterConfig = (
   env: BackendEnv,
 ): ZeroGAdapterConfig | null => {
@@ -264,6 +269,23 @@ const createAgentNode = (input: {
   };
 };
 
+const createOrchestratorNode = (input: {
+  timestamp: string;
+  peerId?: string | null;
+}): AgentNode => ({
+  id: "agent-orchestrator",
+  role: "orchestrator",
+  transport: input.peerId ? "axl" : "local",
+  status: "online",
+  peerId: input.peerId ?? null,
+  lastHeartbeatAt: input.timestamp,
+  lastError: null,
+  metadata: {
+    managedBy: "live-swarm-pipeline",
+    step: "orchestrator",
+  },
+});
+
 const createAgentEvent = (input: {
   checkpoint: SwarmCheckpoint;
   timestamp: string;
@@ -272,6 +294,8 @@ const createAgentEvent = (input: {
   proofRefId?: string | null;
   axlMessageId?: string | null;
   payload?: Record<string, unknown>;
+  signalId?: string | null;
+  intelId?: string | null;
 }): AgentEvent => ({
   id: `event-${randomUUID()}`,
   runId: input.checkpoint.runId,
@@ -291,8 +315,14 @@ const createAgentEvent = (input: {
   correlationId: `${input.checkpoint.runId}:${input.checkpoint.step}`,
   axlMessageId: input.axlMessageId ?? null,
   proofRefId: input.proofRefId ?? null,
-  signalId: input.checkpoint.state.run.finalSignalId,
-  intelId: input.checkpoint.state.run.finalIntelId,
+  signalId:
+    input.signalId !== undefined
+      ? input.signalId
+      : input.checkpoint.state.run.finalSignalId,
+  intelId:
+    input.intelId !== undefined
+      ? input.intelId
+      : input.checkpoint.state.run.finalIntelId,
 });
 
 const createRunLifecycleEvent = (input: {
@@ -489,6 +519,15 @@ class LivePipelineExecutionContext {
     await this.safePersistRun(run);
 
     if (this.eventPublisher) {
+      await this.safePublishNodeStatus(
+        createOrchestratorNode({
+          timestamp: run.createdAt,
+          peerId: this.input.env.axl.nodes.orchestrator,
+        }),
+      );
+    }
+
+    if (this.eventPublisher) {
       await this.safePublishEvent(
         createRunLifecycleEvent({
           runId: run.id,
@@ -514,12 +553,21 @@ class LivePipelineExecutionContext {
     const timestamp = checkpoint.createdAt;
     const stepSummary = summarizeCheckpoint(checkpoint);
     const peerId = this.resolvePeerIdForStep(checkpoint.step);
+    const linkedRecordIds = toPersistableLinkedRecordIds();
 
     if (this.zeroGStateStore && this.zeroGLogStore) {
       const checkpointArtifact = await this.safePublishCheckpointState(persisted);
 
       if (checkpointArtifact) {
         persisted.durableRef = checkpointArtifact;
+        persisted.state = {
+          ...persisted.state,
+          run: {
+            ...persisted.state.run,
+            currentCheckpointRefId: checkpointArtifact.id,
+          },
+          latestCheckpointRefId: checkpointArtifact.id,
+        };
       }
 
       await this.safeAppendCheckpointLog(persisted, stepSummary);
@@ -544,6 +592,8 @@ class LivePipelineExecutionContext {
             activeCandidateCount: persisted.state.activeCandidates.length,
             evidenceCount: persisted.state.evidenceItems.length,
           },
+          signalId: linkedRecordIds.signalId,
+          intelId: linkedRecordIds.intelId,
         }),
       );
     }
@@ -558,7 +608,7 @@ class LivePipelineExecutionContext {
         checkpoint: persisted,
         timestamp,
         toRole,
-        toAgentId: `agent-${toRole}`,
+        toAgentId: `agent-${checkpoint.step}`,
         durableRefId: persisted.durableRef?.id ?? null,
       });
       const destinationPeerId = this.resolvePeerIdForRole(toRole);
@@ -597,8 +647,8 @@ class LivePipelineExecutionContext {
             correlationId: recordedEnvelope.correlationId,
             axlMessageId: recordedEnvelope.id,
             proofRefId: null,
-            signalId: persisted.state.run.finalSignalId,
-            intelId: persisted.state.run.finalIntelId,
+            signalId: linkedRecordIds.signalId,
+            intelId: linkedRecordIds.intelId,
           });
         }
       }
@@ -608,10 +658,14 @@ class LivePipelineExecutionContext {
   }
 
   async finalizeRun(finalState: SwarmState) {
-    await this.safePersistRun(finalState.run);
+    const persistedRun = this.toPersistableRun(finalState.run);
+    await this.safePersistRun(persistedRun);
 
     if (this.zeroGPublisher) {
-      const zeroGArtifacts = await this.safePublishFinalArtifacts(finalState);
+      const zeroGArtifacts = await this.safePublishFinalArtifacts({
+        ...finalState,
+        run: persistedRun,
+      });
 
       if (zeroGArtifacts.length > 0 && this.eventPublisher) {
         await this.safePublishEvent(
@@ -657,11 +711,22 @@ class LivePipelineExecutionContext {
     const shouldUpdate = existing.ok && existing.value?.id === run.id;
 
     if (shouldUpdate) {
-      await this.runsRepository.updateRun(run.id, run);
+      const updated = await this.runsRepository.updateRun(run.id, run);
+
+      if (!updated.ok) {
+        throw new Error(
+          `Failed to update run ${run.id}: ${updated.error.message}`,
+        );
+      }
+
       return;
     }
 
-    await this.runsRepository.createRun(run);
+    const created = await this.runsRepository.createRun(run);
+
+    if (!created.ok) {
+      throw new Error(`Failed to create run ${run.id}: ${created.error.message}`);
+    }
   }
 
   private async probeAxlTransport(runId: string, observedAt: string) {
@@ -709,8 +774,8 @@ class LivePipelineExecutionContext {
       runId: checkpoint.runId,
       checkpointLabel: checkpoint.step,
       state: checkpoint.state,
-      signalId: checkpoint.state.run.finalSignalId,
-      intelId: checkpoint.state.run.finalIntelId,
+      signalId: null,
+      intelId: null,
       metadata: {
         checkpointId: checkpoint.checkpointId,
         threadId: checkpoint.threadId,
@@ -745,8 +810,8 @@ class LivePipelineExecutionContext {
           stateDelta: checkpoint.stateDelta,
         }),
       ],
-      signalId: checkpoint.state.run.finalSignalId,
-      intelId: checkpoint.state.run.finalIntelId,
+      signalId: null,
+      intelId: null,
       metadata: {
         checkpointId: checkpoint.checkpointId,
       },
@@ -827,26 +892,70 @@ class LivePipelineExecutionContext {
     }
 
     if (this.zeroGRefRecorder) {
-      await this.zeroGRefRecorder.recordArtifact(artifact);
+      const recorded = await this.zeroGRefRecorder.recordArtifact(artifact);
+
+      if (!recorded.ok) {
+        throw new Error(
+          `Failed to persist 0G ref ${artifact.id}: ${recorded.error.message}`,
+        );
+      }
     }
   }
 
   private async safeRecordAxlMessage(message: AxlEnvelope) {
     if (this.axlMessageRecorder) {
-      await this.axlMessageRecorder.recordMessage(message);
+      const recorded = await this.axlMessageRecorder.recordMessage(message);
+
+      if (!recorded.ok) {
+        throw new Error(
+          `Failed to persist AXL message ${message.id}: ${recorded.error.message}`,
+        );
+      }
     }
   }
 
   private async safePublishNodeStatus(node: AgentNode) {
     if (this.eventPublisher) {
-      await this.eventPublisher.syncNodeStatus(node);
+      const published = await this.eventPublisher.syncNodeStatus(node);
+
+      if (!published.ok) {
+        throw new Error(
+          `Failed to persist node ${node.id}: ${published.error.message}`,
+        );
+      }
     }
   }
 
   private async safePublishEvent(event: AgentEvent) {
     if (this.eventPublisher) {
-      await this.eventPublisher.publishEvent(event);
+      const published = await this.eventPublisher.publishEvent(event);
+
+      if (!published.ok) {
+        throw new Error(
+          `Failed to persist event ${event.id}: ${published.error.message}`,
+        );
+      }
     }
+  }
+
+  private toPersistableRun(run: SwarmState["run"]): SwarmState["run"] {
+    const latestCheckpointArtifact = [...this.artifacts]
+      .reverse()
+      .find((artifact) => artifact.refType === "kv_state");
+
+    return {
+      ...run,
+      currentCheckpointRefId: latestCheckpointArtifact?.id ?? null,
+      finalSignalId: null,
+      finalIntelId: null,
+      outcome: run.outcome
+        ? {
+            ...run.outcome,
+            signalId: null,
+            intelId: null,
+          }
+        : null,
+    };
   }
 
   private resolvePeerIdForStep(step: string) {
