@@ -68,6 +68,9 @@ importers:
       '@omen/agents':
         specifier: workspace:*
         version: link:../packages/agents
+      '@omen/axl':
+        specifier: workspace:*
+        version: link:../packages/axl
       '@omen/shared':
         specifier: workspace:*
         version: link:../packages/shared
