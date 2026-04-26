@@ -100,7 +100,7 @@
 - [x] T089 [US1] Implement topology-aware peer discovery, service registration, and rerouting logic in `backend/src/nodes/topology/topology-poller.ts`, `backend/src/nodes/topology/service-registry-sync.ts`, and `backend/src/nodes/topology/peer-failover.ts`
 - [x] T090 [US1] Implement 0G-backed run manifest assembly that links KV checkpoints, debate logs, evidence files, compute results, and final published artifacts in `packages/zero-g/src/proofs/run-manifest-builder.ts`, `backend/src/publishers/run-manifest-publisher.ts`, and `packages/shared/src/schemas/zero-g-manifest.ts`
 - [x] T091 [US1] Persist chart renders, evidence packs, and final report bundles as 0G files in `packages/zero-g/src/storage/zero-g-file-store.ts`, `backend/src/publishers/evidence-bundle-publisher.ts`, and `backend/src/publishers/report-bundle-publisher.ts`
-- [ ] T092 [US1] Strengthen 0G Compute usage by moving final adjudication or report synthesis onto a verifiable compute-backed path and recording provider/proof metadata in `packages/zero-g/src/compute/zero-g-adjudication.ts`, `backend/src/publishers/compute-proof-recorder.ts`, and `packages/shared/src/schemas/compute-proof.ts`
+- [x] T092 [US1] Strengthen 0G Compute usage by moving final adjudication or report synthesis onto a verifiable compute-backed path and recording provider/proof metadata in `packages/zero-g/src/compute/zero-g-adjudication.ts`, `backend/src/publishers/compute-proof-recorder.ts`, and `packages/shared/src/schemas/compute-proof.ts`
 
 **Checkpoint**: The backend can execute the MVP swarm automatically on the hourly schedule, with LangGraph, AXL, and 0G visibly participating in the run.
 

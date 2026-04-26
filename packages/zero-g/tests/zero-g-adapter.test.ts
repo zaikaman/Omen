@@ -4,6 +4,7 @@ import {
   createZeroGArtifactLink,
   RunManifestBuilder,
   ZeroGClientAdapter,
+  ZeroGAdjudication,
   ZeroGFileStore,
   ZeroGLogStore,
   ZeroGNamespaceBuilder,
@@ -167,6 +168,53 @@ describe("zero-g adapter", () => {
       expect(result.value.artifact.refType).toBe("compute_result");
       expect(result.value.proof.jobId).toBe("job-1");
       expect(result.value.output).toBe("Synthesized report");
+    }
+  });
+
+  it("returns a compute proof artifact for adjudication when compute is configured", async () => {
+    const computeAdapter = new ZeroGClientAdapter({
+      storage: {
+        indexerUrl: "https://indexer-storage-testnet.0g.ai",
+      },
+      log: {
+        baseUrl: "https://indexer-storage-testnet.0g.ai",
+      },
+      compute: {
+        baseUrl: "https://compute.0g.ai/infer",
+      },
+    });
+    const adjudication = new ZeroGAdjudication(computeAdapter);
+
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        ({
+          ok: true,
+          json: async () => ({
+            id: "job-2",
+            output: "Approved because confluence and evidence remain strong.",
+            verificationMode: "tee",
+            requestHash: "req-hash-2",
+            responseHash: "res-hash-2",
+          }),
+        }) as Response,
+    );
+
+    const result = await adjudication.adjudicate({
+      runId: "run-1",
+      thesis: "BTC long with breakout confirmation.",
+      evidence: ["Momentum breakout", "Funding remains supportive"],
+      priorDecision: "approved",
+      model: "glm-5",
+      metadata: { phase: "final" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.artifact.refType).toBe("compute_result");
+      expect(result.value.artifact.metadata.stage).toBe("adjudication");
+      expect(result.value.decisionHint).toBe("approved");
+      expect(result.value.proof.jobId).toBe("job-2");
     }
   });
 

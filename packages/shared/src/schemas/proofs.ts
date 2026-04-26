@@ -1,17 +1,9 @@
 import { z } from "zod";
 
 import { PROOF_REF_TYPE_VALUES } from "../constants/index.js";
+import { computeProofSchema } from "./compute-proof.js";
 
 export const proofRefTypeSchema = z.enum(PROOF_REF_TYPE_VALUES);
-
-export const computeProofSchema = z.object({
-  provider: z.string().min(1),
-  model: z.string().min(1),
-  jobId: z.string().min(1),
-  requestHash: z.string().min(1).nullable(),
-  responseHash: z.string().min(1).nullable(),
-  verificationMode: z.string().min(1).nullable(),
-});
 
 export const proofArtifactSchema = z.object({
   id: z.string().min(1),
@@ -33,6 +25,5 @@ export const runProofBundleSchema = z.object({
 });
 
 export type ProofRefType = z.infer<typeof proofRefTypeSchema>;
-export type ComputeProof = z.infer<typeof computeProofSchema>;
 export type ProofArtifact = z.infer<typeof proofArtifactSchema>;
 export type RunProofBundle = z.infer<typeof runProofBundleSchema>;

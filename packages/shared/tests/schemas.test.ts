@@ -4,6 +4,7 @@ import {
   axlA2ADelegationEnvelopeSchema,
   axlMcpResponseSchema,
   chainProofSchema,
+  computeProofRecordSchema,
   runSchema,
   signalSchema,
   twitterApiCreateTweetRequestSchema,
@@ -194,5 +195,26 @@ describe("shared schemas", () => {
         anchoredAt: null,
       }),
     ).toThrow();
+  });
+
+  it("requires a non-empty output preview for normalized compute proof records", () => {
+    expect(() =>
+      computeProofRecordSchema.parse({
+        artifactId: "artifact-1",
+        runId: "run-1",
+        signalId: null,
+        intelId: null,
+        stage: "adjudication",
+        provider: "0g-compute",
+        model: "glm-5",
+        jobId: "job-1",
+        requestHash: "req-1",
+        responseHash: "res-1",
+        verificationMode: "tee",
+        locator: "0g://compute/job-1/adjudication",
+        outputPreview: "",
+        recordedAt: "2026-04-25T08:00:00.000Z",
+      }),
+    ).toThrow(/at least 1 character/i);
   });
 });

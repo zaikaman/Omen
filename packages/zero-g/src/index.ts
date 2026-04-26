@@ -2,6 +2,7 @@ export * from "./adapters/zero-g-adapter.js";
 export * from "./chain/chain-adapter.js";
 export * from "./chain/proof-anchor.js";
 export * from "./compute/compute-adapter.js";
+export * from "./compute/zero-g-adjudication.js";
 export * from "./compute/zero-g-report-synthesis.js";
 export * from "./proofs/proof-registry.js";
 export * from "./proofs/run-manifest-builder.js";
