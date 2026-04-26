@@ -1,4 +1,4 @@
-import type { BinanceMarketService, DefiLlamaMarketService, TavilyMarketResearchService } from "@omen/market-data";
+import type { BinanceMarketService, DefiLlamaMarketService } from "@omen/market-data";
 import type { OpenAiCompatibleJsonClient } from "../src/llm/openai-compatible-client.js";
 import { describe, expect, it } from "vitest";
 
@@ -113,16 +113,6 @@ describe("research agent", () => {
           throw new Error("protocol lookup should not be called for BTC");
         },
       } as unknown as DefiLlamaMarketService,
-      narratives: {
-        getSymbolResearchBundle: async () => ({
-          ok: true,
-          value: {
-            symbol: "BTC",
-            narratives: [],
-            macroContext: [],
-          },
-        }),
-      } as unknown as TavilyMarketResearchService,
     });
 
     const result = await agent.invoke(
@@ -189,26 +179,6 @@ describe("research agent", () => {
           },
         }),
       } as unknown as DefiLlamaMarketService,
-      narratives: {
-        getSymbolResearchBundle: async () => ({
-          ok: true,
-          value: {
-            symbol: "BTC",
-            narratives: [
-              {
-                symbol: "BTC",
-                title: "ETF inflows stay firm",
-                summary: "Spot-led demand remained constructive through the session.",
-                sentiment: "bullish",
-                source: "news",
-                sourceUrl: "https://example.com/etf-flows",
-                capturedAt: "2026-04-25T08:00:00.000Z",
-              },
-            ],
-            macroContext: [],
-          },
-        }),
-      } as unknown as TavilyMarketResearchService,
       llmClient: {
         completeJson: async () => ({
           evidence: [

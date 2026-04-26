@@ -1,8 +1,6 @@
 import {
   BinanceMarketService,
   DefiLlamaMarketService,
-  TavilyMarketResearchService,
-  type AssetNarrative,
   type ProtocolSnapshot,
 } from "@omen/market-data";
 import { z } from "zod";
@@ -23,7 +21,6 @@ import { buildResearchSystemPrompt } from "../prompts/research/system.js";
 const researchServiceOptionsSchema = z.object({
   marketData: z.custom<BinanceMarketService>().optional(),
   protocolData: z.custom<DefiLlamaMarketService>().optional(),
-  narratives: z.custom<TavilyMarketResearchService>().optional(),
   llmClient: z.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
 });
 
@@ -32,34 +29,6 @@ const researchSynthesisSchema = z.object({
   narrativeSummary: z.string().min(1),
   missingDataNotes: z.array(z.string().min(1)).default([]),
 });
-
-const normalizeSourceLabel = (input: string) =>
-  input
-    .trim()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
-
-const buildNarrativeEvidence = (
-  narratives: AssetNarrative[],
-  symbol: string,
-): EvidenceItem[] =>
-  narratives.map((narrative) =>
-    evidenceItemSchema.parse({
-      category:
-        narrative.sentiment === "bullish" || narrative.sentiment === "bearish"
-          ? "sentiment"
-          : "catalyst",
-      summary: `${narrative.title}: ${narrative.summary}`,
-      sourceLabel: normalizeSourceLabel(narrative.source),
-      sourceUrl: narrative.sourceUrl,
-      structuredData: {
-        symbol,
-        sentiment: narrative.sentiment,
-        capturedAt: narrative.capturedAt,
-      },
-    }),
-  );
 
 const buildProtocolEvidence = (
   protocolSnapshot: ProtocolSnapshot,
@@ -102,20 +71,6 @@ const buildMarketEvidence = (input: {
     },
   });
 
-const summarizeNarratives = (narratives: AssetNarrative[], symbol: string) => {
-  if (narratives.length === 0) {
-    return `${symbol} has no strong external narrative confirmation yet; the candidate remains dependent on market-structure evidence.`;
-  }
-
-  return narratives
-    .slice(0, 2)
-    .map((narrative) => narrative.summary)
-    .join(" ");
-};
-
-const truncateNarrativeText = (value: string, maxLength = 280) =>
-  value.length > maxLength ? `${value.slice(0, maxLength).trim()}...` : value;
-
 const protocolSlugBySymbol: Partial<Record<string, string>> = {
   AAVE: "aave",
   CRV: "curve-dex",
@@ -140,15 +95,12 @@ export class ResearchAgentFactory {
 
   private readonly protocolData: DefiLlamaMarketService;
 
-  private readonly narratives: TavilyMarketResearchService;
-
   private readonly llmClient: OpenAiCompatibleJsonClient | null;
 
   constructor(input: z.input<typeof researchServiceOptionsSchema> = {}) {
     const parsed = researchServiceOptionsSchema.parse(input);
     this.marketData = parsed.marketData ?? new BinanceMarketService();
     this.protocolData = parsed.protocolData ?? new DefiLlamaMarketService();
-    this.narratives = parsed.narratives ?? new TavilyMarketResearchService();
     this.llmClient =
       parsed.llmClient ??
       OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("research"));
@@ -212,7 +164,7 @@ export class ResearchAgentFactory {
       directionHint: parsed.candidate.directionHint,
     });
 
-    let synthesized = await this.synthesizeResearch({
+    const synthesized = await this.synthesizeResearch({
       candidate: parsed.candidate,
       prompt,
       state,
@@ -228,57 +180,10 @@ export class ResearchAgentFactory {
           }
         : null,
       protocolSnapshot: protocolResult?.ok ? protocolResult.value : null,
-      narratives: [],
       evidence,
       narrativeSummary,
       missingDataNotes,
-      nativeSearchPrimary: true,
     });
-
-    if (synthesized === null) {
-      const narrativeBundleResult = await this.narratives.getSymbolResearchBundle({
-        symbol,
-        query: `${symbol} catalysts narrative context`,
-      });
-
-      if (narrativeBundleResult.ok) {
-        const allNarratives = [
-          ...narrativeBundleResult.value.narratives,
-          ...narrativeBundleResult.value.macroContext,
-        ].map((narrative) => ({
-          ...narrative,
-          summary: truncateNarrativeText(narrative.summary),
-          title: truncateNarrativeText(narrative.title, 120),
-        }));
-        evidence.push(...buildNarrativeEvidence(allNarratives, symbol));
-        narrativeSummary = summarizeNarratives(allNarratives, symbol);
-      } else {
-        missingDataNotes.push(`Narrative bundle missing: ${narrativeBundleResult.error.message}`);
-      }
-
-      synthesized = await this.synthesizeResearch({
-        candidate: parsed.candidate,
-        prompt,
-        state,
-        snapshot: snapshotResult.ok
-          ? {
-              symbol: snapshotResult.value.symbol,
-              price: snapshotResult.value.price,
-              change24hPercent: snapshotResult.value.change24hPercent,
-              volume24h: snapshotResult.value.volume24h,
-              fundingRate: snapshotResult.value.fundingRate,
-              openInterest: snapshotResult.value.openInterest,
-              capturedAt: snapshotResult.value.capturedAt,
-            }
-          : null,
-        protocolSnapshot: protocolResult?.ok ? protocolResult.value : null,
-        narratives: [],
-        evidence,
-        narrativeSummary,
-        missingDataNotes,
-        nativeSearchPrimary: false,
-      });
-    }
 
     if (synthesized !== null) {
       evidence.splice(
@@ -335,11 +240,9 @@ export class ResearchAgentFactory {
     state: SwarmState;
     snapshot: Record<string, unknown> | null;
     protocolSnapshot: ProtocolSnapshot | null;
-    narratives: AssetNarrative[];
     evidence: EvidenceItem[];
     narrativeSummary: string;
     missingDataNotes: string[];
-    nativeSearchPrimary: boolean;
   }) {
     if (this.llmClient === null || input.evidence.length === 0) {
       return null;
@@ -355,17 +258,12 @@ export class ResearchAgentFactory {
             marketBiasReasoning: input.state.marketBiasReasoning,
             snapshot: input.snapshot,
             protocolSnapshot: input.protocolSnapshot,
-            narratives: input.narratives,
             preliminaryEvidence: input.evidence,
             preliminaryNarrativeSummary: input.narrativeSummary,
             missingDataNotes: input.missingDataNotes,
             instruction: [
-              input.nativeSearchPrimary
-                ? "Use your built-in web and X search capabilities exactly like the template scanner flow. Gather only the most relevant confirming or disconfirming evidence for this candidate."
-                : "Rewrite the supplied raw research into a cleaner analyst-ready bundle.",
-              input.nativeSearchPrimary
-                ? "Prefer a small, focused evidence set over a broad article dump."
-                : "Use only the facts provided in the input.",
+              "Use your built-in web and X search capabilities exactly like the template scanner flow. Gather only the most relevant confirming or disconfirming evidence for this candidate.",
+              "Prefer a small, focused evidence set over a broad article dump.",
               "Do not invent extra sources, catalysts, numbers, or claims.",
               "Preserve contradiction and uncertainty when present.",
               "Keep evidence concise, factual, and independently readable.",
