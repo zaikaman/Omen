@@ -14,3 +14,11 @@ Listening on 127.0.0.1:9002
 TCP Listener started on port 7000
 [node] Connected outbound: 202:5912:49b4:13a2:f9bd:b166:6a6e:fa2e@34.46.48.224:9001, source 192.168.1.13:55265
 [node] Connected outbound: 206:f757:7717:51b8:5af:1a53:c548:8867@136.111.135.206:9001, source 192.168.1.13:55266
+[node] Disconnected outbound: 202:5912:49b4:13a2:f9bd:b166:6a6e:fa2e@34.46.48.224:9001, source 192.168.1.13:55265; error: read tcp 192.168.1.13:55265->34.46.48.224:9001: wsarecv: An established connection was aborted by the software in your host machine.
+[node] Disconnected outbound: 206:f757:7717:51b8:5af:1a53:c548:8867@136.111.135.206:9001, source 192.168.1.13:55266; error: read tcp 192.168.1.13:55266->136.111.135.206:9001: wsarecv: An established connection was aborted by the software in your host machine.
+[node] Connected outbound: 206:f757:7717:51b8:5af:1a53:c548:8867@136.111.135.206:9001, source 172.20.10.3:61712
+[node] Connected outbound: 202:5912:49b4:13a2:f9bd:b166:6a6e:fa2e@34.46.48.224:9001, source 172.20.10.3:61711
+[node] Disconnected outbound: 202:5912:49b4:13a2:f9bd:b166:6a6e:fa2e@34.46.48.224:9001, source 172.20.10.3:61711; error: read tcp 172.20.10.3:61711->34.46.48.224:9001: wsarecv: An established connection was aborted by the software in your host machine.
+[node] Disconnected outbound: 206:f757:7717:51b8:5af:1a53:c548:8867@136.111.135.206:9001, source 172.20.10.3:61712; error: read tcp 172.20.10.3:61712->136.111.135.206:9001: wsarecv: An established connection was aborted by the software in your host machine.
+[node] Connected outbound: 202:5912:49b4:13a2:f9bd:b166:6a6e:fa2e@34.46.48.224:9001, source 192.168.1.13:60562
+[node] Connected outbound: 206:f757:7717:51b8:5af:1a53:c548:8867@136.111.135.206:9001, source 192.168.1.13:60563

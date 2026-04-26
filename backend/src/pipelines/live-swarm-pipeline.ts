@@ -35,8 +35,8 @@ import type {
 import type { BackendEnv } from "../bootstrap/env";
 import { AxlNodeManager } from "../nodes/axl-node-manager";
 import { AxlPeerRegistry } from "../nodes/axl-peer-registry";
-import { EvidenceBundlePublisher } from "../publishers/evidence-bundle-publisher";
 import { EventPublisher } from "../publishers/event-publisher";
+import { EvidenceBundlePublisher } from "../publishers/evidence-bundle-publisher";
 import { ReportBundlePublisher } from "../publishers/report-bundle-publisher";
 import { RunManifestPublisher } from "../publishers/run-manifest-publisher";
 import { ZeroGPublisher } from "../publishers/zero-g-publisher";
@@ -568,10 +568,7 @@ class LivePipelineExecutionContext {
     const peerId = this.resolvePeerIdForStep(checkpoint.step);
     const linkedRecordIds = toPersistableLinkedRecordIds();
 
-    if (
-      this.input.env.zeroG.checkpointPublishingEnabled &&
-      this.zeroGStateStore
-    ) {
+    if (this.zeroGStateStore) {
       const checkpointArtifact = await this.safePublishCheckpointState(persisted);
 
       persisted.durableRef = checkpointArtifact;
@@ -584,7 +581,7 @@ class LivePipelineExecutionContext {
         latestCheckpointRefId: checkpointArtifact.id,
       };
 
-      if (this.input.env.zeroG.logUploadsEnabled && this.zeroGLogStore) {
+      if (this.zeroGLogStore) {
         await this.safeAppendCheckpointLog(persisted, stepSummary);
       }
     }
@@ -890,12 +887,7 @@ class LivePipelineExecutionContext {
   }
 
   private async safePublishFinalArtifacts(finalState: SwarmState) {
-    if (
-      !this.zeroGPublisher ||
-      !this.evidenceBundlePublisher ||
-      !this.reportBundlePublisher ||
-      !this.runManifestPublisher
-    ) {
+    if (!this.zeroGPublisher) {
       return [];
     }
 
@@ -910,50 +902,59 @@ class LivePipelineExecutionContext {
         environment: this.environment,
         state: finalState,
         checkpointLabel: "final",
-        logUploadsEnabled: this.input.env.zeroG.logUploadsEnabled,
+        logUploadsEnabled: true,
         reportPrompt: hasZeroGComputeConfig(this.input.env) ? reportPrompt : null,
       });
+      const finalArtifacts = [...runArtifacts.artifacts];
 
-      for (const artifact of runArtifacts.artifacts) {
+      if (this.evidenceBundlePublisher) {
+        const evidenceBundle = await this.evidenceBundlePublisher.publish({
+          environment: this.environment,
+          state: finalState,
+        });
+
+        finalArtifacts.push(...evidenceBundle.artifacts);
+      }
+
+      let evidenceBundleArtifact =
+        [...finalArtifacts]
+          .reverse()
+          .find((artifact) => artifact.metadata?.artifactType === "evidence_pack") ??
+        null;
+
+      if (this.reportBundlePublisher) {
+        const reportBundle = await this.reportBundlePublisher.publish({
+          environment: this.environment,
+          state: finalState,
+          reportText: runArtifacts.computeOutput,
+          computeArtifact: runArtifacts.computeArtifact,
+          evidenceBundleArtifact,
+        });
+
+        finalArtifacts.push(...reportBundle.artifacts);
+      }
+
+      evidenceBundleArtifact =
+        [...finalArtifacts]
+          .reverse()
+          .find((artifact) => artifact.metadata?.artifactType === "evidence_pack") ??
+        null;
+
+      if (this.runManifestPublisher) {
+        const manifestBundle = await this.runManifestPublisher.publish({
+          environment: this.environment,
+          run: finalState.run,
+          artifacts: finalArtifacts,
+        });
+
+        finalArtifacts.push(manifestBundle.manifestArtifact);
+      }
+
+      for (const artifact of finalArtifacts) {
         await this.safeRecordArtifact(artifact);
       }
 
-      if (!this.input.env.zeroG.finalFileUploadsEnabled) {
-        return runArtifacts.artifacts;
-      }
-
-      const evidenceArtifacts = await this.evidenceBundlePublisher.publish({
-        environment: this.environment,
-        state: finalState,
-      });
-      const reportArtifacts = await this.reportBundlePublisher.publish({
-        environment: this.environment,
-        state: finalState,
-        reportText: finalState.publisherDrafts.map((draft) => draft.text).join("\n\n"),
-        computeArtifact: runArtifacts.computeArtifact,
-        evidenceBundleArtifact: evidenceArtifacts.evidenceBundleArtifact,
-      });
-      const manifestArtifacts = await this.runManifestPublisher.publish({
-        environment: this.environment,
-        run: finalState.run,
-        artifacts: [
-          ...this.artifacts,
-          ...runArtifacts.artifacts,
-          ...evidenceArtifacts.artifacts,
-          ...reportArtifacts.artifacts,
-        ],
-      });
-      const artifacts = [
-        ...evidenceArtifacts.artifacts,
-        ...reportArtifacts.artifacts,
-        manifestArtifacts.manifestArtifact,
-      ];
-
-      for (const artifact of artifacts) {
-        await this.safeRecordArtifact(artifact);
-      }
-
-      return [...runArtifacts.artifacts, ...artifacts];
+      return finalArtifacts;
     } catch {
       return [];
     }
