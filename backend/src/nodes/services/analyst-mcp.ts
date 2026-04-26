@@ -15,7 +15,7 @@ export const analystMcpContract = defineAxlMcpServiceContract({
   peerId: null,
   role: "analyst",
   description: "Deterministic thesis generation capability for researched candidates.",
-  methods: ["thesis.generate"],
+  methods: ["thesis.generate", "analyst.health"],
   tools: [
     {
       name: "thesis.generate",
@@ -38,6 +38,18 @@ export class AnalystMcpService {
 
     try {
       assertAxlMcpMethodSupported(this.contract, parsed);
+
+      if (parsed.method === "analyst.health") {
+        return createAxlMcpSuccessResponse({
+          id: parsed.id,
+          result: {
+            status: "ok",
+            service: this.contract.service,
+            method: parsed.method,
+          },
+        });
+      }
+
       const input = analystInputSchema.parse(parsed.params.input ?? {});
       const output = await this.agent.invoke(
         input,

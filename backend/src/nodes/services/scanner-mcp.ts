@@ -15,7 +15,7 @@ export const scannerMcpContract = defineAxlMcpServiceContract({
   peerId: null,
   role: "scanner",
   description: "Deterministic scanner capability for bias-aligned candidate selection.",
-  methods: ["scan.run"],
+  methods: ["scan.run", "scan.health"],
   tools: [
     {
       name: "scan.run",
@@ -38,6 +38,18 @@ export class ScannerMcpService {
 
     try {
       assertAxlMcpMethodSupported(this.contract, parsed);
+
+      if (parsed.method === "scan.health") {
+        return createAxlMcpSuccessResponse({
+          id: parsed.id,
+          result: {
+            status: "ok",
+            service: this.contract.service,
+            method: parsed.method,
+          },
+        });
+      }
+
       const input = scannerInputSchema.parse(parsed.params.input ?? {});
       const output = await this.agent.invoke(
         input,

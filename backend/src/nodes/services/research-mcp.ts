@@ -15,7 +15,7 @@ export const researchMcpContract = defineAxlMcpServiceContract({
   peerId: null,
   role: "research",
   description: "Deterministic research bundle capability for catalysts and narrative context.",
-  methods: ["research.bundle"],
+  methods: ["research.bundle", "research.health"],
   tools: [
     {
       name: "research.bundle",
@@ -38,6 +38,18 @@ export class ResearchMcpService {
 
     try {
       assertAxlMcpMethodSupported(this.contract, parsed);
+
+      if (parsed.method === "research.health") {
+        return createAxlMcpSuccessResponse({
+          id: parsed.id,
+          result: {
+            status: "ok",
+            service: this.contract.service,
+            method: parsed.method,
+          },
+        });
+      }
+
       const input = researchInputSchema.parse(parsed.params.input ?? {});
       const output = await this.agent.invoke(
         input,

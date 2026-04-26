@@ -74,6 +74,13 @@ const axlStepRoleMap = {
   "critic-agent": "critic",
 } as const;
 
+const axlHealthMethodByRole = {
+  scanner: "scan.health",
+  research: "research.health",
+  analyst: "analyst.health",
+  critic: "critic.health",
+} as const;
+
 const getRoleForStep = (step: string): AgentRole =>
   managedStepRoleMap[step as keyof typeof managedStepRoleMap] ?? "monitor";
 
@@ -426,6 +433,8 @@ class LivePipelineExecutionContext {
 
   private readonly axlPeerRegistry: AxlPeerRegistry | null;
 
+  private readonly axlAdapter: AxlHttpNodeAdapter | null;
+
   private readonly zeroGStateStore: ZeroGStateStore | null;
 
   private readonly zeroGLogStore: ZeroGLogStore | null;
@@ -439,6 +448,8 @@ class LivePipelineExecutionContext {
   private readonly runManifestPublisher: RunManifestPublisher | null;
 
   private axlTransportAvailable = false;
+
+  private axlServicePeerId: string | null = null;
 
   private readonly artifacts: ProofArtifact[] = [];
 
@@ -470,23 +481,25 @@ class LivePipelineExecutionContext {
       : null;
 
     if (hasAxlTransportConfig(input.env)) {
+      this.axlAdapter = new AxlHttpNodeAdapter({
+        node: {
+          baseUrl: input.env.axl.nodeBaseUrl,
+          requestTimeoutMs: 10_000,
+          defaultHeaders: input.env.axl.apiToken
+            ? {
+                Authorization: `Bearer ${input.env.axl.apiToken}`,
+              }
+            : {},
+        },
+      });
       this.axlPeerRegistry = new AxlPeerRegistry();
       this.axlNodeManager = new AxlNodeManager({
-        adapter: new AxlHttpNodeAdapter({
-          node: {
-            baseUrl: input.env.axl.nodeBaseUrl,
-            requestTimeoutMs: 2_500,
-            defaultHeaders: input.env.axl.apiToken
-              ? {
-                  Authorization: `Bearer ${input.env.axl.apiToken}`,
-                }
-              : {},
-          },
-        }),
+        adapter: this.axlAdapter,
         peerRegistry: this.axlPeerRegistry,
         orchestratorPeerId: input.env.axl.nodes.orchestrator,
       });
     } else {
+      this.axlAdapter = null;
       this.axlPeerRegistry = null;
       this.axlNodeManager = null;
     }
@@ -600,57 +613,56 @@ class LivePipelineExecutionContext {
 
     if (
       this.axlTransportAvailable &&
-      this.axlNodeManager &&
       checkpoint.step in axlStepRoleMap
     ) {
       const toRole = axlStepRoleMap[checkpoint.step as keyof typeof axlStepRoleMap];
-      const envelope = createAxlEnvelopeForCheckpoint({
+      const envelope: AxlEnvelope = {
+        ...createAxlEnvelopeForCheckpoint({
+          checkpoint: persisted,
+          timestamp,
+          toRole,
+          toAgentId: `agent-${checkpoint.step}`,
+          durableRefId: persisted.durableRef?.id ?? null,
+        }),
+        transportKind: "mcp",
+      };
+      const healthResult = await this.probeSpecialistService({
         checkpoint: persisted,
-        timestamp,
         toRole,
-        toAgentId: `agent-${checkpoint.step}`,
-        durableRefId: persisted.durableRef?.id ?? null,
+        timestamp,
       });
-      const destinationPeerId = this.resolvePeerIdForRole(toRole);
+      const recordedEnvelope: AxlEnvelope = {
+        ...envelope,
+        deliveryStatus: healthResult.ok ? "sent" : "failed",
+      };
 
-      if (destinationPeerId) {
-        const sendResult = await this.axlNodeManager.sendEnvelope({
-          destinationPeerId,
-          envelope,
-          body: envelope.payload,
+      await this.safeRecordAxlMessage(recordedEnvelope);
+
+      if (this.eventPublisher) {
+        await this.safePublishEvent({
+          id: `event-${randomUUID()}`,
+          runId: persisted.runId,
+          agentId: "agent-orchestrator",
+          agentRole: "orchestrator",
+          eventType: "axl_message_sent",
+          status: healthResult.ok ? "success" : "warning",
+          summary: healthResult.ok
+            ? `AXL MCP route healthy for ${toRole}.`
+            : `AXL MCP route failed for ${toRole}: ${healthResult.error.message}`,
+          payload: {
+            messageId: recordedEnvelope.id,
+            toRole,
+            deliveryStatus: recordedEnvelope.deliveryStatus,
+            step: checkpoint.step,
+            transportKind: recordedEnvelope.transportKind,
+          },
+          timestamp,
+          correlationId: recordedEnvelope.correlationId,
+          axlMessageId: recordedEnvelope.id,
+          proofRefId: null,
+          signalId: linkedRecordIds.signalId,
+          intelId: linkedRecordIds.intelId,
         });
-        const recordedEnvelope: AxlEnvelope = {
-          ...envelope,
-          deliveryStatus: sendResult.ok ? "sent" : "failed",
-        };
-
-        await this.safeRecordAxlMessage(recordedEnvelope);
-
-        if (this.eventPublisher) {
-          await this.safePublishEvent({
-            id: `event-${randomUUID()}`,
-            runId: persisted.runId,
-            agentId: "agent-orchestrator",
-            agentRole: "orchestrator",
-            eventType: "axl_message_sent",
-            status: sendResult.ok ? "success" : "warning",
-            summary: sendResult.ok
-              ? `AXL envelope sent to ${toRole}.`
-              : `AXL envelope failed for ${toRole}: ${sendResult.error.message}`,
-            payload: {
-              messageId: recordedEnvelope.id,
-              toRole,
-              deliveryStatus: recordedEnvelope.deliveryStatus,
-              step: checkpoint.step,
-            },
-            timestamp,
-            correlationId: recordedEnvelope.correlationId,
-            axlMessageId: recordedEnvelope.id,
-            proofRefId: null,
-            signalId: linkedRecordIds.signalId,
-            intelId: linkedRecordIds.intelId,
-          });
-        }
       }
     }
 
@@ -730,13 +742,14 @@ class LivePipelineExecutionContext {
   }
 
   private async probeAxlTransport(runId: string, observedAt: string) {
-    if (!this.axlNodeManager) {
+    if (!this.axlNodeManager || !this.axlAdapter) {
       return false;
     }
 
     const status = await this.axlNodeManager.syncPeerStatuses();
+    const topology = await this.axlAdapter.client.getTopology();
 
-    if (!status.ok) {
+    if (!status.ok || !topology.ok) {
       if (this.eventPublisher) {
         await this.safePublishEvent({
           id: `event-${randomUUID()}`,
@@ -745,7 +758,7 @@ class LivePipelineExecutionContext {
           agentRole: "orchestrator",
           eventType: "warning",
           status: "warning",
-          summary: `AXL topology probe failed: ${status.error.message}`,
+          summary: `AXL topology probe failed: ${status.ok ? (topology.ok ? "unknown topology error" : topology.error.message) : status.error.message}`,
           payload: {
             axlBaseUrl: this.input.env.axl.nodeBaseUrl,
           },
@@ -761,7 +774,62 @@ class LivePipelineExecutionContext {
       return false;
     }
 
+    this.axlServicePeerId = topology.value.our_public_key;
+
     return true;
+  }
+
+  private async probeSpecialistService(input: {
+    checkpoint: SwarmCheckpoint;
+    toRole: (typeof axlStepRoleMap)[keyof typeof axlStepRoleMap];
+    timestamp: string;
+  }) {
+    if (!this.axlAdapter || !this.axlServicePeerId) {
+      return {
+        ok: false as const,
+        error: new Error("AXL MCP transport is not initialized."),
+      };
+    }
+
+    const method = axlHealthMethodByRole[input.toRole];
+    const response = await this.axlAdapter.callMcp({
+      peerId: this.axlServicePeerId,
+      service: input.toRole,
+      request: {
+        jsonrpc: "2.0",
+        id: `${input.checkpoint.runId}:${input.checkpoint.step}:health`,
+        service: input.toRole,
+        method,
+        params: {},
+        context: {
+          runId: input.checkpoint.runId,
+          correlationId: `${input.checkpoint.runId}:${input.checkpoint.step}`,
+          callerPeerId: this.axlServicePeerId,
+          callerRole: "orchestrator",
+        },
+      },
+    });
+
+    if (!response.ok) {
+      return response;
+    }
+
+    const responseError =
+      "error" in response.value &&
+      response.value.error &&
+      typeof response.value.error === "object" &&
+      "message" in response.value.error
+        ? response.value.error
+        : null;
+
+    if (responseError) {
+      return {
+        ok: false as const,
+        error: new Error(String(responseError.message ?? "AXL MCP call failed.")),
+      };
+    }
+
+    return { ok: true as const, value: response.value };
   }
 
   private async safePublishCheckpointState(checkpoint: SwarmCheckpoint) {
