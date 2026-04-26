@@ -90,7 +90,11 @@ AXL_CRITIC_NODE_ID=omen-critic
 
 ZERO_G_RPC_URL=https://evmrpc-testnet.0g.ai
 ZERO_G_INDEXER_URL=https://indexer-storage-testnet-turbo.0g.ai
+ZERO_G_KV_NODE_URL=https://<your-0g-kv-node>
 ZERO_G_COMPUTE_URL=<your-0g-compute-endpoint>
+ZERO_G_COMPUTE_API_KEY=<your-0g-compute-secret>
+ZERO_G_PRIVATE_KEY=<your-0g-wallet-private-key>
+ZERO_G_FLOW_CONTRACT_ADDRESS=<optional-manual-flow-contract>
 ```
 
 ## Remote AXL node bridge

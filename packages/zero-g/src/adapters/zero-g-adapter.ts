@@ -55,13 +55,23 @@ export class ZeroGClientAdapter implements ZeroGAdapter {
 
   readonly chain: ZeroGChainAdapter | null;
 
-  constructor(config: z.input<typeof zeroGAdapterConfigSchema>) {
+  constructor(
+    config: z.input<typeof zeroGAdapterConfigSchema>,
+    overrides?: {
+      storage?: ZeroGStorageAdapter;
+      log?: ZeroGLogAdapter;
+      compute?: ZeroGComputeAdapter | null;
+      chain?: ZeroGChainAdapter | null;
+    },
+  ) {
     const parsed = zeroGAdapterConfigSchema.parse(config);
 
-    this.storage = new ZeroGStorageAdapter(parsed.storage);
-    this.log = new ZeroGLogAdapter(parsed.log);
-    this.compute = parsed.compute ? new ZeroGComputeAdapter(parsed.compute) : null;
-    this.chain = parsed.chain ? new ZeroGChainAdapter(parsed.chain) : null;
+    this.storage = overrides?.storage ?? new ZeroGStorageAdapter(parsed.storage);
+    this.log = overrides?.log ?? new ZeroGLogAdapter(parsed.log);
+    this.compute =
+      overrides?.compute ?? (parsed.compute ? new ZeroGComputeAdapter(parsed.compute) : null);
+    this.chain =
+      overrides?.chain ?? (parsed.chain ? new ZeroGChainAdapter(parsed.chain) : null);
   }
 
   async putState(input: ZeroGStoragePutInput) {

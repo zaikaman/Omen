@@ -72,8 +72,20 @@
     "ZERO_G_INDEXER_URL": {
       "value": "https://indexer-storage-testnet-turbo.0g.ai"
     },
+    "ZERO_G_KV_NODE_URL": {
+      "required": true
+    },
     "ZERO_G_COMPUTE_URL": {
       "required": true
+    },
+    "ZERO_G_COMPUTE_API_KEY": {
+      "required": true
+    },
+    "ZERO_G_PRIVATE_KEY": {
+      "required": true
+    },
+    "ZERO_G_FLOW_CONTRACT_ADDRESS": {
+      "required": false
     }
   }
 }

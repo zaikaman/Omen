@@ -44,7 +44,7 @@ export class ZeroGComputeAdapter {
     }, this.config.requestTimeoutMs);
 
     try {
-      const response = await fetch(this.config.baseUrl, {
+      const response = await fetch(this.buildInferenceUrl(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -52,7 +52,17 @@ export class ZeroGComputeAdapter {
         },
         body: JSON.stringify({
           model: parsed.model,
-          prompt: parsed.prompt,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are the 0G Compute reasoning engine. Return a concise, directly usable result.",
+            },
+            {
+              role: "user",
+              content: parsed.prompt,
+            },
+          ],
           metadata: parsed.metadata,
         }),
         signal: controller.signal,
@@ -65,27 +75,47 @@ export class ZeroGComputeAdapter {
       }
 
       const payload = (await response.json()) as Record<string, unknown>;
+      const choices = Array.isArray(payload.choices)
+        ? payload.choices
+        : null;
+      const firstChoice =
+        choices && choices.length > 0 && typeof choices[0] === "object" && choices[0]
+          ? (choices[0] as Record<string, unknown>)
+          : null;
+      const firstMessage =
+        firstChoice &&
+        typeof firstChoice.message === "object" &&
+        firstChoice.message
+          ? (firstChoice.message as Record<string, unknown>)
+          : null;
+      const content =
+        typeof firstMessage?.content === "string"
+          ? firstMessage.content
+          : typeof payload.output === "string"
+            ? payload.output
+            : typeof payload.text === "string"
+              ? payload.text
+              : JSON.stringify(payload);
+      const jobId =
+        response.headers.get("ZG-Res-Key") ??
+        (typeof payload.id === "string"
+          ? payload.id
+          : typeof payload.jobId === "string"
+            ? payload.jobId
+            : `job-${Date.now().toString()}`);
+      const verificationMode =
+        response.headers.get("ZG-TEE-Mode") ??
+        (typeof payload.verificationMode === "string"
+          ? payload.verificationMode
+          : null);
 
       return ok(
         zeroGComputeResultSchema.parse({
-          jobId:
-            typeof payload.id === "string"
-              ? payload.id
-              : typeof payload.jobId === "string"
-                ? payload.jobId
-                : `job-${Date.now().toString()}`,
+          jobId,
           provider: "0g-compute",
           model: parsed.model,
-          output:
-            typeof payload.output === "string"
-              ? payload.output
-              : typeof payload.text === "string"
-                ? payload.text
-                : JSON.stringify(payload),
-          verificationMode:
-            typeof payload.verificationMode === "string"
-              ? payload.verificationMode
-              : null,
+          output: content,
+          verificationMode,
           requestHash:
             typeof payload.requestHash === "string" ? payload.requestHash : null,
           responseHash:
@@ -101,5 +131,19 @@ export class ZeroGComputeAdapter {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private buildInferenceUrl() {
+    const base = this.config.baseUrl.replace(/\/$/, "");
+
+    if (base.endsWith("/chat/completions")) {
+      return base;
+    }
+
+    if (base.endsWith("/v1/proxy")) {
+      return `${base}/chat/completions`;
+    }
+
+    return `${base}/v1/proxy/chat/completions`;
   }
 }

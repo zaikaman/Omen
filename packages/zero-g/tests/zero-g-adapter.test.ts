@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ok } from "@omen/shared";
 
 import {
   createZeroGArtifactLink,
@@ -13,12 +14,60 @@ import {
   ZeroGReportSynthesis,
   ZeroGStateStore,
 } from "../src/index.js";
+import { ZeroGLogAdapter } from "../src/storage/log-adapter.js";
+import { ZeroGStorageAdapter } from "../src/storage/storage-adapter.js";
 
 describe("zero-g adapter", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
+  const storageBridge = {
+    putKeyValue: vi.fn(async (key: string) =>
+      ok({
+        locator: `https://storage.0g.ai/kv/stream/${encodeURIComponent(key)}`,
+        streamId: "0xstream",
+        encodedKey: Buffer.from(key).toString("base64"),
+        txHash: "0xtx",
+        rootHash: "0xroot",
+      }),
+    ),
+    getKeyValue: vi.fn(async (key: string) =>
+      ok({
+        key,
+        value: "state",
+        streamId: "0xstream",
+        encodedKey: Buffer.from(key).toString("base64"),
+        locator: `https://storage.0g.ai/kv/stream/${encodeURIComponent(key)}`,
+        version: 1,
+        size: 5,
+      }),
+    ),
+    uploadObject: vi.fn(async ({ logicalName }: { logicalName: string }) =>
+      ok({
+        locator: `0g://file/${logicalName}`,
+        rootHash: "0xfile-root",
+        rootHashes: ["0xfile-root"],
+        txHash: "0xfile-tx",
+        txHashes: ["0xfile-tx"],
+        txSeq: 7,
+        txSeqs: [7],
+      }),
+    ),
+  };
+  const logBridge = {
+    uploadObject: vi.fn(async ({ logicalName }: { logicalName: string }) =>
+      ok({
+        locator: `0g://file/${logicalName}`,
+        rootHash: "0xlog-root",
+        rootHashes: ["0xlog-root"],
+        txHash: "0xlog-tx",
+        txHashes: ["0xlog-tx"],
+        txSeq: 8,
+        txSeqs: [8],
+      }),
+    ),
+  };
   const adapter = new ZeroGClientAdapter({
     storage: {
       indexerUrl: "https://indexer-storage-testnet.0g.ai",
@@ -26,6 +75,19 @@ describe("zero-g adapter", () => {
     log: {
       baseUrl: "https://indexer-storage-testnet.0g.ai",
     },
+  }, {
+    storage: new ZeroGStorageAdapter(
+      {
+        indexerUrl: "https://indexer-storage-testnet.0g.ai",
+      },
+      storageBridge,
+    ),
+    log: new ZeroGLogAdapter(
+      {
+        baseUrl: "https://indexer-storage-testnet.0g.ai",
+      },
+      logBridge,
+    ),
   });
 
   it("creates proof artifacts for KV writes", async () => {
@@ -52,7 +114,7 @@ describe("zero-g adapter", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.refType).toBe("log_entry");
-      expect(result.value.locator).toContain("/log/");
+      expect(result.value.locator).toContain("0g://file/");
     }
   });
 
@@ -87,7 +149,7 @@ describe("zero-g adapter", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.runId).toBe("run-1");
-      expect(result.value.locator).toContain("/log/");
+      expect(result.value.locator).toContain("0g://file/");
       expect(result.value.metadata.stream).toContain("/logs/debate-trace");
     }
   });
@@ -143,17 +205,25 @@ describe("zero-g adapter", () => {
 
     vi.stubGlobal(
       "fetch",
-      async () =>
+      vi.fn(async () =>
         ({
           ok: true,
+          headers: new Headers({
+            "ZG-Res-Key": "job-1",
+            "ZG-TEE-Mode": "tee",
+          }),
           json: async () => ({
-            id: "job-1",
-            output: "Synthesized report",
-            verificationMode: "tee",
+            choices: [
+              {
+                message: {
+                  content: "Synthesized report",
+                },
+              },
+            ],
             requestHash: "req-hash",
             responseHash: "res-hash",
           }),
-        }) as Response,
+        }) as Response),
     );
 
     const result = await synthesis.synthesizeRunReport({
@@ -169,6 +239,12 @@ describe("zero-g adapter", () => {
       expect(result.value.proof.jobId).toBe("job-1");
       expect(result.value.output).toBe("Synthesized report");
     }
+    expect(fetch).toHaveBeenCalledWith(
+      "https://compute.0g.ai/infer/v1/proxy/chat/completions",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
   });
 
   it("returns a compute proof artifact for adjudication when compute is configured", async () => {
@@ -190,10 +266,18 @@ describe("zero-g adapter", () => {
       async () =>
         ({
           ok: true,
+          headers: new Headers({
+            "ZG-Res-Key": "job-2",
+            "ZG-TEE-Mode": "tee",
+          }),
           json: async () => ({
-            id: "job-2",
-            output: "Approved because confluence and evidence remain strong.",
-            verificationMode: "tee",
+            choices: [
+              {
+                message: {
+                  content: "Approved because confluence and evidence remain strong.",
+                },
+              },
+            ],
             requestHash: "req-hash-2",
             responseHash: "res-hash-2",
           }),
@@ -326,11 +410,11 @@ describe("zero-g adapter", () => {
           intelId: null,
           refType: "kv_state",
           key: "omen/testnet/run/run/run-1/checkpoints/kv/latest",
-          locator: "https://storage.0g.ai/kv/run-1",
-          metadata: {},
-          compute: null,
-          createdAt: "2026-04-25T08:00:00.000Z",
-        },
+        locator: "https://storage.0g.ai/kv/run-1",
+        metadata: {},
+        compute: null,
+        createdAt: "2026-04-25T08:00:00.000Z",
+      },
         {
           id: "run-1:log",
           runId: "run-1",

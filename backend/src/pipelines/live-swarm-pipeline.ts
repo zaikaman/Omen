@@ -94,10 +94,10 @@ const hasAxlTransportConfig = (env: BackendEnv) =>
   Boolean(env.axl.nodeBaseUrl);
 
 const hasZeroGStorageConfig = (env: BackendEnv) =>
-  Boolean(env.zeroG.indexerUrl);
+  Boolean(env.zeroG.indexerUrl && env.zeroG.rpcUrl && env.zeroG.privateKey);
 
 const hasZeroGComputeConfig = (env: BackendEnv) =>
-  Boolean(env.zeroG.computeUrl);
+  Boolean(env.zeroG.computeUrl && env.zeroG.computeApiKey);
 
 const buildZeroGAdapterConfig = (
   env: BackendEnv,
@@ -109,15 +109,25 @@ const buildZeroGAdapterConfig = (
   return {
     storage: {
       indexerUrl: env.zeroG.indexerUrl,
-      kvRpcUrl: env.zeroG.rpcUrl ?? undefined,
+      evmRpcUrl: env.zeroG.rpcUrl ?? undefined,
+      kvNodeUrl: env.zeroG.kvNodeUrl ?? undefined,
+      privateKey: env.zeroG.privateKey ?? undefined,
+      flowContractAddress: env.zeroG.flowContractAddress ?? undefined,
+      expectedReplica: 1,
+      namespaceSeed: "omen-zero-g-kv-v1",
       requestTimeoutMs: 10_000,
     },
     log: {
       baseUrl: env.zeroG.indexerUrl,
+      evmRpcUrl: env.zeroG.rpcUrl ?? undefined,
+      privateKey: env.zeroG.privateKey ?? undefined,
+      expectedReplica: 1,
+      requestTimeoutMs: 10_000,
     },
     compute: env.zeroG.computeUrl
       ? {
           baseUrl: env.zeroG.computeUrl,
+          apiKey: env.zeroG.computeApiKey ?? undefined,
           requestTimeoutMs: 20_000,
         }
       : undefined,

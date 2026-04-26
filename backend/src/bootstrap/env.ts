@@ -38,8 +38,11 @@ export type BackendEnv = {
   zeroG: {
     rpcUrl: string | null;
     indexerUrl: string | null;
+    kvNodeUrl: string | null;
     computeUrl: string | null;
+    computeApiKey: string | null;
     privateKey: string | null;
+    flowContractAddress: string | null;
   };
   providers: {
     openaiApiKey: string | null;
@@ -201,8 +204,11 @@ export const createBackendEnv = (
     zeroG: {
       rpcUrl: env.ZERO_G_RPC_URL ?? null,
       indexerUrl: env.ZERO_G_INDEXER_URL ?? null,
+      kvNodeUrl: env.ZERO_G_KV_NODE_URL ?? null,
       computeUrl: env.ZERO_G_COMPUTE_URL ?? null,
+      computeApiKey: env.ZERO_G_COMPUTE_API_KEY ?? null,
       privateKey: env.ZERO_G_PRIVATE_KEY ?? null,
+      flowContractAddress: env.ZERO_G_FLOW_CONTRACT_ADDRESS ?? null,
     },
     providers: {
       openaiApiKey: env.OPENAI_API_KEY ?? null,
