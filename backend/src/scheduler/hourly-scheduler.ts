@@ -4,7 +4,7 @@ import { RunLockError } from "./run-lock";
 import type { RunLock } from "./run-lock";
 import type { RuntimeModeFlags } from "./runtime-mode";
 
-export type SchedulerTrigger = "interval" | "manual";
+export type SchedulerTrigger = "interval";
 
 export type SchedulerTaskContext = {
   runId: string;
@@ -66,10 +66,6 @@ export class HourlyScheduler {
     }
 
     this.nextRunAt = null;
-  }
-
-  async triggerNow() {
-    await this.tick("manual");
   }
 
   getStatus(): SchedulerStatus {
