@@ -43,6 +43,49 @@ const createCheckpointId = (input: {
   sequence: number;
 }) => `${input.threadId}:${input.sequence.toString()}:${input.step}`;
 
+const truncateRuntimeLogString = (value: string, maxLength = 400) =>
+  value.length > maxLength ? `${value.slice(0, maxLength)}...<truncated>` : value;
+
+const serializeRuntimeLogValue = (value: unknown): unknown => {
+  if (typeof value === "string") {
+    return truncateRuntimeLogString(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => serializeRuntimeLogValue(entry));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, serializeRuntimeLogValue(entry)]),
+    );
+  }
+
+  return value;
+};
+
+const logRuntimeStage = (input: {
+  runId: string;
+  threadId: string;
+  nodeKey: OmenSwarmNodeKey;
+  sequence: number;
+  output: unknown;
+  stateDelta: SwarmStateUpdate;
+}) => {
+  const payload = {
+    runId: input.runId,
+    threadId: input.threadId,
+    node: input.nodeKey,
+    sequence: input.sequence,
+    output: serializeRuntimeLogValue(input.output),
+    stateDelta: serializeRuntimeLogValue(input.stateDelta),
+  };
+
+  console.log(
+    `[omen-runtime] ${input.nodeKey} response\n${JSON.stringify(payload, null, 2)}`,
+  );
+};
+
 class DefaultAgentRuntime implements AgentRuntime {
   readonly checkpointStore: SwarmCheckpointStore;
 
@@ -141,6 +184,14 @@ class DefaultAgentRuntime implements AgentRuntime {
 
       state = applied.state;
       sequence += 1;
+      logRuntimeStage({
+        runId: state.run.id,
+        threadId: input.threadId,
+        nodeKey: currentNodeKey,
+        sequence,
+        output,
+        stateDelta: applied.stateDelta,
+      });
       this.states.set(input.threadId, state);
       await this.checkpointStore.save({
         checkpointId: createCheckpointId({
