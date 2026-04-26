@@ -10,6 +10,10 @@ primary_region = "sin"
   AXL_TCP_PORT = "7000"
   AXL_PEERS_JSON = "[\"tls://34.46.48.224:9001\"]"
   AXL_LISTEN_JSON = "[\"tls://0.0.0.0:9001\"]"
+  AXL_ROUTER_ADDR = "http://127.0.0.1"
+  AXL_ROUTER_PORT = "9003"
+  AXL_A2A_ADDR = "http://127.0.0.1"
+  AXL_A2A_PORT = "9004"
 
 [[mounts]]
   source = "axl_data"
