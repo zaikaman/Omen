@@ -73,3 +73,5 @@ export const PROOF_REF_TYPE_VALUES = [
   "manifest",
   "chain_proof",
 ] as const;
+
+export * from "./tradeable-tokens.js";

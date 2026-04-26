@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  TRADEABLE_SYMBOLS,
   axlA2ADelegationEnvelopeSchema,
   axlMcpResponseSchema,
   chainProofSchema,
   computeProofRecordSchema,
+  getBinanceSymbol,
+  isTradeableSymbol,
   runSchema,
   signalSchema,
   twitterApiCreateTweetRequestSchema,
@@ -216,5 +219,14 @@ describe("shared schemas", () => {
         recordedAt: "2026-04-25T08:00:00.000Z",
       }),
     ).toThrow(/at least 1 character/i);
+  });
+
+  it("exposes the full tradable symbol universe and Binance symbol mappings", () => {
+    expect(TRADEABLE_SYMBOLS).toContain("BTC");
+    expect(TRADEABLE_SYMBOLS).toContain("PEPE");
+    expect(TRADEABLE_SYMBOLS.length).toBeGreaterThan(90);
+    expect(isTradeableSymbol("pepe")).toBe(true);
+    expect(getBinanceSymbol("PEPE")).toBe("1000PEPEUSDT");
+    expect(getBinanceSymbol("BONK")).toBe("1000BONKUSDT");
   });
 });

@@ -1,4 +1,5 @@
 import {
+  TRADEABLE_SYMBOLS,
   dashboardSummarySchema,
   runtimeConfigSchema,
   schedulerStatusSchema,
@@ -14,7 +15,7 @@ export const DEMO_NEXT_RUN_AT = "2026-04-25T10:00:00.000Z";
 export const demoRuntimeConfig = runtimeConfigSchema.parse({
   id: "default",
   mode: "mocked",
-  marketUniverse: ["BTC", "ETH", "SOL", "ARB", "LINK", "PEPE"],
+  marketUniverse: TRADEABLE_SYMBOLS,
   qualityThresholds: {
     minConfidence: 85,
     minRiskReward: 2,

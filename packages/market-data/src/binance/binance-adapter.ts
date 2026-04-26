@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { getBinanceSymbol } from "@omen/shared";
+
 import {
   createProviderFailure,
   createProviderSuccess,
@@ -135,6 +137,12 @@ export class BinanceAdapter {
   }
 
   private normalizeMarketSymbol(symbol: string) {
+    const mappedSymbol = getBinanceSymbol(symbol);
+
+    if (mappedSymbol) {
+      return mappedSymbol;
+    }
+
     if (symbol.endsWith("USDT") || symbol.endsWith("USD")) {
       return symbol;
     }

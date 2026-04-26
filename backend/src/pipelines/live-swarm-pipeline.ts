@@ -22,6 +22,7 @@ import {
   type ZeroGAdapterConfig,
   ZeroGClientAdapter,
 } from "@omen/zero-g";
+import { TRADEABLE_SYMBOLS } from "@omen/shared";
 import type {
   AgentEvent,
   AgentEventType,
@@ -44,7 +45,7 @@ import { AxlMessageRecorder } from "../publishers/axl-message-recorder";
 import { ZeroGRefRecorder } from "../publishers/zero-g-ref-recorder";
 import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
 
-const DEFAULT_MARKET_UNIVERSE = ["BTC", "ETH", "SOL"] as const;
+const DEFAULT_MARKET_UNIVERSE = TRADEABLE_SYMBOLS;
 const DEFAULT_SCAN_INTERVAL_MINUTES = 60;
 
 const managedStepRoleMap = {

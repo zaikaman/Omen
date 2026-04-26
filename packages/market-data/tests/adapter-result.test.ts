@@ -34,6 +34,8 @@ describe("market-data provider results", () => {
   });
 
   it("returns a live-shaped market snapshot from the Binance adapter", async () => {
+    let requestedTickerUrl = "";
+
     vi.stubGlobal(
       "fetch",
       async (input: string | URL) =>
@@ -44,6 +46,7 @@ describe("market-data provider results", () => {
             const url = input.toString();
 
             if (url.includes("/ticker/24hr")) {
+              requestedTickerUrl = url;
               return {
                 lastPrice: "65000",
                 priceChangePercent: "3.2",
@@ -73,6 +76,49 @@ describe("market-data provider results", () => {
       expect(result.value.provider).toBe("binance");
       expect(result.value.price).toBe(65000);
     }
+
+    expect(requestedTickerUrl).toContain("symbol=BTCUSDT");
+  });
+
+  it("uses template Binance mappings for special meme symbols", async () => {
+    let requestedTickerUrl = "";
+
+    vi.stubGlobal(
+      "fetch",
+      async (input: string | URL) =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () => {
+            const url = input.toString();
+
+            if (url.includes("/ticker/24hr")) {
+              requestedTickerUrl = url;
+              return {
+                lastPrice: "0.00123",
+                priceChangePercent: "4.5",
+                quoteVolume: "25000000",
+              };
+            }
+
+            if (url.includes("/premiumIndex")) {
+              return {
+                lastFundingRate: "0.0002",
+              };
+            }
+
+            return {
+              openInterest: "1250000",
+            };
+          },
+        }) as Response,
+    );
+
+    const adapter = new BinanceAdapter();
+    const result = await adapter.getMarketSnapshot("pepe");
+
+    expect(result.ok).toBe(true);
+    expect(requestedTickerUrl).toContain("symbol=1000PEPEUSDT");
   });
 
   it("builds normalized market snapshot and movers service views", async () => {

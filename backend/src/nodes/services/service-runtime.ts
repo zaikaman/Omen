@@ -1,5 +1,10 @@
 import { createInitialSwarmState } from "@omen/agents";
-import { runSchema, runtimeConfigSchema, type RuntimeMode } from "@omen/shared";
+import {
+  TRADEABLE_SYMBOLS,
+  runSchema,
+  runtimeConfigSchema,
+  type RuntimeMode,
+} from "@omen/shared";
 
 export const createServiceSwarmState = (input: {
   runId: string;
@@ -31,7 +36,7 @@ export const createServiceSwarmState = (input: {
     config: runtimeConfigSchema.parse({
       id: "axl-mcp-runtime",
       mode: input.mode,
-      marketUniverse: ["BTC", "ETH", "SOL"],
+      marketUniverse: TRADEABLE_SYMBOLS,
       qualityThresholds: {
         minConfidence: 85,
         minRiskReward: 2,

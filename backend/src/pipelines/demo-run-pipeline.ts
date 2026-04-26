@@ -5,14 +5,14 @@ import {
   type SwarmCheckpointStore,
   type SwarmState,
 } from "@omen/agents";
-import type { RuntimeMode } from "@omen/shared";
+import { TRADEABLE_SYMBOLS, type RuntimeMode } from "@omen/shared";
 
 import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
 
 const createDemoRuntimeConfig = (mode: RuntimeMode): SwarmState["config"] => ({
   id: "default",
   mode,
-  marketUniverse: ["BTC", "ETH", "SOL"],
+  marketUniverse: TRADEABLE_SYMBOLS,
   qualityThresholds: {
     minConfidence: 85,
     minRiskReward: 2,
