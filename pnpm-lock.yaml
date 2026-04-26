@@ -65,6 +65,9 @@ importers:
 
   backend:
     dependencies:
+      '@omen/agents':
+        specifier: workspace:*
+        version: link:../packages/agents
       '@omen/shared':
         specifier: workspace:*
         version: link:../packages/shared

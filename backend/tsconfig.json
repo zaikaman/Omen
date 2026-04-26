@@ -1,14 +1,25 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "target": "es2016",
-    "module": "commonjs",
-    "rootDir": ".",
-    "moduleResolution": "node",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "rootDir": "..",
     "outDir": "./dist",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "skipLibCheck": true
+    "baseUrl": "..",
+    "noEmit": false,
+    "types": ["node"],
+    "paths": {
+      "@omen/agents": ["packages/agents/src"],
+      "@omen/axl": ["packages/axl/src"],
+      "@omen/db": ["packages/db/src"],
+      "@omen/execution": ["packages/execution/src"],
+      "@omen/indicators": ["packages/indicators/src"],
+      "@omen/market-data": ["packages/market-data/src"],
+      "@omen/shared": ["packages/shared/src"],
+      "@omen/zero-g": ["packages/zero-g/src"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]
