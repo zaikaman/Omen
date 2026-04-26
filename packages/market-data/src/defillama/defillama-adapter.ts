@@ -34,21 +34,113 @@ export class DefiLlamaAdapter {
       });
     }
 
+    const result = await this.requestProtocol(normalized);
+
+    if (!result.ok) {
+      return createProviderFailure({
+        provider: "defillama",
+        code: "DEFILLAMA_PROTOCOL_REQUEST_FAILED",
+        message: result.error.message,
+        retryable: true,
+        sourceStatus: result.status,
+      });
+    }
+
     return createProviderSuccess({
       provider: "defillama",
       value: protocolSnapshotSchema.parse({
-        protocol: normalized,
-        chain: "unknown",
-        tvlUsd: 0,
-        tvlChange1dPercent: null,
-        tvlChange7dPercent: null,
-        category: null,
-        sourceUrl: null,
+        protocol: String(result.value.name ?? normalized),
+        chain: this.resolveChain(result.value),
+        tvlUsd: this.parseNumber(result.value.tvl),
+        tvlChange1dPercent: this.parseNullableNumber(result.value.change_1d),
+        tvlChange7dPercent: this.parseNullableNumber(result.value.change_7d),
+        category:
+          typeof result.value.category === "string" ? result.value.category : null,
+        sourceUrl: `${this.config.baseUrl.replace(/\/$/, "")}/protocol/${encodeURIComponent(normalized)}`,
         capturedAt: new Date().toISOString(),
       }),
-      notes: [
-        `Adapter shell initialized for ${this.config.baseUrl}; protocol TVL and narrative enrichment land in the service phase.`,
-      ],
+      notes: [`Fetched live DeFiLlama protocol snapshot for ${normalized}.`],
     });
+  }
+
+  private resolveChain(payload: Record<string, unknown>) {
+    if (typeof payload.chain === "string" && payload.chain.trim()) {
+      return payload.chain;
+    }
+
+    if (Array.isArray(payload.chains) && payload.chains[0] && typeof payload.chains[0] === "string") {
+      return payload.chains[0];
+    }
+
+    return "unknown";
+  }
+
+  private parseNumber(value: unknown) {
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed)) {
+      throw new Error(`DeFiLlama returned a non-numeric value: ${String(value)}`);
+    }
+
+    return parsed;
+  }
+
+  private parseNullableNumber(value: unknown) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private async requestProtocol(protocol: string): Promise<
+    | { ok: true; value: Record<string, unknown>; status: number }
+    | { ok: false; error: Error; status: number | null }
+  > {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.requestTimeoutMs);
+
+    try {
+      const response = await fetch(
+        `${this.config.baseUrl.replace(/\/$/, "")}/protocol/${encodeURIComponent(protocol)}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          signal: controller.signal,
+        },
+      );
+
+      if (!response.ok) {
+        return {
+          ok: false,
+          error: new Error(`DeFiLlama request failed with HTTP ${response.status.toString()}.`),
+          status: response.status,
+        };
+      }
+
+      const payload = (await response.json()) as unknown;
+
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        return {
+          ok: false,
+          error: new Error("DeFiLlama returned a non-object JSON payload."),
+          status: response.status,
+        };
+      }
+
+      return {
+        ok: true,
+        value: payload as Record<string, unknown>,
+        status: response.status,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof Error ? error : new Error("DeFiLlama request failed."),
+        status: null,
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }

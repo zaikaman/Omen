@@ -1,3 +1,4 @@
+import type { OpenAiCompatibleJsonClient } from "../src/llm/openai-compatible-client.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -123,5 +124,44 @@ describe("scanner definitions", () => {
       true,
     );
     expect((result.rejectedSymbols ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("uses the scanner model path when a client is provided", async () => {
+    const agent = createScannerAgent({
+      llmClient: {
+        completeJson: async () => ({
+          candidates: [
+            {
+              symbol: "SOL",
+              reason: "SOL kept the strongest relative 24h change with supportive momentum.",
+              directionHint: "LONG" as const,
+            },
+          ],
+          rejectedSymbols: ["BTC", "ETH"],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+    const state = createInitialSwarmState({ run, config });
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        bias: {
+          marketBias: "LONG",
+          reasoning: "Broad majors are breaking higher.",
+          confidence: 82,
+        },
+        universe: ["BTC", "ETH", "SOL"],
+      },
+      state,
+    );
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]?.symbol).toBe("SOL");
+    expect(result.candidates[0]?.reason).toContain("strongest relative");
   });
 });

@@ -19,6 +19,14 @@ export const isRuntimeMode = (value: string | undefined): value is RuntimeMode =
   (RUNTIME_MODE_VALUES as readonly string[]).includes(value);
 
 export const normalizeRuntimeMode = (value: string | undefined): RuntimeMode => {
+  if (value === "mocked-demo") {
+    return "mocked";
+  }
+
+  if (value === "production-like") {
+    return "production_like";
+  }
+
   if (isRuntimeMode(value)) {
     return value;
   }

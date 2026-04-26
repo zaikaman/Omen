@@ -1,4 +1,12 @@
-import { assetNarrativeSchema, marketSnapshotSchema } from "@omen/market-data";
+import {
+  BinanceMarketService,
+  CoinGeckoMarketService,
+  TavilyMarketResearchService,
+  assetNarrativeSchema,
+  marketSnapshotSchema,
+  type AssetNarrative,
+  type MarketSnapshot,
+} from "@omen/market-data";
 import { z } from "zod";
 
 import { biasDecisionSchema, orchestrationContextSchema } from "../contracts/common.js";
@@ -12,6 +20,12 @@ export const marketBiasAgentInputSchema = z.object({
 });
 
 export const marketBiasAgentOutputSchema = biasDecisionSchema;
+
+const marketBiasServiceOptionsSchema = z.object({
+  binance: z.custom<BinanceMarketService>().optional(),
+  coinGecko: z.custom<CoinGeckoMarketService>().optional(),
+  narratives: z.custom<TavilyMarketResearchService>().optional(),
+});
 
 const average = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -71,19 +85,94 @@ export const deriveMarketBias = (input: z.input<typeof marketBiasAgentInputSchem
   });
 };
 
-export const createMarketBiasAgent = (): RuntimeNodeDefinition<
-  z.input<typeof marketBiasAgentInputSchema>,
-  z.output<typeof marketBiasAgentOutputSchema>
-> => ({
-  key: "market-bias-agent",
-  role: "market_bias",
-  inputSchema: marketBiasAgentInputSchema,
-  outputSchema: marketBiasAgentOutputSchema,
-  async invoke(input: z.input<typeof marketBiasAgentInputSchema>, state: SwarmState) {
-    void state;
-    return deriveMarketBias(input);
-  },
-});
+export class MarketBiasAgentFactory {
+  private readonly binance: BinanceMarketService;
+
+  private readonly coinGecko: CoinGeckoMarketService;
+
+  private readonly narratives: TavilyMarketResearchService;
+
+  constructor(input: z.input<typeof marketBiasServiceOptionsSchema> = {}) {
+    const parsed = marketBiasServiceOptionsSchema.parse(input);
+    this.binance = parsed.binance ?? new BinanceMarketService();
+    this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
+    this.narratives = parsed.narratives ?? new TavilyMarketResearchService();
+  }
+
+  createDefinition(): RuntimeNodeDefinition<
+    z.input<typeof marketBiasAgentInputSchema>,
+    z.output<typeof marketBiasAgentOutputSchema>
+  > {
+    return {
+      key: "market-bias-agent",
+      role: "market_bias",
+      inputSchema: marketBiasAgentInputSchema,
+      outputSchema: marketBiasAgentOutputSchema,
+      invoke: async (input, state) => this.analyze(input, state),
+    };
+  }
+
+  private async analyze(
+    input: z.input<typeof marketBiasAgentInputSchema>,
+    state: SwarmState,
+  ) {
+    const parsed = marketBiasAgentInputSchema.parse(input);
+
+    if (parsed.snapshots.length > 0 || parsed.narratives.length > 0) {
+      return deriveMarketBias(parsed);
+    }
+
+    const [snapshots, narratives] = await Promise.all([
+      this.collectSnapshots(state.config.marketUniverse),
+      this.collectNarratives(state.config.marketUniverse),
+    ]);
+
+    return deriveMarketBias({
+      ...parsed,
+      snapshots,
+      narratives,
+    });
+  }
+
+  private async collectSnapshots(universe: string[]): Promise<MarketSnapshot[]> {
+    const targets = universe.slice(0, 5);
+    const [binanceResult, coinGeckoResult] = await Promise.all([
+      this.binance.getSnapshots(targets),
+      this.coinGecko.getAssetSnapshots(targets),
+    ]);
+    const bySymbol = new Map<string, MarketSnapshot>();
+
+    const append = (items: MarketSnapshot[]) => {
+      for (const item of items) {
+        bySymbol.set(item.symbol.toUpperCase(), item);
+      }
+    };
+
+    if (binanceResult.ok) {
+      append(binanceResult.value);
+    }
+
+    if (coinGeckoResult.ok) {
+      append(coinGeckoResult.value);
+    }
+
+    return Array.from(bySymbol.values());
+  }
+
+  private async collectNarratives(universe: string[]): Promise<AssetNarrative[]> {
+    const focus = universe.slice(0, 3).join(" ");
+    const result = await this.narratives.getNarratives({
+      symbol: "MARKET",
+      query: `${focus} crypto market sentiment today`,
+    });
+
+    return result.ok ? result.value : [];
+  }
+}
+
+export const createMarketBiasAgent = (
+  input: z.input<typeof marketBiasServiceOptionsSchema> = {},
+) => new MarketBiasAgentFactory(input).createDefinition();
 
 export type MarketBiasAgentInput = z.infer<typeof marketBiasAgentInputSchema>;
 export type MarketBiasAgentOutput = z.infer<typeof marketBiasAgentOutputSchema>;

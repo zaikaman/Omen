@@ -1,9 +1,15 @@
 import type { z } from "zod";
+import { z as zod } from "zod";
 
 import { analystInputSchema, analystOutputSchema } from "../contracts/analyst.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import { type EvidenceItem, type SwarmState, thesisDraftSchema } from "../framework/state.js";
+import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
 import { buildAnalystSystemPrompt } from "../prompts/analyst/system.js";
+
+const analystAgentOptionsSchema = zod.object({
+  llmClient: zod.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
+});
 
 const categoryWeight: Record<EvidenceItem["category"], number> = {
   market: 8,
@@ -166,16 +172,81 @@ export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) =
   });
 };
 
-export const createAnalystAgent = (): RuntimeNodeDefinition<
-  z.input<typeof analystInputSchema>,
-  z.input<typeof analystOutputSchema>
-> => ({
-  key: "analyst-agent",
-  role: "analyst",
-  inputSchema: analystInputSchema,
-  outputSchema: analystOutputSchema,
-  async invoke(input: z.input<typeof analystInputSchema>, state: SwarmState) {
+export class AnalystAgentFactory {
+  private readonly llmClient: OpenAiCompatibleJsonClient | null;
+
+  constructor(input: zod.input<typeof analystAgentOptionsSchema> = {}) {
+    const parsed = analystAgentOptionsSchema.parse(input);
+    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("reasoning");
+  }
+
+  createDefinition(): RuntimeNodeDefinition<
+    z.input<typeof analystInputSchema>,
+    z.input<typeof analystOutputSchema>
+  > {
+    return {
+      key: "analyst-agent",
+      role: "analyst",
+      inputSchema: analystInputSchema,
+      outputSchema: analystOutputSchema,
+      invoke: async (input, state) => this.analyze(input, state),
+    };
+  }
+
+  private async analyze(
+    input: z.input<typeof analystInputSchema>,
+    state: SwarmState,
+  ) {
     void state;
-    return deriveAnalystThesis(input);
-  },
-});
+    const fallback = deriveAnalystThesis(input);
+
+    if (this.llmClient === null) {
+      return fallback;
+    }
+
+    const parsed = analystInputSchema.parse(input);
+
+    try {
+      const prompt = buildAnalystSystemPrompt({
+        symbol: parsed.research.candidate.symbol,
+        directionHint: parsed.research.candidate.directionHint,
+        evidenceCount: parsed.research.evidence.length,
+      });
+      const response = await this.llmClient.completeJson({
+        schema: analystOutputSchema,
+        systemPrompt: prompt,
+        userPrompt: JSON.stringify(
+          {
+            candidate: parsed.research.candidate,
+            narrativeSummary: parsed.research.narrativeSummary,
+            missingDataNotes: parsed.research.missingDataNotes,
+            evidence: parsed.research.evidence,
+            instruction:
+              "Return one thesis draft only. Keep candidateId equal to the candidate id and asset equal to the candidate symbol.",
+          },
+          null,
+          2,
+        ),
+      });
+
+      return analystOutputSchema.parse({
+        ...response,
+        thesis: {
+          ...response.thesis,
+          candidateId: parsed.research.candidate.id,
+          asset: parsed.research.candidate.symbol.toUpperCase(),
+        },
+        analystNotes: [
+          ...(response.analystNotes ?? []),
+          `Model-backed analyst path: ${this.llmClient.config.model}`,
+        ],
+      });
+    } catch {
+      return fallback;
+    }
+  }
+}
+
+export const createAnalystAgent = (
+  input: zod.input<typeof analystAgentOptionsSchema> = {},
+) => new AnalystAgentFactory(input).createDefinition();

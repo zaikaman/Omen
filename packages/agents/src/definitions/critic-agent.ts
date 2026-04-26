@@ -1,9 +1,16 @@
 import type { z } from "zod";
+import { z as zod } from "zod";
 
 import { criticInputSchema, criticOutputSchema } from "../contracts/critic.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import type { SwarmState } from "../framework/state.js";
+import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
+import { buildCriticSystemPrompt } from "../prompts/critic/system.js";
 import { runCriticGate } from "../quality-gates/critic-gate.js";
+
+const criticAgentOptionsSchema = zod.object({
+  llmClient: zod.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
+});
 
 export const reviewThesisWithCritic = (input: z.input<typeof criticInputSchema>) => {
   const parsed = criticInputSchema.parse(input);
@@ -49,16 +56,98 @@ export const reviewThesisWithCritic = (input: z.input<typeof criticInputSchema>)
   });
 };
 
-export const createCriticAgent = (): RuntimeNodeDefinition<
-  z.input<typeof criticInputSchema>,
-  z.input<typeof criticOutputSchema>
-> => ({
-  key: "critic-agent",
-  role: "critic",
-  inputSchema: criticInputSchema,
-  outputSchema: criticOutputSchema,
-  async invoke(input: z.input<typeof criticInputSchema>, state: SwarmState) {
+const decisionRank: Record<
+  z.infer<typeof criticOutputSchema>["review"]["decision"],
+  number
+> = {
+  approved: 0,
+  watchlist_only: 1,
+  rejected: 2,
+};
+
+export class CriticAgentFactory {
+  private readonly llmClient: OpenAiCompatibleJsonClient | null;
+
+  constructor(input: zod.input<typeof criticAgentOptionsSchema> = {}) {
+    const parsed = criticAgentOptionsSchema.parse(input);
+    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("reasoning");
+  }
+
+  createDefinition(): RuntimeNodeDefinition<
+    z.input<typeof criticInputSchema>,
+    z.input<typeof criticOutputSchema>
+  > {
+    return {
+      key: "critic-agent",
+      role: "critic",
+      inputSchema: criticInputSchema,
+      outputSchema: criticOutputSchema,
+      invoke: async (input, state) => this.review(input, state),
+    };
+  }
+
+  private async review(
+    input: z.input<typeof criticInputSchema>,
+    state: SwarmState,
+  ) {
     void state;
-    return reviewThesisWithCritic(input);
-  },
-});
+    const gateReview = reviewThesisWithCritic(input);
+
+    if (this.llmClient === null) {
+      return gateReview;
+    }
+
+    const parsed = criticInputSchema.parse(input);
+
+    try {
+      const llmReview = await this.llmClient.completeJson({
+        schema: criticOutputSchema,
+        systemPrompt: buildCriticSystemPrompt({
+          symbol: parsed.evaluation.thesis.asset,
+          evidenceCount: parsed.evaluation.evidence.length,
+          confidence: parsed.evaluation.thesis.confidence,
+        }),
+        userPrompt: JSON.stringify(
+          {
+            thesis: parsed.evaluation.thesis,
+            evidence: parsed.evaluation.evidence,
+            instruction:
+              "Be conservative. Use approved only when evidence and risk/reward are both strong. Return concise blockingReasons when downgrading.",
+          },
+          null,
+          2,
+        ),
+      });
+      const stricterReview =
+        decisionRank[llmReview.review.decision] >= decisionRank[gateReview.review.decision]
+          ? llmReview.review
+          : gateReview.review;
+
+      return criticOutputSchema.parse({
+        review: {
+          ...stricterReview,
+          candidateId: parsed.evaluation.thesis.candidateId,
+          objections: Array.from(
+            new Set([
+              ...(gateReview.review.objections ?? []),
+              ...(llmReview.review.objections ?? []),
+            ]),
+          ),
+          forcedOutcomeReason:
+            stricterReview.decision === gateReview.review.decision
+              ? gateReview.review.forcedOutcomeReason
+              : llmReview.review.forcedOutcomeReason ?? gateReview.review.forcedOutcomeReason,
+        },
+        blockingReasons: Array.from(
+          new Set([...(gateReview.blockingReasons ?? []), ...(llmReview.blockingReasons ?? [])]),
+        ),
+      });
+    } catch {
+      return gateReview;
+    }
+  }
+}
+
+export const createCriticAgent = (
+  input: zod.input<typeof criticAgentOptionsSchema> = {},
+) => new CriticAgentFactory(input).createDefinition();

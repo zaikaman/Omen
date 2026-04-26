@@ -1,3 +1,4 @@
+import type { OpenAiCompatibleJsonClient } from "../src/llm/openai-compatible-client.js";
 import { describe, expect, it } from "vitest";
 
 import { createCriticAgent, createInitialSwarmState } from "../src/index.js";
@@ -101,6 +102,60 @@ describe("critic agent", () => {
   it("rejects a thesis that fails the hard quality gates", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createCriticAgent();
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        evaluation: {
+          thesis: {
+            candidateId: "candidate-sol-1",
+            asset: "SOL",
+            direction: "LONG",
+            confidence: 61,
+            riskReward: 1.2,
+            whyNow: "Setup exists but remains weak.",
+            confluences: ["One partial signal"],
+            uncertaintyNotes: "Conviction is incomplete.",
+            missingDataNotes: "Funding and liquidity inputs are missing.",
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "SOL bounced modestly.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+        },
+      },
+      state,
+    );
+
+    expect(["watchlist_only", "rejected"]).toContain(result.review.decision);
+    expect((result.blockingReasons ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("keeps the hard gate authoritative even when the model is too optimistic", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createCriticAgent({
+      llmClient: {
+        completeJson: async () => ({
+          review: {
+            candidateId: "candidate-sol-1",
+            decision: "approved" as const,
+            objections: [],
+            forcedOutcomeReason: null,
+          },
+          blockingReasons: [],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
 
     const result = await agent.invoke(
       {
