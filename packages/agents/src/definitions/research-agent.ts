@@ -113,6 +113,19 @@ const summarizeNarratives = (narratives: AssetNarrative[], symbol: string) => {
     .join(" ");
 };
 
+const protocolSlugBySymbol: Partial<Record<string, string>> = {
+  AAVE: "aave",
+  CRV: "curve-dex",
+  ENA: "ethena",
+  LDO: "lido",
+  MKR: "makerdao",
+  PENDLE: "pendle",
+  UNI: "uniswap",
+};
+
+const resolveProtocolSlugForCandidate = (symbol: string) =>
+  protocolSlugBySymbol[symbol.toUpperCase()] ?? null;
+
 const promoteCandidateToResearched = (candidate: CandidateState) =>
   candidateStateSchema.parse({
     ...candidate,
@@ -157,10 +170,13 @@ export class ResearchAgentFactory {
   ): Promise<z.input<typeof researchOutputSchema>> {
     const parsed = researchInputSchema.parse(input);
     const symbol = parsed.candidate.symbol.toUpperCase();
+    const protocolSlug = resolveProtocolSlugForCandidate(symbol);
 
     const [snapshotResult, protocolResult, narrativeBundleResult] = await Promise.all([
       this.marketData.getSnapshot(symbol),
-      this.protocolData.getProtocolSnapshot(symbol.toLowerCase()),
+      protocolSlug === null
+        ? Promise.resolve(null)
+        : this.protocolData.getProtocolSnapshot(protocolSlug),
       this.narratives.getSymbolResearchBundle({
         symbol,
         query: `${symbol} catalysts narrative context`,
@@ -184,9 +200,9 @@ export class ResearchAgentFactory {
       missingDataNotes.push(`Market snapshot missing: ${snapshotResult.error.message}`);
     }
 
-    if (protocolResult.ok) {
+    if (protocolResult?.ok) {
       evidence.push(buildProtocolEvidence(protocolResult.value, symbol));
-    } else {
+    } else if (protocolResult && !protocolResult.ok) {
       missingDataNotes.push(`Protocol snapshot missing: ${protocolResult.error.message}`);
     }
 
@@ -223,7 +239,7 @@ export class ResearchAgentFactory {
             capturedAt: snapshotResult.value.capturedAt,
           }
         : null,
-      protocolSnapshot: protocolResult.ok ? protocolResult.value : null,
+      protocolSnapshot: protocolResult?.ok ? protocolResult.value : null,
       narratives: narrativeBundleResult.ok
         ? [
             ...narrativeBundleResult.value.narratives,

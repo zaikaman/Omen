@@ -87,6 +87,74 @@ describe("research agent", () => {
     ).toBe(true);
   });
 
+  it("skips protocol lookup for symbols without a mapped DeFiLlama protocol slug", async () => {
+    const state = createInitialSwarmState({ run, config });
+    let protocolLookups = 0;
+    const agent = createResearchAgent({
+      marketData: {
+        getSnapshot: async () => ({
+          ok: true,
+          value: {
+            symbol: "BTC",
+            provider: "binance",
+            price: 65000,
+            change24hPercent: 2.4,
+            volume24h: 100000000,
+            fundingRate: 0.005,
+            openInterest: 250000000,
+            candles: [],
+            capturedAt: "2026-04-25T08:00:00.000Z",
+          },
+        }),
+      } as unknown as BinanceMarketService,
+      protocolData: {
+        getProtocolSnapshot: async () => {
+          protocolLookups += 1;
+          throw new Error("protocol lookup should not be called for BTC");
+        },
+      } as unknown as DefiLlamaMarketService,
+      narratives: {
+        getSymbolResearchBundle: async () => ({
+          ok: true,
+          value: {
+            symbol: "BTC",
+            narratives: [],
+            macroContext: [],
+          },
+        }),
+      } as unknown as TavilyMarketResearchService,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        candidate: {
+          id: "candidate-btc-1",
+          symbol: "BTC",
+          reason: "Momentum and narrative alignment",
+          directionHint: "LONG",
+          status: "pending",
+          sourceUniverse: "BTC,ETH,SOL",
+          dedupeKey: "BTC",
+          missingDataNotes: [],
+        },
+      },
+      state,
+    );
+
+    expect(protocolLookups).toBe(0);
+    expect(
+      (result.missingDataNotes ?? []).some((note) =>
+        note.startsWith("Protocol snapshot missing:"),
+      ),
+    ).toBe(false);
+  });
+
   it("uses the model-backed synthesis path when a client is provided", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createResearchAgent({
