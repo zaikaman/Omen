@@ -216,6 +216,10 @@ export class AxlPeerRegistry {
     return this.listNodes().find((node) => node.role === role) ?? null;
   }
 
+  listNodesByRole(role: ManagedAxlRole) {
+    return this.listNodes().filter((node) => node.role === role);
+  }
+
   getNodeByPeerId(peerId: string) {
     return this.listNodes().find((node) => node.peerId === peerId) ?? null;
   }
