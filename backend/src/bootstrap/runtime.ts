@@ -33,7 +33,11 @@ export const startBackendRuntime = (): BackendRuntime => {
       await runtimeWorker.execute(context);
     },
   });
-  const app = createServer({ env, logger });
+  const app = createServer({
+    env,
+    logger,
+    getSchedulerStatus: () => scheduler.getStatus(),
+  });
 
   const server = app.listen(env.port, () => {
     logger.info(`Server is running at http://localhost:${env.port.toString()}`);

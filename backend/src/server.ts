@@ -4,13 +4,15 @@ import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 
-import apiRoutes from "./api/routes";
 import type { BackendEnv } from "./bootstrap/env";
 import type { Logger } from "./bootstrap/logger";
+import { createApiRouter } from "./api/routes";
+import type { SchedulerStatus } from "@omen/shared";
 
 export const createServer = (input: {
-  env: Pick<BackendEnv, "frontendOrigin" | "nodeEnv">;
+  env: Pick<BackendEnv, "frontendOrigin" | "nodeEnv" | "runtimeMode">;
   logger: Logger;
+  getSchedulerStatus?: () => SchedulerStatus;
 }) => {
   const app = express();
 
@@ -32,7 +34,13 @@ export const createServer = (input: {
     }),
   );
 
-  app.use("/api", apiRoutes);
+  app.use(
+    "/api",
+    createApiRouter({
+      runtimeMode: input.env.runtimeMode,
+      getSchedulerStatus: input.getSchedulerStatus,
+    }),
+  );
 
   app.get("/", (_req, res) => {
     res.json({
