@@ -9,5 +9,6 @@ export * from "./proofs/proof-types.js";
 export * from "./storage/log-adapter.js";
 export * from "./storage/namespace.js";
 export * from "./storage/storage-adapter.js";
+export * from "./storage/zero-g-file-store.js";
 export * from "./storage/zero-g-log-store.js";
 export * from "./storage/zero-g-state-store.js";

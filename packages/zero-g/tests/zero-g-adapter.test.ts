@@ -4,6 +4,7 @@ import {
   createZeroGArtifactLink,
   RunManifestBuilder,
   ZeroGClientAdapter,
+  ZeroGFileStore,
   ZeroGLogStore,
   ZeroGNamespaceBuilder,
   ZeroGProofAnchor,
@@ -87,6 +88,28 @@ describe("zero-g adapter", () => {
       expect(result.value.runId).toBe("run-1");
       expect(result.value.locator).toContain("/log/");
       expect(result.value.metadata.stream).toContain("/logs/debate-trace");
+    }
+  });
+
+  it("writes run-bound file bundle artifacts through the file store", async () => {
+    const fileStore = new ZeroGFileStore(adapter);
+    const result = await fileStore.publishRunBundle({
+      environment: "testnet",
+      runId: "run-1",
+      signalId: "signal-1",
+      segments: ["evidence-bundles"],
+      bundle: "evidence-pack.json",
+      contentType: "application/json",
+      bytes: JSON.stringify({ evidence: 2 }),
+      metadata: { label: "evidence-pack" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.runId).toBe("run-1");
+      expect(result.value.refType).toBe("file_artifact");
+      expect(result.value.key).toContain("/files/evidence-pack.json");
+      expect(result.value.metadata.label).toBe("evidence-pack");
     }
   });
 
