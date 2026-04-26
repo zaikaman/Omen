@@ -71,6 +71,9 @@ importers:
       '@omen/axl':
         specifier: workspace:*
         version: link:../packages/axl
+      '@omen/db':
+        specifier: workspace:*
+        version: link:../packages/db
       '@omen/shared':
         specifier: workspace:*
         version: link:../packages/shared
