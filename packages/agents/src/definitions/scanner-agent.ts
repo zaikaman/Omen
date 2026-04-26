@@ -10,6 +10,7 @@ import { scannerInputSchema, scannerOutputSchema } from "../contracts/scanner.js
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import { candidateStateSchema, type CandidateState, type SwarmState } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
+import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildScannerSystemPrompt } from "../prompts/scanner/system.js";
 
 const scannerServiceOptionsSchema = z.object({
@@ -89,7 +90,9 @@ export class ScannerAgentFactory {
     const parsed = scannerServiceOptionsSchema.parse(input);
     this.binance = parsed.binance ?? new BinanceMarketService();
     this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
-    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("scanner");
+    this.llmClient =
+      parsed.llmClient ??
+      OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("scanner"));
   }
 
   createDefinition(): RuntimeNodeDefinition<

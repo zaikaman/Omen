@@ -17,6 +17,7 @@ import {
   type SwarmState,
 } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
+import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildResearchSystemPrompt } from "../prompts/research/system.js";
 
 const researchServiceOptionsSchema = z.object({
@@ -132,7 +133,9 @@ export class ResearchAgentFactory {
     this.marketData = parsed.marketData ?? new BinanceMarketService();
     this.protocolData = parsed.protocolData ?? new DefiLlamaMarketService();
     this.narratives = parsed.narratives ?? new TavilyMarketResearchService();
-    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("scanner");
+    this.llmClient =
+      parsed.llmClient ??
+      OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("research"));
   }
 
   createDefinition(): RuntimeNodeDefinition<

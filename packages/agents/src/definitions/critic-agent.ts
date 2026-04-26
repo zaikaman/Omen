@@ -5,6 +5,7 @@ import { criticInputSchema, criticOutputSchema } from "../contracts/critic.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import type { SwarmState } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
+import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildCriticSystemPrompt } from "../prompts/critic/system.js";
 import { runCriticGate } from "../quality-gates/critic-gate.js";
 
@@ -70,7 +71,9 @@ export class CriticAgentFactory {
 
   constructor(input: zod.input<typeof criticAgentOptionsSchema> = {}) {
     const parsed = criticAgentOptionsSchema.parse(input);
-    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("reasoning");
+    this.llmClient =
+      parsed.llmClient ??
+      OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("critic"));
   }
 
   createDefinition(): RuntimeNodeDefinition<

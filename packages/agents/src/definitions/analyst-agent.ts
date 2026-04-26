@@ -5,6 +5,7 @@ import { analystInputSchema, analystOutputSchema } from "../contracts/analyst.js
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import { type EvidenceItem, type SwarmState, thesisDraftSchema } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
+import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildAnalystSystemPrompt } from "../prompts/analyst/system.js";
 
 const analystAgentOptionsSchema = zod.object({
@@ -177,7 +178,9 @@ export class AnalystAgentFactory {
 
   constructor(input: zod.input<typeof analystAgentOptionsSchema> = {}) {
     const parsed = analystAgentOptionsSchema.parse(input);
-    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("reasoning");
+    this.llmClient =
+      parsed.llmClient ??
+      OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("analyst"));
   }
 
   createDefinition(): RuntimeNodeDefinition<

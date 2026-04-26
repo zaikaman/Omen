@@ -10,6 +10,7 @@ import type {
   ThesisDraft,
 } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
+import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildPublisherSystemPrompt } from "../prompts/publisher/system.js";
 
 const publisherAgentOptionsSchema = zod.object({
@@ -225,7 +226,9 @@ export class PublisherAgentFactory {
 
   constructor(input: zod.input<typeof publisherAgentOptionsSchema> = {}) {
     const parsed = publisherAgentOptionsSchema.parse(input);
-    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("reasoning");
+    this.llmClient =
+      parsed.llmClient ??
+      OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("publisher"));
   }
 
   createDefinition(): RuntimeNodeDefinition<

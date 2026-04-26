@@ -13,6 +13,7 @@ import { biasDecisionSchema, orchestrationContextSchema } from "../contracts/com
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import type { SwarmState } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
+import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildMarketBiasSystemPrompt } from "../prompts/market-bias/system.js";
 
 export const marketBiasAgentInputSchema = z.object({
@@ -102,7 +103,9 @@ export class MarketBiasAgentFactory {
     this.binance = parsed.binance ?? new BinanceMarketService();
     this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
     this.narratives = parsed.narratives ?? new TavilyMarketResearchService();
-    this.llmClient = parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv("scanner");
+    this.llmClient =
+      parsed.llmClient ??
+      OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("market_bias"));
   }
 
   createDefinition(): RuntimeNodeDefinition<
