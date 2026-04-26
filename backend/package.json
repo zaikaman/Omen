@@ -8,6 +8,7 @@
     "start": "node dist/src/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
+    "smoke:live": "tsx src/scripts/smoke-live-swarm.ts",
     "lint": "eslint \"src/**/*.ts\" --no-error-on-unmatched-pattern",
     "lint:fix": "eslint \"src/**/*.ts\" --fix --no-error-on-unmatched-pattern",
     "test": "node -e \"process.exit(0)\"",

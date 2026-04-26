@@ -6,6 +6,7 @@ import { registerGracefulShutdown } from "./shutdown";
 import { createServer } from "../server";
 import { DefaultRunCoordinator } from "../coordinator/run-coordinator";
 import { DefaultDemoRunPipeline } from "../pipelines/demo-run-pipeline";
+import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline";
 import { HourlyScheduler } from "../scheduler/hourly-scheduler";
 import { RunLock } from "../scheduler/run-lock";
 import { getRuntimeModeFlags } from "../scheduler/runtime-mode";
@@ -22,7 +23,10 @@ export const startBackendRuntime = (): BackendRuntime => {
   const env = createBackendEnv();
   const logger = createLogger(env);
   const runtimeMode = getRuntimeModeFlags(env.runtimeMode);
-  const pipeline = new DefaultDemoRunPipeline();
+  const pipeline =
+    runtimeMode.usesMockData
+      ? new DefaultDemoRunPipeline()
+      : new DefaultLiveSwarmRunPipeline({ env });
   const coordinator = new DefaultRunCoordinator({ logger, pipeline });
   const runtimeWorker = new DefaultRuntimeWorker({ logger, coordinator });
   const scheduler = new HourlyScheduler({

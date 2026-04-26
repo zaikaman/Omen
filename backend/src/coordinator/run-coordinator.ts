@@ -2,7 +2,18 @@ import type { SwarmState } from "@omen/agents";
 
 import type { Logger } from "../bootstrap/logger";
 import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
-import type { DemoRunPipeline, DemoRunPipelineResult } from "../pipelines/demo-run-pipeline";
+
+export type RunPipelineResult = {
+  runId: string;
+  completedAt: string;
+  checkpointCount: number;
+  outcomeType: NonNullable<SwarmState["run"]["outcome"]>["outcomeType"];
+  finalState: SwarmState;
+};
+
+export type RunPipeline = {
+  run(request: SchedulerTaskContext): Promise<RunPipelineResult>;
+};
 
 export type RunCoordinatorRequest = SchedulerTaskContext;
 
@@ -22,7 +33,7 @@ export class DefaultRunCoordinator implements RunCoordinator {
   constructor(
     private readonly input: {
       logger: Logger;
-      pipeline: DemoRunPipeline;
+      pipeline: RunPipeline;
     },
   ) {}
 
@@ -42,7 +53,7 @@ export class DefaultRunCoordinator implements RunCoordinator {
 }
 
 export const toRunCoordinatorResult = (
-  result: DemoRunPipelineResult,
+  result: RunPipelineResult,
 ): RunCoordinatorResult => ({
   runId: result.runId,
   completedAt: result.completedAt,
