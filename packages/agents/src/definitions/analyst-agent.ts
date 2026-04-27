@@ -46,10 +46,14 @@ const directionFromResearch = (
   }
 
   const bullishSignals = evidence.filter((item) =>
-    /bullish|breakout|strength|reclaim|positive/i.test(item.summary),
+    /bullish|breakout|strength|reclaim|positive|leaning upward|uptrend|higher highs|accumulation|oversold bounce/i.test(
+      item.summary,
+    ),
   ).length;
   const bearishSignals = evidence.filter((item) =>
-    /bearish|breakdown|weakness|rejection|negative/i.test(item.summary),
+    /bearish|breakdown|weakness|rejection|negative|leaning downward|downtrend|lower lows|distribution|underperform|selloff/i.test(
+      item.summary,
+    ),
   ).length;
 
   if (bullishSignals > bearishSignals) {
@@ -219,6 +223,20 @@ const summarizeWhyNow = (symbol: string, evidence: EvidenceItem[], narrativeSumm
     .join(" ");
 
   return `${symbol} is actionable because ${leadEvidence} ${narrativeSummary}`.trim();
+};
+
+const summarizeNoTrade = (
+  symbol: string,
+  direction: "WATCHLIST" | "NONE",
+  evidence: EvidenceItem[],
+  narrativeSummary: string,
+) => {
+  const leadEvidence = evidence
+    .slice(0, 2)
+    .map((item) => item.summary)
+    .join(" ");
+
+  return `${symbol} did not form an executable trade setup. Direction resolved to ${direction}; ${leadEvidence} ${narrativeSummary}`.trim();
 };
 
 const deriveTradeSetup = (input: {
@@ -489,14 +507,25 @@ export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) =
       targetPrice: tradeSetup.targetPrice,
       stopLoss: tradeSetup.stopLoss,
       riskReward,
-      whyNow: summarizeWhyNow(
-        parsed.research.candidate.symbol,
-        parsed.research.evidence,
-        mergeChartVisionSummary(
-          parsed.research.narrativeSummary,
-          parsed.research.chartVisionSummary,
-        ),
-      ),
+      whyNow:
+        direction === "LONG" || direction === "SHORT"
+          ? summarizeWhyNow(
+              parsed.research.candidate.symbol,
+              parsed.research.evidence,
+              mergeChartVisionSummary(
+                parsed.research.narrativeSummary,
+                parsed.research.chartVisionSummary,
+              ),
+            )
+          : summarizeNoTrade(
+              parsed.research.candidate.symbol,
+              direction,
+              parsed.research.evidence,
+              mergeChartVisionSummary(
+                parsed.research.narrativeSummary,
+                parsed.research.chartVisionSummary,
+              ),
+            ),
       confluences,
       uncertaintyNotes: summarizeUncertainty(
         parsed.research.missingDataNotes,

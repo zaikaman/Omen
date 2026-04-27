@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import { z as zod } from "zod";
 
+import { TavilyMarketResearchService } from "@omen/market-data";
 import { intelInputSchema, intelOutputSchema } from "../contracts/intel.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import {
@@ -16,6 +17,7 @@ import { buildIntelSystemPrompt } from "../prompts/intel/system.js";
 
 const intelAgentOptionsSchema = zod.object({
   llmClient: zod.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
+  marketResearch: zod.custom<TavilyMarketResearchService>().optional(),
 });
 
 const summarizeEvidence = (evidence: EvidenceItem[]) =>
@@ -109,8 +111,9 @@ const toIntelReport = (
   imagePrompt: report.imagePrompt ?? null,
 });
 
-const deriveFallbackIntelReport = (input: z.input<typeof intelInputSchema>): IntelReport | null => {
-  const parsed = intelInputSchema.parse(input);
+const deriveFallbackIntelReport = (
+  parsed: z.infer<typeof intelInputSchema>,
+): IntelReport | null => {
   const symbols = [...new Set(parsed.candidates.map((candidate) => candidate.symbol))];
   const leadSymbol = symbols[0] ?? parsed.thesis?.asset ?? "market";
   const evidenceSummary = summarizeEvidence(parsed.evidence);
@@ -169,10 +172,13 @@ const deriveFallbackIntelReport = (input: z.input<typeof intelInputSchema>): Int
 export class IntelAgentFactory {
   private readonly llmClient: OpenAiCompatibleJsonClient | null;
 
+  private readonly marketResearch: TavilyMarketResearchService;
+
   constructor(input: zod.input<typeof intelAgentOptionsSchema> = {}) {
     const parsed = intelAgentOptionsSchema.parse(input);
     this.llmClient =
       parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("intel"));
+    this.marketResearch = parsed.marketResearch ?? new TavilyMarketResearchService();
   }
 
   createDefinition(): RuntimeNodeDefinition<
@@ -189,8 +195,7 @@ export class IntelAgentFactory {
   }
 
   private async generateIntel(input: z.input<typeof intelInputSchema>, state: SwarmState) {
-    void state;
-    const parsed = intelInputSchema.parse(input);
+    const parsed = await this.enrichInputWithIntelResearch(intelInputSchema.parse(input), state);
 
     const fallbackReport = deriveFallbackIntelReport(parsed);
     const prompt = buildIntelSystemPrompt({
@@ -275,6 +280,85 @@ export class IntelAgentFactory {
       action: dedupedFallback === null ? "skip" : "ready",
       report: dedupedFallback,
       skipReason: fallbackReport !== null && dedupedFallback === null ? "recent_duplicate" : null,
+    });
+  }
+
+  private async enrichInputWithIntelResearch(
+    input: z.infer<typeof intelInputSchema>,
+    state: SwarmState,
+  ): Promise<z.infer<typeof intelInputSchema>> {
+    const parsed = intelInputSchema.parse(input);
+
+    if (parsed.context.mode === "mocked" || !state.config.providers.news.enabled) {
+      return parsed;
+    }
+
+    const existingEvidence = [...parsed.evidence];
+    const existingNarrativeKeys = new Set(
+      existingEvidence
+        .filter((item) => item.category === "sentiment" || item.category === "catalyst")
+        .map((item) => item.summary.toLowerCase()),
+    );
+    const symbols = [
+      ...new Set(
+        [
+          parsed.thesis?.asset,
+          ...parsed.candidates.map((candidate) => candidate.symbol),
+          parsed.bias?.marketBias === "UNKNOWN" ? null : "BTC",
+        ]
+          .filter((symbol): symbol is string => Boolean(symbol))
+          .map((symbol) => symbol.toUpperCase()),
+      ),
+    ].slice(0, 3);
+    const focus =
+      symbols.length > 0
+        ? `${symbols.join(" ")} crypto market news catalyst sentiment high signal accounts`
+        : "crypto market narratives today high signal accounts WatcherGuru Pentosh1 Cointelegraph";
+
+    const narratives = await this.marketResearch.getSymbolResearchBundle({
+      symbol: symbols[0] ?? "MARKET",
+      query: focus,
+    });
+
+    if (!narratives.ok) {
+      return parsed;
+    }
+
+    const narrativeEvidence = [...narratives.value.narratives, ...narratives.value.macroContext]
+      .slice(0, 4)
+      .map(
+        (narrative) =>
+          ({
+            category: narrative.sentiment === "neutral" ? "catalyst" : "sentiment",
+            summary: `${narrative.title}: ${narrative.summary}`,
+            sourceLabel: narrative.source,
+            sourceUrl: narrative.sourceUrl,
+            structuredData: {
+              symbol: narrative.symbol,
+              sentiment: narrative.sentiment,
+              capturedAt: narrative.capturedAt,
+              source: "intel-research",
+            },
+          }) satisfies EvidenceItem,
+      )
+      .filter((item) => {
+        const key = item.summary.toLowerCase();
+
+        if (existingNarrativeKeys.has(key)) {
+          return false;
+        }
+
+        existingNarrativeKeys.add(key);
+        return true;
+      });
+
+    if (narrativeEvidence.length === 0) {
+      return parsed;
+    }
+
+    return intelInputSchema.parse({
+      ...parsed,
+      evidence: [...existingEvidence, ...narrativeEvidence],
     });
   }
 }

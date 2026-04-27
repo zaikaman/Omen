@@ -184,4 +184,116 @@ describe("intel agent", () => {
     expect(result.report).toBeNull();
     expect(result.skipReason).toBe("recent_duplicate");
   });
+
+  it("uses fresh market research for live intel instead of only failed trade evidence", async () => {
+    const liveRun = {
+      ...run,
+      mode: "live" as const,
+    };
+    const liveConfig = {
+      ...config,
+      mode: "live" as const,
+    };
+    const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
+    const agent = createIntelAgent({
+      llmClient: null,
+      marketResearch: {
+        getSymbolResearchBundle: async () => ({
+          ok: true as const,
+          provider: "news",
+          value: {
+            symbol: "SOL",
+            narratives: [
+              {
+                symbol: "SOL",
+                title: "Solana market narrative shifts",
+                summary:
+                  "High-signal market accounts are discussing Solana weakness as liquidity rotates out of beta L1 trades.",
+                sentiment: "bearish" as const,
+                source: "Tavily",
+                sourceUrl: null,
+                capturedAt: new Date().toISOString(),
+              },
+            ],
+            macroContext: [],
+          },
+          health: {
+            provider: "news",
+            available: true,
+            degraded: false,
+            checkedAt: new Date().toISOString(),
+            notes: [],
+          },
+        }),
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: liveRun.id,
+          threadId: "thread-intel-live",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        bias: {
+          marketBias: "SHORT",
+          reasoning: "Risk-off tape with majors weak.",
+          confidence: 83,
+        },
+        candidates: [
+          {
+            id: "candidate-sol-1",
+            symbol: "SOL",
+            reason: "SOL underperformed in a short-biased tape.",
+            directionHint: null,
+            status: "researched",
+            sourceUniverse: "BTC,ETH,SOL",
+            dedupeKey: "SOL",
+            missingDataNotes: [],
+          },
+        ],
+        evidence: [
+          {
+            category: "market",
+            summary: "SOL spot snapshot recorded 83.83 with 24h change -3.11%.",
+            sourceLabel: "Binance",
+            sourceUrl: null,
+            structuredData: {},
+          },
+        ],
+        chartVisionSummary: "SOL 1h chart shows trend is leaning downward.",
+        thesis: {
+          candidateId: "candidate-sol-1",
+          asset: "SOL",
+          direction: "NONE",
+          confidence: 63,
+          orderType: null,
+          tradingStyle: null,
+          expectedDuration: null,
+          currentPrice: null,
+          entryPrice: null,
+          targetPrice: null,
+          stopLoss: null,
+          riskReward: null,
+          whyNow: "SOL did not form an executable trade setup.",
+          confluences: ["Market snapshot only"],
+          uncertaintyNotes: "No trade levels.",
+          missingDataNotes: "No additional missing-data flags.",
+        },
+        review: {
+          candidateId: "candidate-sol-1",
+          decision: "rejected",
+          objections: [],
+          forcedOutcomeReason: "The thesis failed the minimum quality gate.",
+        },
+        recentIntelHistory: [],
+      },
+      state,
+    );
+
+    expect(result.action).toBe("ready");
+    expect(result.report?.importanceScore).toBeGreaterThanOrEqual(7);
+    expect(result.report?.summary).toMatch(/Solana market narrative shifts/i);
+  });
 });

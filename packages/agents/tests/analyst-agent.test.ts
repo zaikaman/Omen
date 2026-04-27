@@ -198,4 +198,60 @@ describe("analyst agent", () => {
     expect(result.thesis.entryPrice).toBe(64850);
     expect((result.analystNotes ?? []).some((note) => note.includes("test-reasoner"))).toBe(true);
   });
+
+  it("derives a short thesis from downward chart language without a direction hint", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createAnalystAgent({ llmClient: null });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-short",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        research: {
+          candidate: {
+            id: "candidate-sol-1",
+            symbol: "SOL",
+            reason: "Underperforming in a short-biased tape.",
+            directionHint: null,
+            status: "researched",
+            sourceUniverse: "BTC,ETH,SOL",
+            dedupeKey: "SOL",
+            missingDataNotes: [],
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "SOL spot snapshot recorded 83.83 with 24h change -3.11%.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: {
+                price: 83.83,
+              },
+            },
+            {
+              category: "chart",
+              summary:
+                "SOL 1h chart shows trend is leaning downward with lower lows and confirming volume.",
+              sourceLabel: "Chart Vision",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+          narrativeSummary: "SOL remains weak relative to majors.",
+          missingDataNotes: [],
+        },
+      },
+      state,
+    );
+
+    expect(result.thesis.direction).toBe("SHORT");
+    expect(result.thesis.entryPrice).not.toBeNull();
+    expect(result.thesis.targetPrice).not.toBeNull();
+    expect(result.thesis.stopLoss).not.toBeNull();
+    expect(result.thesis.whyNow).toMatch(/actionable/i);
+  });
 });
