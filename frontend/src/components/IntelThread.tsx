@@ -1,25 +1,38 @@
 import { ScrollArea } from './ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import type { IntelSource } from '@omen/shared';
 
 interface IntelThreadProps {
   content: string;
+  title?: string;
+  symbols?: string[];
+  sources?: IntelSource[];
 }
 
-export function IntelThread({ content }: IntelThreadProps) {
+export function IntelThread({ content, title = 'Intel Thread', symbols = [], sources = [] }: IntelThreadProps) {
   // Simple parser to split thread into tweets/sections
   // Assuming content is formatted with "1/ ", "2/ " etc or just paragraphs
-  const sections = typeof content === 'string' ? content.split(/\n\n/).filter(Boolean) : [];
+  const bodySections = typeof content === 'string' ? content.split(/\n\n/).filter(Boolean) : [];
+  const sourceSection = sources.length > 0
+    ? `Sources: ${sources.map((source) => source.label).join(' | ')}`
+    : null;
+  const sections = [
+    title,
+    symbols.length > 0 ? `Symbols tracked: ${symbols.join(' / ')}` : null,
+    ...bodySections,
+    sourceSection,
+  ].filter((section): section is string => Boolean(section));
 
   return (
     <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
       <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex items-center gap-3">
         <Avatar className="h-10 w-10 border border-cyan-500/30">
-          <AvatarImage src="/agent-avatar.png" />
-          <AvatarFallback className="bg-cyan-950 text-cyan-400">RA</AvatarFallback>
+          <AvatarImage src="/logo.png" />
+          <AvatarFallback className="bg-cyan-950 text-cyan-400">OM</AvatarFallback>
         </Avatar>
         <div>
-          <div className="font-bold text-white">Rogue Agent</div>
-          <div className="text-xs text-cyan-400">@RogueSignals</div>
+          <div className="font-bold text-white">Omen Swarm</div>
+          <div className="text-xs text-cyan-400">@OmenIntel</div>
         </div>
       </div>
       

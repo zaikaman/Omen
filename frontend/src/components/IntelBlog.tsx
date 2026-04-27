@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Badge } from './ui/badge';
 import { Calendar01Icon, Share01Icon, Tick01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
+import type { IntelCategory, IntelSource, IntelStatus } from '@omen/shared';
 
 interface IntelBlogProps {
   title?: string;
@@ -9,9 +10,29 @@ interface IntelBlogProps {
   date?: string;
   imageUrl?: string;
   tldr?: string;
+  category?: IntelCategory;
+  status?: IntelStatus;
+  symbols?: string[];
+  confidence?: number;
+  sources?: IntelSource[];
+  proofRefIds?: string[];
 }
 
-export function IntelBlog({ title = 'Market Intelligence Report', content, date, imageUrl, tldr }: IntelBlogProps) {
+const formatLabel = (value: string) => value.replace(/_/g, ' ').toUpperCase();
+
+export function IntelBlog({
+  title = 'Market Intelligence Report',
+  content,
+  date,
+  imageUrl,
+  tldr,
+  category,
+  status,
+  symbols = [],
+  confidence,
+  sources = [],
+  proofRefIds = [],
+}: IntelBlogProps) {
   const [copied, setCopied] = useState(false);
 
   const handleShare = () => {
@@ -145,9 +166,71 @@ export function IntelBlog({ title = 'Market Intelligence Report', content, date,
             </div>
           )}
 
+          <div className='mb-10 grid grid-cols-1 gap-3 border border-gray-800 bg-gray-950/60 p-4 sm:grid-cols-2 lg:grid-cols-4'>
+            {category && (
+              <div>
+                <div className='font-mono text-[10px] uppercase tracking-widest text-gray-600'>Category</div>
+                <div className='mt-1 font-mono text-xs text-cyan-300'>{formatLabel(category)}</div>
+              </div>
+            )}
+            {typeof confidence === 'number' && (
+              <div>
+                <div className='font-mono text-[10px] uppercase tracking-widest text-gray-600'>Confidence</div>
+                <div className='mt-1 font-mono text-xs text-cyan-300'>{confidence}%</div>
+              </div>
+            )}
+            {status && (
+              <div>
+                <div className='font-mono text-[10px] uppercase tracking-widest text-gray-600'>Status</div>
+                <div className='mt-1 font-mono text-xs text-cyan-300'>{formatLabel(status)}</div>
+              </div>
+            )}
+            <div>
+              <div className='font-mono text-[10px] uppercase tracking-widest text-gray-600'>Symbols</div>
+              <div className='mt-1 font-mono text-xs text-cyan-300'>{symbols.length > 0 ? symbols.join(' / ') : 'MARKET'}</div>
+            </div>
+          </div>
+
           <div className='prose prose-invert prose-lg max-w-none prose-headings:font-sans prose-p:font-serif prose-p:text-gray-300 prose-a:text-cyan-400 hover:prose-a:text-cyan-300'>
             {renderContent(content)}
           </div>
+
+          {(sources.length > 0 || proofRefIds.length > 0) && (
+            <div className='mt-14 grid grid-cols-1 gap-6 border-t border-gray-800 pt-8 md:grid-cols-2'>
+              {sources.length > 0 && (
+                <div>
+                  <h4 className='mb-3 font-mono text-xs uppercase tracking-widest text-gray-500'>Sources</h4>
+                  <div className='space-y-2'>
+                    {sources.map((source) => (
+                      <div key={`${source.provider}-${source.label}`} className='text-sm text-gray-400'>
+                        {source.url ? (
+                          <a href={source.url} target='_blank' rel='noreferrer' className='text-cyan-400 hover:text-cyan-300'>
+                            {source.label}
+                          </a>
+                        ) : (
+                          <span>{source.label}</span>
+                        )}
+                        <span className='ml-2 font-mono text-[10px] uppercase tracking-wider text-gray-600'>{source.provider}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {proofRefIds.length > 0 && (
+                <div>
+                  <h4 className='mb-3 font-mono text-xs uppercase tracking-widest text-gray-500'>0G Proof Refs</h4>
+                  <div className='flex flex-wrap gap-2'>
+                    {proofRefIds.map((proofRefId) => (
+                      <span key={proofRefId} className='border border-gray-800 bg-gray-950 px-2 py-1 font-mono text-[10px] text-gray-400'>
+                        {proofRefId}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className='mt-16 pt-8 border-t border-gray-800 flex items-center justify-between'>
             <div className='font-mono text-xs text-gray-600 uppercase tracking-widest'>

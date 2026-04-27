@@ -2,18 +2,21 @@ import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { IntelBlog } from '../components/IntelBlog';
 import { IntelCard } from '../components/IntelCard';
+import { IntelThread } from '../components/IntelThread';
 import { SearchAndSort } from '../components/ui/SearchAndSort';
 import type { SortOption, FilterConfig } from '../components/ui/SearchAndSort';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { News01Icon, ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { News01Icon, ArrowLeft01Icon, ArrowRight01Icon, Loading03Icon } from '@hugeicons/core-free-icons';
 import { Button } from '../components/ui/button';
-import { getIntelDetail, getIntelFeed } from '../lib/api/intel';
 import type { Intel, IntelListItem } from '@omen/shared';
+import { useIntel, useIntelDetail } from '../hooks/useIntel';
 
 const ITEMS_PER_PAGE = 9;
+const REFRESH_INTERVAL_MS = 30_000;
 
 type CardIntel = {
     id: string;
+    slug: string;
     type: 'deep_dive' | 'alpha_report';
     created_at: string;
     content: {
@@ -26,6 +29,12 @@ type CardIntel = {
         image_url?: string | null;
         tldr?: string;
     };
+    category: Intel['category'];
+    status: Intel['status'];
+    symbols: string[];
+    confidence: number;
+    sources?: Intel['sources'];
+    proofRefIds?: string[];
 };
 
 const SORT_OPTIONS: SortOption[] = [
@@ -45,44 +54,9 @@ const FILTER_CONFIG: FilterConfig[] = [
     },
 ];
 
-const mockIntelItems: CardIntel[] = [
-    {
-        id: 'mock-1',
-        type: 'deep_dive',
-        created_at: new Date().toISOString(),
-        content: {
-            topic: 'Omen Network Upgrade Phase 2',
-            headline: 'Omen Network Upgrade Phase 2: Autonomous Scaling',
-            tweet_text: 'Omen core developers announce major stability update coming next week improving node synchronization times safely.',
-            long_form_content: '# Stability Upgrade Phase 2\n\nThe Omen network is preparing for a massive core upgrade aimed at accelerating our autonomous trade verifications and predictive model synchronization across the cluster.\n\n### Why this matters\nBy implementing sharded model loading, Omen agents will respond to sub-second mempool anomalies in a fraction of the time, dramatically boosting the win rate for short-interval scalping trades.\n\n### Timeline\nDeployment is tentatively scheduled for block 14,200,500.'
-        }
-    },
-    {
-        id: 'mock-2',
-        type: 'alpha_report',
-        created_at: new Date(Date.now() - 86400000).toISOString(),
-        content: {
-            topic: 'Layer 2 Expansion Opportunities',
-            headline: 'Layer 2 Sentiments Showing Massive Shift to Fraxtal',
-            tweet_text: 'On-chain analytics reveal a sudden spike in bridging activity towards Fraxtal ecosystems.',
-            long_form_content: '# Ecosystem Rotation\n\nThe smart money wallets we monitor have silently moved $200M+ into Fraxtal-native dApps over the last 48 hours. This early rotation typically precedes a major narrative pivot. Keep an eye on Frax ecosystem tokens.'
-        }
-    },
-    {
-        id: 'mock-3',
-        type: 'alpha_report',
-        created_at: new Date(Date.now() - 172800000).toISOString(),
-        content: {
-            topic: 'DeFi Options Growth',
-            headline: 'Decentralized Options Volume Hits Weekly ATH',
-            tweet_text: 'Options trading is capturing mindshare entirely independent of spot volume trends.',
-            long_form_content: '# Options Narrative\n\nUnlike traditional volume, option premiums are seeing irrational pricing on lower cap alts. The Omen sentiment tracker indicates that traders are piling into deep OTM calls expecting a major breakout.'
-        }
-    }
-];
-
 const toCardIntel = (intel: Intel | IntelListItem): CardIntel => ({
     id: intel.id,
+    slug: intel.slug,
     type: intel.category === 'opportunity' ? 'deep_dive' : 'alpha_report',
     created_at: intel.publishedAt ?? intel.createdAt,
     content: {
@@ -93,6 +67,12 @@ const toCardIntel = (intel: Intel | IntelListItem): CardIntel => ({
         image_url: intel.imageUrl,
         tldr: intel.summary,
     },
+    category: intel.category,
+    status: intel.status,
+    symbols: intel.symbols,
+    confidence: intel.confidence,
+    sources: 'sources' in intel ? intel.sources : undefined,
+    proofRefIds: 'proofRefIds' in intel ? intel.proofRefIds : undefined,
 });
 
 export function IntelPage() {
@@ -104,73 +84,34 @@ export function IntelPage() {
     const [filters, setFilters] = useState<Record<string, string>>({
         type: 'all',
     });
-    const [intelItems, setIntelItems] = useState<CardIntel[]>(() => mockIntelItems);
-    const [selectedIntel, setSelectedIntel] = useState<CardIntel | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         setPage(1);
     }, [searchQuery, sortBy, filters]);
 
-    useEffect(() => {
-        let cancelled = false;
-        setIsLoading(true);
-        getIntelFeed({ limit: 50, query: searchQuery || undefined })
-            .then((feed) => {
-                if (!cancelled) {
-                    setIntelItems(feed.items.map(toCardIntel));
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setIntelItems(mockIntelItems);
-                }
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    setIsLoading(false);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [searchQuery]);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        if (!id) {
-            setSelectedIntel(null);
-            return;
-        }
-
-        const cached = intelItems.find((item) => item.id === id);
-
-        if (cached) {
-            setSelectedIntel(cached);
-        }
-
-        getIntelDetail(id)
-            .then((detail) => {
-                if (!cancelled) {
-                    setSelectedIntel(toCardIntel(detail.item));
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setSelectedIntel(cached ?? mockIntelItems.find(item => item.id === id) ?? null);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [id, intelItems]);
-
     const handleFilterChange = (key: string, value: string) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
     };
+
+    const feedQuery = useIntel({
+        limit: 50,
+        query: searchQuery.trim() || undefined,
+        refreshIntervalMs: REFRESH_INTERVAL_MS,
+    });
+    const detailQuery = useIntelDetail(id, {
+        enabled: Boolean(id),
+        refreshIntervalMs: REFRESH_INTERVAL_MS,
+    });
+
+    const intelItems = useMemo(
+        () => feedQuery.intel.map(toCardIntel),
+        [feedQuery.intel],
+    );
+    const cachedSelectedIntel = useMemo(
+        () => intelItems.find((item) => item.id === id || item.slug === id) ?? null,
+        [id, intelItems],
+    );
+    const selectedIntel = detailQuery.intel ? toCardIntel(detailQuery.intel) : cachedSelectedIntel;
 
     const latestIntel = page === 1 && intelItems.length > 0 ? intelItems[0] : null;
 
@@ -232,6 +173,10 @@ export function IntelPage() {
         const content = selectedIntel.content;
         const articleContent = content.long_form_content || content.blog_post || content.formatted_thread || content.tweet_text || '';
         const headline = content.headline || content.topic;
+        const threadContent = [
+            selectedIntel.content.tldr,
+            selectedIntel.content.long_form_content,
+        ].filter(Boolean).join('\n\n');
 
         return (
             <div className="space-y-6">
@@ -250,7 +195,36 @@ export function IntelPage() {
                     date={new Date(selectedIntel.created_at).toLocaleDateString()}
                     imageUrl={content.image_url ?? undefined}
                     tldr={content.tldr}
+                    category={selectedIntel.category}
+                    status={selectedIntel.status}
+                    symbols={selectedIntel.symbols}
+                    confidence={selectedIntel.confidence}
+                    sources={selectedIntel.sources}
+                    proofRefIds={selectedIntel.proofRefIds}
                 />
+
+                <IntelThread
+                    title={headline}
+                    content={threadContent}
+                    symbols={selectedIntel.symbols}
+                    sources={selectedIntel.sources}
+                />
+            </div>
+        );
+    }
+
+    if (id && detailQuery.isLoading) {
+        return (
+            <div className="space-y-6">
+                <Button
+                    variant="ghost"
+                    className="gap-2 pl-0 hover:pl-2 transition-all text-gray-400 hover:text-white"
+                    onClick={() => navigate('/app/intel')}
+                >
+                    <HugeiconsIcon icon={ArrowLeft01Icon} className="w-4 h-4" />
+                    Back to Feed
+                </Button>
+                <div className="h-96 bg-gray-900/50 animate-pulse border border-gray-800" />
             </div>
         );
     }
@@ -265,14 +239,25 @@ export function IntelPage() {
                     </h2>
                     <p className="text-gray-400 mt-1">Deep dive analysis and raw intelligence streams.</p>
                 </div>
-                {isLoading && <span className="text-xs text-gray-500">Syncing intel...</span>}
+                {(feedQuery.isRefreshing || detailQuery.isRefreshing) && <span className="text-xs text-gray-500">Syncing live intel...</span>}
             </div>
 
+            {(feedQuery.error || detailQuery.error) && (
+                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+                    Live intel is unavailable. Seeded fallback data may be shown.
+                </div>
+            )}
+
             {/* Latest Intel - Always Visible when not filtering */}
-            {latestIntel && !hasActiveFilters && page === 1 && (
+            {!hasActiveFilters && page === 1 && (
                 <div className="mb-8">
                     <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Latest Report</h3>
-                    <IntelCard intel={latestIntel} onClick={() => navigate(`/app/intel/${latestIntel.id}`)} />
+                    <IntelCard
+                        intel={latestIntel}
+                        isLoading={feedQuery.isLoading}
+                        error={feedQuery.error}
+                        onClick={() => latestIntel && navigate(`/app/intel/${latestIntel.id}`)}
+                    />
                 </div>
             )}
 
@@ -291,6 +276,8 @@ export function IntelPage() {
                         filters={FILTER_CONFIG}
                         activeFilters={filters}
                         onFilterChange={handleFilterChange}
+                        resultCount={displayItems.length}
+                        isLoading={feedQuery.isLoading || feedQuery.isRefreshing}
                     />
                 </div>
 
@@ -332,13 +319,18 @@ export function IntelPage() {
                 ) : (
                     <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-12 text-center">
                         <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <HugeiconsIcon icon={News01Icon} className="w-8 h-8 text-gray-600" />
+                            <HugeiconsIcon
+                                icon={feedQuery.isLoading ? Loading03Icon : News01Icon}
+                                className={`w-8 h-8 text-gray-600 ${feedQuery.isLoading ? 'animate-spin' : ''}`}
+                            />
                         </div>
                         <h3 className="text-lg font-medium text-white mb-2">
-                            {searchQuery || filters.type !== 'all' ? 'No Matching Reports' : 'No Archived Reports'}
+                            {feedQuery.isLoading ? 'Loading Reports' : searchQuery || filters.type !== 'all' ? 'No Matching Reports' : 'No Archived Reports'}
                         </h3>
                         <p className="text-gray-500 max-w-md mx-auto">
-                            {searchQuery || filters.type !== 'all'
+                            {feedQuery.isLoading
+                                ? 'Fetching live swarm intelligence from the backend.'
+                                : searchQuery || filters.type !== 'all'
                                 ? 'Try adjusting your search or filters.'
                                 : 'Older intelligence reports will appear here.'}
                         </p>
