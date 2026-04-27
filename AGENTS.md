@@ -1,2 +1,3 @@
 - 0g-doc and 0g-ts-sdk folders are meant for 0G related docs, axl is meant for Gensyn AXL docs, and you should only read them, not edit them.
 - The packages/db/current_schema.sql is the current database.
+- For UI tasks, just make sure you're creating UI that matches the design of the current app.

@@ -1,15 +1,66 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Home01Icon, Menu01Icon, Cancel01Icon, GpsSignal01Icon, News01Icon, ChartHistogramIcon } from '@hugeicons/core-free-icons';
+import {
+    Activity01Icon,
+    Calendar01Icon,
+    ChartHistogramIcon,
+    GpsSignal01Icon,
+    Home01Icon,
+    Menu01Icon,
+    Cancel01Icon,
+    NewTwitterIcon,
+    News01Icon,
+} from '@hugeicons/core-free-icons';
+import { useRunStatus } from '../../hooks/useRunStatus';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
 }
 
+const REFRESH_INTERVAL_MS = 30_000;
+
+const formatLabel = (value: string | null | undefined, fallback = 'UNKNOWN') => {
+    if (!value) {
+        return fallback;
+    }
+
+    return value.replace(/_/g, ' ').toUpperCase();
+};
+
+const formatDateTime = (value: string | null | undefined) => {
+    if (!value) {
+        return 'NOT SCHEDULED';
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(new Date(value));
+};
+
+const getPostStateClassName = (status: string | undefined) => {
+    switch (status) {
+        case 'posted':
+            return 'text-green-400';
+        case 'failed':
+            return 'text-red-400';
+        case 'formatting':
+        case 'posting':
+        case 'queued':
+        case 'ready':
+            return 'text-yellow-300';
+        default:
+            return 'text-gray-400';
+    }
+};
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const runStatus = useRunStatus({ refreshIntervalMs: REFRESH_INTERVAL_MS });
 
     const navItems = [
         { icon: Home01Icon, label: 'Dashboard', path: '/app' },
@@ -26,6 +77,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     };
 
     const currentTitle = pageTitles[location.pathname] || 'SYSTEM OVERVIEW';
+    const currentRun = runStatus.activeRun ?? runStatus.latestRun;
+    const latestPost = runStatus.dashboardSummary?.latestPost ?? null;
 
     return (
         <div className="min-h-screen bg-black text-gray-300 font-sans selection:bg-cyan-500/30 flex">
@@ -100,6 +153,26 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                         <div className="flex items-center gap-2 text-sm font-mono text-gray-500">
                             <span className="text-cyan-500">/</span>
                             <span className="tracking-widest">{currentTitle}</span>
+                        </div>
+                    </div>
+
+                    <div className="hidden lg:flex items-center gap-4 text-[11px] font-mono uppercase tracking-wider">
+                        <div className="flex items-center gap-1.5 text-gray-500">
+                            <HugeiconsIcon icon={Calendar01Icon} className="h-4 w-4 text-cyan-500" />
+                            <span>Next</span>
+                            <span className="text-gray-300">{formatDateTime(runStatus.scheduler?.nextRunAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-gray-500">
+                            <HugeiconsIcon icon={Activity01Icon} className="h-4 w-4 text-purple-300" />
+                            <span>Mode</span>
+                            <span className="text-gray-300">{formatLabel(currentRun?.mode)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-gray-500">
+                            <HugeiconsIcon icon={NewTwitterIcon} className="h-4 w-4 text-gray-400" />
+                            <span>Post</span>
+                            <span className={getPostStateClassName(latestPost?.status)}>
+                                {formatLabel(latestPost?.status, 'NONE')}
+                            </span>
                         </div>
                     </div>
                 </header>

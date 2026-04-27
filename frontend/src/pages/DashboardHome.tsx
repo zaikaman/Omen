@@ -90,6 +90,27 @@ const formatRunStatus = (status: string | undefined) => {
     return status.replace(/_/g, ' ').toUpperCase();
 };
 
+const formatLabel = (value: string | null | undefined, fallback = 'UNKNOWN') => {
+    if (!value) {
+        return fallback;
+    }
+
+    return value.replace(/_/g, ' ').toUpperCase();
+};
+
+const formatDateTime = (value: string | null | undefined) => {
+    if (!value) {
+        return 'NOT SCHEDULED';
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(new Date(value));
+};
+
 const formatSchedulerState = (
     scheduler: ReturnType<typeof useRunStatus>['scheduler'],
 ) => {
@@ -98,6 +119,22 @@ const formatSchedulerState = (
     }
 
     return scheduler.isRunning ? 'RUNNING' : 'STANDBY';
+};
+
+const getPostStateClassName = (status: string | undefined) => {
+    switch (status) {
+        case 'posted':
+            return 'text-green-400';
+        case 'failed':
+            return 'text-red-400';
+        case 'formatting':
+        case 'posting':
+        case 'queued':
+        case 'ready':
+            return 'text-yellow-300';
+        default:
+            return 'text-gray-300';
+    }
 };
 
 export function DashboardHome() {
@@ -123,6 +160,11 @@ export function DashboardHome() {
     const latestIntel = toIntelCardItem(intelDetail.intel);
     const logEntries = logs.logs.map(toLogEntry);
     const hasRunStatusError = runStatus.error !== null;
+    const latestPost = runStatus.dashboardSummary?.latestPost ?? null;
+    const runtimeMode = runStatus.activeRun?.mode ?? latestRun?.mode;
+    const latestPostLabel = latestPost
+        ? `${formatLabel(latestPost.kind)} / ${formatLabel(latestPost.status)}`
+        : 'NO POST YET';
 
     return (
         <div className="space-y-6">
@@ -190,9 +232,40 @@ export function DashboardHome() {
                                     <span className="text-gray-500">Scheduler</span>
                                     <span className="text-cyan-400 font-mono">{formatSchedulerState(runStatus.scheduler)}</span>
                                 </div>
+                                <div className="flex justify-between gap-4 text-sm">
+                                    <span className="text-gray-500">Next Run</span>
+                                    <span className="text-gray-300 font-mono text-right">{formatDateTime(runStatus.scheduler?.nextRunAt)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Runtime Mode</span>
+                                    <span className="text-purple-300 font-mono">{formatLabel(runtimeMode)}</span>
+                                </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-500">Market Bias</span>
                                     <span className="text-gray-300 font-mono">{latestRun?.marketBias ?? 'UNKNOWN'}</span>
+                                </div>
+                                <div className="border-t border-gray-800 pt-2 mt-2 space-y-1.5">
+                                    <div className="flex justify-between gap-4 text-sm">
+                                        <span className="text-gray-500">Latest Post</span>
+                                        {latestPost?.publishedUrl ? (
+                                            <a
+                                                href={latestPost.publishedUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className={`font-mono text-right hover:text-cyan-300 ${getPostStateClassName(latestPost.status)}`}
+                                            >
+                                                {latestPostLabel}
+                                            </a>
+                                        ) : (
+                                            <span className={`font-mono text-right ${getPostStateClassName(latestPost?.status)}`}>
+                                                {latestPostLabel}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between gap-4 text-xs">
+                                        <span className="text-gray-600">Updated</span>
+                                        <span className="text-gray-500 font-mono text-right">{formatDateTime(latestPost?.publishedAt ?? latestPost?.updatedAt)}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
