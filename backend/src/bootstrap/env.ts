@@ -48,6 +48,7 @@ export type BackendEnv = {
     scannerBaseUrl: string | null;
     scannerModel: string | null;
     hfToken: string | null;
+    hfTokens: string[];
     iqaiApiKey: string | null;
     binanceApiKey: string | null;
     binanceSecretKey: string | null;
@@ -124,6 +125,25 @@ const parseApiKeyArray = (
   return keys;
 };
 
+const parseHfTokens = (env: NodeJS.ProcessEnv) => {
+  const tokens: string[] = [];
+  const primaryToken = env.HF_TOKEN;
+
+  if (typeof primaryToken === "string" && primaryToken.trim()) {
+    tokens.push(primaryToken);
+  }
+
+  for (let index = 2; index <= 10; index += 1) {
+    const token = env[`HF_TOKEN_${index.toString()}`];
+
+    if (typeof token === "string" && token.trim()) {
+      tokens.push(token);
+    }
+  }
+
+  return tokens;
+};
+
 const normalizeNodeEnv = (value: string | undefined): BackendEnv["nodeEnv"] => {
   if (value === "production" || value === "test") {
     return value;
@@ -162,9 +182,7 @@ export const createBackendEnv = (
 
   const runtimePort = parsePort(env.PORT, 4001);
   const frontendOrigin =
-    env.FRONTEND_ORIGIN ??
-    env.FRONTEND_URL ??
-    "http://localhost:5173";
+    env.FRONTEND_ORIGIN ?? env.FRONTEND_URL ?? "http://localhost:5173";
   const twitterApiKey =
     env.TWITTERAPI_API_KEY ??
     env.TWITTERAPI_IO_KEY ??
@@ -221,6 +239,7 @@ export const createBackendEnv = (
       scannerBaseUrl: env.SCANNER_BASE_URL ?? null,
       scannerModel: env.SCANNER_MODEL ?? null,
       hfToken: env.HF_TOKEN ?? null,
+      hfTokens: parseHfTokens(env),
       iqaiApiKey: env.IQAI_API_KEY ?? null,
       binanceApiKey: env.BINANCE_API_KEY ?? null,
       binanceSecretKey: env.BINANCE_SECRET_KEY ?? null,

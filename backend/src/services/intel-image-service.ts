@@ -19,10 +19,6 @@ type GalleryItem = {
 
 const DEFAULT_SPACE = "Tongyi-MAI/Z-Image-Turbo";
 const DEFAULT_RESOLUTION = "2048x1152 ( 16:9 )";
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 2000;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const hasIntelImageConfig = (env: BackendEnv) =>
   Boolean(
@@ -33,8 +29,10 @@ export const hasIntelImageConfig = (env: BackendEnv) =>
   );
 
 export class IntelImageService {
+  private static nextTokenIndex = 0;
+
   private readonly storage: R2StorageService;
-  private readonly hfToken: string | null;
+  private readonly hfTokens: string[];
 
   constructor(
     private readonly input: {
@@ -43,27 +41,14 @@ export class IntelImageService {
     },
   ) {
     this.storage = new R2StorageService({ env: input.env });
-    this.hfToken = input.env.providers.hfToken;
+    this.hfTokens = this.normalizeHfTokens(input.env);
   }
 
   async generateAndStore(prompt: string): Promise<string | null> {
     try {
-      const client = await this.connectWithRetry();
-      const result = await client.predict("/generate", {
-        prompt,
-        resolution: DEFAULT_RESOLUTION,
-        seed: -1,
-        steps: 8,
-        shift: 3,
-        random_seed: true,
-        gallery_images: [],
-      });
-      const data = result.data as unknown;
-      const gallery = Array.isArray(data) ? (data[0] as GalleryItem[] | undefined) : undefined;
-      const temporaryUrl = gallery?.[0]?.image?.url ?? gallery?.[0]?.image?.path ?? null;
+      const temporaryUrl = await this.generateTemporaryImage(prompt);
 
-      if (!temporaryUrl) {
-        this.input.logger.warn("HuggingFace image response did not include an image URL.");
+      if (temporaryUrl === null) {
         return null;
       }
 
@@ -74,26 +59,92 @@ export class IntelImageService {
     }
   }
 
-  private async connectWithRetry() {
+  private async generateTemporaryImage(prompt: string) {
+    const tokens = this.getTokenAttemptOrder();
     let lastError: unknown = null;
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+    for (const token of tokens) {
       try {
-        return await Client.connect(DEFAULT_SPACE, {
-          token: this.hfToken as `hf_${string}` | undefined,
+        const client = await Client.connect(DEFAULT_SPACE, {
+          token: token as `hf_${string}` | undefined,
         });
+        const result = await client.predict("/generate", {
+          prompt,
+          resolution: DEFAULT_RESOLUTION,
+          seed: -1,
+          steps: 8,
+          shift: 3,
+          random_seed: true,
+          gallery_images: [],
+        });
+        const data = result.data as unknown;
+        const gallery = Array.isArray(data)
+          ? (data[0] as GalleryItem[] | undefined)
+          : undefined;
+        const temporaryUrl =
+          gallery?.[0]?.image?.url ?? gallery?.[0]?.image?.path ?? null;
+
+        if (!temporaryUrl) {
+          throw new Error("HuggingFace image response did not include an image URL.");
+        }
+
+        return temporaryUrl;
       } catch (error) {
         lastError = error;
-
-        if (attempt < MAX_RETRIES) {
-          await sleep(INITIAL_RETRY_DELAY_MS * 2 ** (attempt - 1));
-        }
+        this.input.logger.warn(
+          "HuggingFace image generation attempt failed; trying next token.",
+          this.describeHfToken(token),
+          error,
+        );
       }
     }
 
-    throw lastError instanceof Error
-      ? lastError
-      : new Error("Failed to connect to HuggingFace image space.");
+    if (lastError !== null) {
+      throw lastError;
+    }
+
+    return null;
+  }
+
+  private getTokenAttemptOrder() {
+    if (this.hfTokens.length === 0) {
+      return [null];
+    }
+
+    const startIndex = IntelImageService.nextTokenIndex % this.hfTokens.length;
+    IntelImageService.nextTokenIndex =
+      (IntelImageService.nextTokenIndex + 1) % this.hfTokens.length;
+
+    return this.hfTokens.map((_, offset) => {
+      const index = (startIndex + offset) % this.hfTokens.length;
+      return this.hfTokens[index] ?? null;
+    });
+  }
+
+  private normalizeHfTokens(env: BackendEnv) {
+    const tokens = new Set<string>();
+
+    for (const token of env.providers.hfTokens) {
+      if (token.trim()) {
+        tokens.add(token);
+      }
+    }
+
+    if (env.providers.hfToken?.trim()) {
+      tokens.add(env.providers.hfToken);
+    }
+
+    return [...tokens];
+  }
+
+  private describeHfToken(token: string | null) {
+    if (token === null) {
+      return { token: "anonymous" };
+    }
+
+    return {
+      token: `${token.slice(0, 5)}...${token.slice(-4)}`,
+    };
   }
 
   private async downloadAsWebpAndUpload(temporaryUrl: string) {
