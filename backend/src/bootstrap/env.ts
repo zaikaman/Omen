@@ -43,6 +43,7 @@ export type BackendEnv = {
     computeApiKey: string | null;
     privateKey: string | null;
     flowContractAddress: string | null;
+    checkpointStrategy: "milestone" | "all";
   };
   providers: {
     openaiApiKey: string | null;
@@ -141,6 +142,9 @@ const normalizeLogLevel = (
   return "info";
 };
 
+const normalizeZeroGCheckpointStrategy = (value: string | undefined) =>
+  value === "all" ? "all" : "milestone";
+
 const loadEnvFiles = () => {
   dotenv.config({ path: path.resolve(process.cwd(), ".env") });
   dotenv.config({ path: path.resolve(process.cwd(), "../.env"), override: false });
@@ -209,6 +213,9 @@ export const createBackendEnv = (
       computeApiKey: env.ZERO_G_COMPUTE_API_KEY ?? null,
       privateKey: env.ZERO_G_PRIVATE_KEY ?? null,
       flowContractAddress: env.ZERO_G_FLOW_CONTRACT_ADDRESS ?? null,
+      checkpointStrategy: normalizeZeroGCheckpointStrategy(
+        env.ZERO_G_CHECKPOINT_STRATEGY,
+      ),
     },
     providers: {
       openaiApiKey: env.OPENAI_API_KEY ?? null,

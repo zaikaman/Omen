@@ -64,6 +64,21 @@ const normalizeCandidate = (candidate: {
   missingDataNotes: candidate.missingDataNotes ?? [],
 });
 
+const candidateStatusRank = {
+  pending: 0,
+  researched: 1,
+  rejected: 2,
+  promoted: 3,
+} as const satisfies Record<
+  ReturnType<typeof normalizeCandidate>["status"],
+  number
+>;
+
+const preserveMostAdvancedCandidateStatus = (
+  left: ReturnType<typeof normalizeCandidate>["status"],
+  right: ReturnType<typeof normalizeCandidate>["status"],
+) => (candidateStatusRank[left] >= candidateStatusRank[right] ? left : right);
+
 const normalizeEvidenceItem = (item: {
   category: "market" | "technical" | "liquidity" | "funding" | "fundamental" | "catalyst" | "sentiment" | "chart";
   summary: string;
@@ -552,7 +567,12 @@ export const applyOmenNodeOutput = (input: {
     const nextCandidates = input.state.activeCandidates.map((candidate) =>
       candidate.id === output.candidate.id
         ? normalizeCandidate({
+            ...candidate,
             ...output.candidate,
+            status: preserveMostAdvancedCandidateStatus(
+              candidate.status,
+              output.candidate.status,
+            ),
             missingDataNotes: output.missingDataNotes,
           })
         : candidate,

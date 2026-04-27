@@ -47,6 +47,10 @@ import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
 
 const DEFAULT_MARKET_UNIVERSE = TRADEABLE_SYMBOLS;
 const DEFAULT_SCAN_INTERVAL_MINUTES = 60;
+const ZERO_G_MILESTONE_CHECKPOINT_STEPS = new Set([
+  "memory-agent",
+  "publisher-agent",
+]);
 
 const managedStepRoleMap = {
   "market-bias-agent": "market_bias",
@@ -636,8 +640,11 @@ class LivePipelineExecutionContext {
     const stepSummary = summarizeCheckpoint(checkpoint);
     const peerId = this.resolvePeerIdForStep(checkpoint.step);
     const linkedRecordIds = toPersistableLinkedRecordIds();
+    const shouldPublishZeroGCheckpoint =
+      this.input.env.zeroG.checkpointStrategy === "all" ||
+      ZERO_G_MILESTONE_CHECKPOINT_STEPS.has(checkpoint.step);
 
-    if (this.zeroGStateStore) {
+    if (this.zeroGStateStore && shouldPublishZeroGCheckpoint) {
       const checkpointArtifact = await this.safePublishCheckpointState(persisted);
 
       persisted.durableRef = checkpointArtifact;

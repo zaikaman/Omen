@@ -86,6 +86,13 @@ const logRuntimeStage = (input: {
   );
 };
 
+type InvokeAndCheckpointInput = {
+  threadId: string;
+  state: SwarmState;
+  nodeKey: OmenSwarmNodeKey;
+  sequence: number;
+};
+
 class DefaultAgentRuntime implements AgentRuntime {
   readonly checkpointStore: SwarmCheckpointStore;
 
@@ -160,57 +167,125 @@ class DefaultAgentRuntime implements AgentRuntime {
     let sequence = input.sequenceOffset;
 
     while (currentNodeKey !== null) {
-      const node = this.graph.nodes.find((entry) => entry.key === currentNodeKey);
-
-      if (!node) {
-        throw new Error(`Missing graph node ${currentNodeKey} in runtime ${this.runtimeName}.`);
-      }
-
-      const output = await node.invoke(
-        buildOmenNodeInput({
-          nodeKey: currentNodeKey,
+      if (currentNodeKey === "research-agent") {
+        const researchNode = this.findNode("research-agent");
+        const chartVisionNode = this.findNode("chart-vision-agent");
+        const researchInput = buildOmenNodeInput({
+          nodeKey: "research-agent",
           state,
           threadId: input.threadId,
-        }) as never,
-        state,
-      );
-      const timestamp = new Date().toISOString();
-      const applied = applyOmenNodeOutput({
-        state,
-        nodeKey: currentNodeKey,
-        output,
-        timestamp,
-      });
+        });
+        const chartVisionInput = buildOmenNodeInput({
+          nodeKey: "chart-vision-agent",
+          state,
+          threadId: input.threadId,
+        });
+        const [researchOutput, chartVisionOutput] = await Promise.all([
+          researchNode.invoke(researchInput as never, state),
+          chartVisionNode.invoke(chartVisionInput as never, state),
+        ]);
 
-      state = applied.state;
-      sequence += 1;
-      logRuntimeStage({
-        runId: state.run.id,
+        const researchCheckpoint = await this.applyOutputAndCheckpoint({
+          threadId: input.threadId,
+          state,
+          nodeKey: "research-agent",
+          sequence,
+          output: researchOutput,
+        });
+        const chartVisionCheckpoint = await this.applyOutputAndCheckpoint({
+          threadId: input.threadId,
+          state: researchCheckpoint.state,
+          nodeKey: "chart-vision-agent",
+          sequence: researchCheckpoint.sequence,
+          output: chartVisionOutput,
+        });
+
+        state = chartVisionCheckpoint.state;
+        sequence = chartVisionCheckpoint.sequence;
+        currentNodeKey = resolveNextOmenNodeKey("chart-vision-agent", state);
+        continue;
+      }
+
+      const checkpoint = await this.invokeNodeAndCheckpoint({
         threadId: input.threadId,
+        state,
         nodeKey: currentNodeKey,
         sequence,
-        output,
-        stateDelta: applied.stateDelta,
       });
-      this.states.set(input.threadId, state);
-      await this.checkpointStore.save({
-        checkpointId: createCheckpointId({
-          threadId: input.threadId,
-          step: currentNodeKey,
-          sequence,
-        }),
-        threadId: input.threadId,
-        runId: state.run.id,
-        createdAt: timestamp,
-        step: currentNodeKey,
-        state,
-        stateDelta: applied.stateDelta,
-        durableRef: null,
-      });
+
+      state = checkpoint.state;
+      sequence = checkpoint.sequence;
       currentNodeKey = resolveNextOmenNodeKey(currentNodeKey, state);
     }
 
     return state;
+  }
+
+  private findNode(nodeKey: OmenSwarmNodeKey) {
+    const node = this.graph.nodes.find((entry) => entry.key === nodeKey);
+
+    if (!node) {
+      throw new Error(`Missing graph node ${nodeKey} in runtime ${this.runtimeName}.`);
+    }
+
+    return node;
+  }
+
+  private async invokeNodeAndCheckpoint(input: InvokeAndCheckpointInput) {
+    const node = this.findNode(input.nodeKey);
+    const output = await node.invoke(
+      buildOmenNodeInput({
+        nodeKey: input.nodeKey,
+        state: input.state,
+        threadId: input.threadId,
+      }) as never,
+      input.state,
+    );
+
+    return this.applyOutputAndCheckpoint({
+      ...input,
+      output,
+    });
+  }
+
+  private async applyOutputAndCheckpoint(
+    input: InvokeAndCheckpointInput & { output: unknown },
+  ) {
+    const timestamp = new Date().toISOString();
+    const applied = applyOmenNodeOutput({
+      state: input.state,
+      nodeKey: input.nodeKey,
+      output: input.output,
+      timestamp,
+    });
+    const state = applied.state;
+    const sequence = input.sequence + 1;
+
+    logRuntimeStage({
+      runId: state.run.id,
+      threadId: input.threadId,
+      nodeKey: input.nodeKey,
+      sequence,
+      output: input.output,
+      stateDelta: applied.stateDelta,
+    });
+    this.states.set(input.threadId, state);
+    await this.checkpointStore.save({
+      checkpointId: createCheckpointId({
+        threadId: input.threadId,
+        step: input.nodeKey,
+        sequence,
+      }),
+      threadId: input.threadId,
+      runId: state.run.id,
+      createdAt: timestamp,
+      step: input.nodeKey,
+      state,
+      stateDelta: applied.stateDelta,
+      durableRef: null,
+    });
+
+    return { state, sequence };
   }
 }
 
