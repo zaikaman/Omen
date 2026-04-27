@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  analyticsSnapshotSchema,
+  analyticsFeedResponseSchema,
+  analyticsLatestResponseSchema,
   dashboardSummarySchema,
   intelDetailResponseSchema,
   intelFeedResponseSchema,
@@ -14,28 +15,6 @@ import {
   demoDashboardSummary,
   demoRunBundles,
 } from "../../../packages/db/src/index";
-
-const analyticsFeedResponseSchema = {
-  parse: (input: unknown) => {
-    const payload = input as { items?: unknown[]; nextCursor?: unknown };
-    return {
-      items: Array.isArray(payload.items)
-        ? payload.items.map((item) => analyticsSnapshotSchema.parse(item))
-        : [],
-      nextCursor:
-        typeof payload.nextCursor === "string" ? payload.nextCursor : null,
-    };
-  },
-};
-
-const analyticsLatestResponseSchema = {
-  parse: (input: unknown) => {
-    const payload = input as { item?: unknown };
-    return {
-      item: payload.item == null ? null : analyticsSnapshotSchema.parse(payload.item),
-    };
-  },
-};
 
 describe("dashboard mvp api contract", () => {
   it("accepts the dashboard summary response contract for GET /api/dashboard/summary", () => {

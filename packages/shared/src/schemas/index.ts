@@ -1,4 +1,5 @@
 export * from "./analytics.js";
+export * from "./api/analytics.js";
 export * from "./axl-a2a.js";
 export * from "./axl.js";
 export * from "./axl-mcp.js";
