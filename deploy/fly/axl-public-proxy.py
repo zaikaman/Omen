@@ -70,7 +70,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def log_message(self, format, *args):
-        print(f"[axl-public-proxy] {self.address_string()} {format % args}")
+        client_ip = self.client_address[0] if self.client_address else "unknown"
+        print(f"[axl-public-proxy] {client_ip} {format % args}", flush=True)
 
 
 server = ThreadingHTTPServer(("0.0.0.0", PUBLIC_PORT), ProxyHandler)
