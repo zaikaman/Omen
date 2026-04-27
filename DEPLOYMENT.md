@@ -9,19 +9,28 @@ This repo is set up for a split deployment:
 
 ## Frontend on Vercel
 
-Create a Vercel project from the repository root, not from `frontend`.
+Create a Vercel project for the `frontend` directory only.
 
-The root [vercel.json](/D:/Omen/vercel.json) is workspace-aware and runs:
+In the Vercel import screen:
+
+- Select the `frontend` app entry, not the repo root.
+- Set Root Directory to `frontend`.
+- Leave the backend out of the Vercel project entirely.
+
+Committed frontend config:
+
+- [frontend/vercel.json](/D:/Omen/frontend/vercel.json)
+
+Build behavior inside that project:
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm --filter omen-frontend build
+pnpm build
 ```
 
-It serves the static output from:
+It serves the output from:
 
 ```bash
-frontend/dist
+dist
 ```
 
 Required Vercel environment variable:
