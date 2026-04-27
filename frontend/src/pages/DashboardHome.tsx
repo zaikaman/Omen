@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Home01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import type { AgentEvent, Intel, Signal } from '@omen/shared';
@@ -140,6 +140,7 @@ const getPostStateClassName = (status: string | undefined) => {
 };
 
 export function DashboardHome() {
+    const navigate = useNavigate();
     const runStatus = useRunStatus({ refreshIntervalMs: REFRESH_INTERVAL_MS });
     const latestSignalId = runStatus.dashboardSummary?.latestSignalId ?? null;
     const latestIntelId = runStatus.dashboardSummary?.latestIntelId ?? null;
@@ -207,6 +208,7 @@ export function DashboardHome() {
                             intel={latestIntel}
                             isLoading={runStatus.isLoading || intelDetail.isLoading}
                             error={intelDetail.error}
+                            onClick={latestIntelId ? () => navigate(`/app/intel/${latestIntelId}`) : undefined}
                         />
                     </div>
 

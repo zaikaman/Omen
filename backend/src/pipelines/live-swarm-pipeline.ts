@@ -66,7 +66,6 @@ const managedStepRoleMap = {
   "research-agent": "research",
   "chart-vision-agent": "chart_vision",
   "analyst-agent": "analyst",
-  "critic-agent": "critic",
   "intel-agent": "intel",
   "writer-agent": "writer",
   "memory-agent": "memory",
@@ -79,7 +78,6 @@ const stepEventTypeMap = {
   "research-agent": "research_completed",
   "chart-vision-agent": "chart_generated",
   "analyst-agent": "thesis_generated",
-  "critic-agent": "critic_decision",
   "intel-agent": "intel_ready",
   "writer-agent": "intel_ready",
   "memory-agent": "zero_g_kv_write",
@@ -90,14 +88,12 @@ const axlStepRoleMap = {
   "scanner-agent": "scanner",
   "research-agent": "research",
   "analyst-agent": "analyst",
-  "critic-agent": "critic",
 } as const;
 
 const axlHealthMethodByRole = {
   scanner: "scan.health",
   research: "research.health",
   analyst: "analyst.health",
-  critic: "critic.health",
 } as const;
 
 const getRoleForStep = (step: string): AgentRole =>
@@ -262,12 +258,12 @@ const summarizeCheckpoint = (checkpoint: SwarmCheckpoint) => {
     case "chart-vision-agent":
       return `Chart vision generated ${checkpoint.state.chartVisionSummaries.length.toString()} chart summary item(s).`;
     case "analyst-agent":
-      return `Analyst drafted ${checkpoint.state.thesisDrafts.length.toString()} thesis item(s).`;
+      return `Analyst drafted ${checkpoint.state.thesisDrafts.length.toString()} thesis item(s) and applied the quality gate.`;
     case "critic-agent": {
       const review = checkpoint.state.criticReviews.at(-1);
       return review
-        ? `Critic decision: ${review.decision}.`
-        : "Critic completed without a persisted review.";
+        ? `Legacy critic decision: ${review.decision}.`
+        : "Legacy critic checkpoint completed without a persisted review.";
     }
     case "intel-agent": {
       const intelReport = checkpoint.state.intelReports.at(-1);
@@ -1485,8 +1481,6 @@ class LivePipelineExecutionContext {
         return this.input.env.axl.nodes.research;
       case "analyst-agent":
         return this.input.env.axl.nodes.analyst;
-      case "critic-agent":
-        return this.input.env.axl.nodes.critic;
       default:
         return null;
     }
@@ -1500,8 +1494,6 @@ class LivePipelineExecutionContext {
         return this.input.env.axl.nodes.research;
       case "analyst":
         return this.input.env.axl.nodes.analyst;
-      case "critic":
-        return this.input.env.axl.nodes.critic;
       default:
         return null;
     }

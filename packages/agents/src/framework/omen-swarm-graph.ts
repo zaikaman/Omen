@@ -5,7 +5,6 @@ import type { ChartVisionOutput } from "../contracts/chart-vision.js";
 import {
   createAnalystAgent,
   createChartVisionAgent,
-  createCriticAgent,
   createIntelAgent,
   createMarketBiasAgent,
   createMemoryAgent,
@@ -14,6 +13,7 @@ import {
   createScannerAgent,
   createWriterAgent,
 } from "../definitions/index.js";
+import { runCriticGate } from "../quality-gates/critic-gate.js";
 import type { RuntimeNodeDefinition } from "./agent-runtime.js";
 import { mergeSwarmState, type IntelReport, type SwarmState, type ThesisDraft } from "./state.js";
 import type { SwarmGraphDefinition } from "./graph-factory.js";
@@ -24,7 +24,6 @@ export const omenSwarmNodeKeySchema = z.enum([
   "research-agent",
   "chart-vision-agent",
   "analyst-agent",
-  "critic-agent",
   "intel-agent",
   "writer-agent",
   "memory-agent",
@@ -41,7 +40,6 @@ const nodeKeyOrder = [
   "research-agent",
   "chart-vision-agent",
   "analyst-agent",
-  "critic-agent",
   "intel-agent",
   "writer-agent",
   "memory-agent",
@@ -262,7 +260,6 @@ export const createDefaultOmenSwarmNodes = (): readonly RuntimeNodeDefinition<
   createResearchAgent(),
   createChartVisionAgent(),
   createAnalystAgent(),
-  createCriticAgent(),
   createIntelAgent(),
   createWriterAgent(),
   createMemoryAgent(),
@@ -301,10 +298,6 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "analyst-agent") {
-    return "critic-agent";
-  }
-
-  if (current === "critic-agent") {
     const review = state.criticReviews.at(-1);
 
     return review?.decision === "approved" ? "memory-agent" : "intel-agent";
@@ -409,22 +402,6 @@ export const buildOmenNodeInput = (input: {
     return {
       context,
       candidate,
-    };
-  }
-
-  if (input.nodeKey === "critic-agent") {
-    const thesis = input.state.thesisDrafts.at(-1);
-
-    if (!thesis) {
-      throw new Error("Critic node requires a thesis draft.");
-    }
-
-    return {
-      context,
-      evaluation: {
-        thesis,
-        evidence: input.state.evidenceItems,
-      },
     };
   }
 
@@ -571,9 +548,26 @@ export const applyOmenNodeOutput = (input: {
   if (input.nodeKey === "analyst-agent") {
     const output = createAnalystAgent().outputSchema.parse(input.output);
     const thesis = normalizeThesis(output.thesis);
+    const gate = runCriticGate({
+      thesis,
+      evidence: input.state.evidenceItems,
+      config: input.state.config,
+    });
+    const review = normalizeReview({
+      candidateId: thesis.candidateId,
+      decision: gate.decision,
+      objections: gate.objections,
+      forcedOutcomeReason: gate.forcedOutcomeReason,
+    });
     const stateDelta = {
       thesisDrafts: [...input.state.thesisDrafts, thesis],
-      notes: sanitizeNotes([...input.state.notes, ...(output.analystNotes ?? [])]),
+      criticReviews: [...input.state.criticReviews, review],
+      errors: [...input.state.errors, ...gate.blockingReasons],
+      notes: sanitizeNotes([
+        ...input.state.notes,
+        ...(output.analystNotes ?? []),
+        `critic-decision:${review.decision}`,
+      ]),
     };
 
     return {
@@ -605,21 +599,6 @@ export const applyOmenNodeOutput = (input: {
         `chart-vision-summary:${output.chartSummary}`,
         ...output.frames.map((frame) => `chart-vision-${frame.timeframe}:${frame.analysis}`),
       ],
-    };
-
-    return {
-      state: mergeSwarmState(input.state, stateDelta),
-      stateDelta,
-    };
-  }
-
-  if (input.nodeKey === "critic-agent") {
-    const output = createCriticAgent().outputSchema.parse(input.output);
-    const review = normalizeReview(output.review);
-    const stateDelta = {
-      criticReviews: [...input.state.criticReviews, review],
-      errors: [...input.state.errors, ...(output.blockingReasons ?? [])],
-      notes: [...input.state.notes, `critic-decision:${review.decision}`],
     };
 
     return {
