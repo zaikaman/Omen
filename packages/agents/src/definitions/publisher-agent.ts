@@ -113,41 +113,6 @@ const buildIntelSummaryDraft = (input: {
   };
 };
 
-const buildIntelThreadDraft = (input: {
-  topic: string;
-  insight: string;
-  category: string;
-  title: string;
-  summary: string;
-  confidence: number;
-}): PublisherDraft => {
-  const title = toFeedSentence(input.title);
-  const summary = toFeedSentence(input.summary);
-  const hashtagLine = buildHashtagLine(
-    title.match(/\$?[A-Z0-9]{2,}/g)?.map((token) => token.replace(/^\$/, "")) ?? ["crypto"],
-  );
-
-  return {
-    kind: "intel_thread",
-    headline: `${title} thread`,
-    summary,
-    text: [
-      title.toLowerCase(),
-      "",
-      `- key takeaway: ${summary.toLowerCase()}`,
-      `- insight: ${toFeedSentence(input.insight).toLowerCase()}`,
-      `- category: ${input.category.replace(/_/g, " ")}`,
-      `- confidence: ${input.confidence}%`,
-      "- context: this deserves extra detail only if the desk wants a full thread",
-      "",
-      hashtagLine,
-    ].join("\n"),
-    metadata: {
-      confidence: input.confidence,
-    },
-  };
-};
-
 const buildNoConvictionDraft = (input: {
   thesis: ThesisDraft | null;
   review: CriticReview | null;
@@ -204,10 +169,7 @@ export const derivePublisherPacket = (input: z.input<typeof publisherInputSchema
   }
 
   if (parsed.intelSummary !== null) {
-    const drafts: PublisherDraft[] = [
-      buildIntelSummaryDraft(parsed.intelSummary),
-      buildIntelThreadDraft(parsed.intelSummary),
-    ];
+    const drafts: PublisherDraft[] = [buildIntelSummaryDraft(parsed.intelSummary)];
 
     return publisherOutputSchema.parse({
       outcome: "intel_ready",

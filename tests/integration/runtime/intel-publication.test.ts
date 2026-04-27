@@ -5,6 +5,7 @@ import {
   formatIntelPostPayload,
 } from "../../../backend/src/services/x/post-formatter";
 import { transitionPost } from "../../../backend/src/services/x/post-state-machine";
+import { PostWorker } from "../../../backend/src/services/x/post-worker";
 import { demoIntelRunBundle } from "../../../packages/db/src/index";
 import { outboundPostSchema, zeroGRunManifestSchema } from "../../../packages/shared/src/index";
 import { RunManifestBuilder } from "../../../packages/zero-g/src/proofs/run-manifest-builder";
@@ -104,5 +105,59 @@ describe("intel publication", () => {
       },
     });
     expect(retried.status).toBe("queued");
+  });
+
+  it("posts one tweet even when a legacy payload still has thread parts", async () => {
+    const { outboundPosts } = demoIntelRunBundle;
+    const basePost = outboundPosts[0];
+
+    if (!basePost) {
+      throw new Error("Expected a seeded outbound post.");
+    }
+
+    const post = outboundPostSchema.parse({
+      ...basePost,
+      status: "ready",
+      providerPostId: null,
+      publishedUrl: null,
+      publishedAt: null,
+      payload: {
+        ...basePost.payload,
+        thread: ["reply one", "reply two", "reply three"],
+      },
+    });
+    const createTweetCalls: unknown[] = [];
+    const updates: (typeof post)[] = [];
+    const worker = new PostWorker({
+      posts: {
+        updatePost: async (_id: string, patch: Partial<typeof post>) => {
+          const updated = outboundPostSchema.parse({
+            ...(updates.at(-1) ?? post),
+            ...patch,
+          });
+          updates.push(updated);
+          return { ok: true as const, value: updated };
+        },
+      } as never,
+      twitterApiClient: {
+        createTweet: async (draft: unknown) => {
+          createTweetCalls.push(draft);
+          return { status: "success", tweet_id: "tweet-single-001" };
+        },
+      } as never,
+      logger: {
+        warn: () => undefined,
+        error: () => undefined,
+      } as never,
+    });
+
+    const result = await worker.process(post);
+
+    expect(createTweetCalls).toHaveLength(1);
+    expect(result.post.providerPostId).toBe("tweet-single-001");
+    expect(result.post.payload.metadata).toMatchObject({
+      threadCount: 0,
+      ignoredThreadCount: 3,
+    });
   });
 });

@@ -101,7 +101,7 @@ describe("publisher agent", () => {
     expect(result.packet?.drafts[0]?.text).toContain("hold: 8-16 hours");
   });
 
-  it("builds intel summary and thread drafts for intel-ready runs", async () => {
+  it("builds a single intel summary draft for intel-ready runs", async () => {
     const result = await agent.invoke(
       {
         context: {
@@ -114,7 +114,8 @@ describe("publisher agent", () => {
         review: null,
         intelSummary: {
           topic: "ETH rotation",
-          insight: "Rotation favored ETH-linked flows while majors stayed trapped in range conditions.",
+          insight:
+            "Rotation favored ETH-linked flows while majors stayed trapped in range conditions.",
           importanceScore: 8,
           category: "market_update",
           title: "ETH market update",
@@ -127,10 +128,7 @@ describe("publisher agent", () => {
     );
 
     expect(result.outcome).toBe("intel_ready");
-    expect(result.packet?.drafts.map((draft) => draft.kind)).toEqual([
-      "intel_summary",
-      "intel_thread",
-    ]);
+    expect(result.packet?.drafts.map((draft) => draft.kind)).toEqual(["intel_summary"]);
   });
 
   it("keeps rejected outcomes off the publishing packet", async () => {

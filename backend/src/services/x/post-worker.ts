@@ -23,9 +23,7 @@ export const DEFAULT_POST_RETRY_POLICY = {
 
 const getAttemptCount = (post: OutboundPost) => {
   const attemptCount = post.payload.metadata.attemptCount;
-  return typeof attemptCount === "number" && Number.isInteger(attemptCount)
-    ? attemptCount
-    : 0;
+  return typeof attemptCount === "number" && Number.isInteger(attemptCount) ? attemptCount : 0;
 };
 
 export class PostWorker {
@@ -38,10 +36,7 @@ export class PostWorker {
   ) {}
 
   async process(post: OutboundPost): Promise<PostWorkerResult> {
-    const postingPost =
-      post.status === "posting"
-        ? post
-        : transitionPost(post, "start_posting");
+    const postingPost = post.status === "posting" ? post : transitionPost(post, "start_posting");
 
     if (postingPost.status !== post.status) {
       const updated = await this.input.posts.updatePost(postingPost.id, postingPost);
@@ -64,23 +59,6 @@ export class PostWorker {
           scheduleFor: null,
         }),
       );
-      let replyToTweetId = firstResponse.tweet_id;
-
-      for (const threadPart of post.payload.thread) {
-        const reply = await this.input.twitterApiClient.createTweet(
-          xPostDraftSchema.parse({
-            text: threadPart,
-            replyToTweetId,
-            quoteTweetId: null,
-            attachmentUrl: null,
-            communityId: null,
-            isNoteTweet: false,
-            mediaIds: [],
-            scheduleFor: null,
-          }),
-        );
-        replyToTweetId = reply.tweet_id;
-      }
 
       const timestamp = new Date().toISOString();
       const posted = transitionPost(postingPost, "mark_posted", {
@@ -93,7 +71,8 @@ export class PostWorker {
           ...post.payload,
           metadata: {
             ...post.payload.metadata,
-            threadCount: post.payload.thread.length,
+            threadCount: 0,
+            ignoredThreadCount: post.payload.thread.length,
           },
         },
       });
@@ -118,13 +97,11 @@ export class PostWorker {
           metadata: {
             ...post.payload.metadata,
             attemptCount,
-            retryable:
-              error instanceof TwitterApiProviderError ? error.retryable : true,
+            retryable: error instanceof TwitterApiProviderError ? error.retryable : true,
             nextRetryAt:
               attemptCount < DEFAULT_POST_RETRY_POLICY.maxAttempts
                 ? new Date(
-                    Date.now() +
-                      DEFAULT_POST_RETRY_POLICY.baseDelayMs * attemptCount,
+                    Date.now() + DEFAULT_POST_RETRY_POLICY.baseDelayMs * attemptCount,
                   ).toISOString()
                 : null,
           },
