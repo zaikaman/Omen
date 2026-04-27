@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import { Client } from "@gradio/client";
 import sharp from "sharp";
 
-import type { BackendEnv } from "../bootstrap/env";
-import type { Logger } from "../bootstrap/logger";
-import { R2StorageService } from "./r2-storage-service";
+import type { BackendEnv } from "../bootstrap/env.js";
+import type { Logger } from "../bootstrap/logger.js";
+import { R2StorageService } from "./r2-storage-service.js";
 
 type ImageFile = {
   url?: string;

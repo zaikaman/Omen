@@ -5,17 +5,17 @@ import {
   createSupabaseServiceRoleClient,
 } from "@omen/db";
 
-import { createBackendEnv, type BackendEnv } from "./env";
-import { createLogger, type Logger } from "./logger";
-import { registerGracefulShutdown } from "./shutdown";
-import { createServer } from "../server";
-import { DefaultRunCoordinator } from "../coordinator/run-coordinator";
-import { DefaultDemoRunPipeline } from "../pipelines/demo-run-pipeline";
-import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline";
-import { HourlyScheduler } from "../scheduler/hourly-scheduler";
-import { RunLock } from "../scheduler/run-lock";
-import { getRuntimeModeFlags } from "../scheduler/runtime-mode";
-import { DefaultRuntimeWorker } from "../workers/runtime-worker";
+import { createBackendEnv, type BackendEnv } from "./env.js";
+import { createLogger, type Logger } from "./logger.js";
+import { registerGracefulShutdown } from "./shutdown.js";
+import { createServer } from "../server.js";
+import { DefaultRunCoordinator } from "../coordinator/run-coordinator.js";
+import { DefaultDemoRunPipeline } from "../pipelines/demo-run-pipeline.js";
+import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline.js";
+import { HourlyScheduler } from "../scheduler/hourly-scheduler.js";
+import { RunLock } from "../scheduler/run-lock.js";
+import { getRuntimeModeFlags } from "../scheduler/runtime-mode.js";
+import { DefaultRuntimeWorker } from "../workers/runtime-worker.js";
 
 export type BackendRuntime = {
   env: BackendEnv;

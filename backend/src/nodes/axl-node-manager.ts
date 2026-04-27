@@ -4,7 +4,7 @@ import {
 import type { AgentNode, AxlEnvelope, Result } from "@omen/shared";
 import type { AxlHttpNodeAdapter, ReceivedAxlEnvelope } from "@omen/axl";
 
-import type { AxlPeerRegistry, LogicalAxlNodeRegistration } from "./axl-peer-registry";
+import type { AxlPeerRegistry, LogicalAxlNodeRegistration } from "./axl-peer-registry.js";
 
 type ManagedRole = LogicalAxlNodeRegistration["role"];
 

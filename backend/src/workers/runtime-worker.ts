@@ -1,9 +1,9 @@
-import type { Logger } from "../bootstrap/logger";
-import type { BackendEnv } from "../bootstrap/env";
-import type { RunCoordinator, RunCoordinatorResult } from "../coordinator/run-coordinator";
-import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
-import { createSchedulerTickHandler, type SchedulerTickHandler } from "../scheduler/scheduler-tick";
-import { SignalMonitorService } from "../services/signal-monitor.service";
+import type { Logger } from "../bootstrap/logger.js";
+import type { BackendEnv } from "../bootstrap/env.js";
+import type { RunCoordinator, RunCoordinatorResult } from "../coordinator/run-coordinator.js";
+import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler.js";
+import { createSchedulerTickHandler, type SchedulerTickHandler } from "../scheduler/scheduler-tick.js";
+import { SignalMonitorService } from "../services/signal-monitor.service.js";
 
 export type RuntimeWorker = {
   execute(context: SchedulerTaskContext): Promise<RunCoordinatorResult>;

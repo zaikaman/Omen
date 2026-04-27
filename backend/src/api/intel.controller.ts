@@ -6,8 +6,8 @@ import {
   intelFeedResponseSchema,
 } from "@omen/shared";
 
-import type { BackendEnv } from "../bootstrap/env";
-import { presentIntelDetail, presentIntelFeed } from "../presenters/intel.presenter";
+import type { BackendEnv } from "../bootstrap/env.js";
+import { presentIntelDetail, presentIntelFeed } from "../presenters/intel.presenter.js";
 
 const parseLimit = (value: unknown, fallback: number) => {
   if (typeof value !== "string") {

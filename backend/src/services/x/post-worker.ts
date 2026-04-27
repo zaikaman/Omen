@@ -1,10 +1,10 @@
 import { xPostDraftSchema, type OutboundPost } from "@omen/shared";
 import type { OutboundPostsRepository } from "@omen/db";
 
-import type { Logger } from "../../bootstrap/logger";
-import { transitionPost } from "./post-state-machine";
-import { TwitterApiClient } from "./twitterapi-client";
-import { TwitterApiProviderError } from "./twitterapi-errors";
+import type { Logger } from "../../bootstrap/logger.js";
+import { transitionPost } from "./post-state-machine.js";
+import { TwitterApiClient } from "./twitterapi-client.js";
+import { TwitterApiProviderError } from "./twitterapi-errors.js";
 
 export type PostWorkerResult = {
   post: OutboundPost;

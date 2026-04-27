@@ -1,9 +1,9 @@
-import { createBackendEnv } from "../bootstrap/env";
-import { createLogger } from "../bootstrap/logger";
-import { DefaultRunCoordinator } from "../coordinator/run-coordinator";
-import { DefaultDemoRunPipeline } from "../pipelines/demo-run-pipeline";
-import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline";
-import { getRuntimeModeFlags } from "../scheduler/runtime-mode";
+import { createBackendEnv } from "../bootstrap/env.js";
+import { createLogger } from "../bootstrap/logger.js";
+import { DefaultRunCoordinator } from "../coordinator/run-coordinator.js";
+import { DefaultDemoRunPipeline } from "../pipelines/demo-run-pipeline.js";
+import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline.js";
+import { getRuntimeModeFlags } from "../scheduler/runtime-mode.js";
 
 const runScheduledCycle = async () => {
   const env = createBackendEnv();

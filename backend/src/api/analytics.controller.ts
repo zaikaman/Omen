@@ -1,14 +1,14 @@
 import type { Request, Response } from "express";
 
-import type { BackendEnv } from "../bootstrap/env";
+import type { BackendEnv } from "../bootstrap/env.js";
 import {
   presentAnalyticsFeed,
   presentLatestAnalyticsSnapshot,
-} from "../presenters/analytics.presenter";
+} from "../presenters/analytics.presenter.js";
 import {
   buildAnalyticsSnapshotsReadModel,
   buildLatestAnalyticsSnapshotReadModel,
-} from "../read-models/analytics-snapshots";
+} from "../read-models/analytics-snapshots.js";
 
 const parseLimit = (value: unknown, fallback: number) => {
   if (typeof value !== "string") {

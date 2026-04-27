@@ -1,8 +1,8 @@
-import type { Logger } from "../bootstrap/logger";
+import type { Logger } from "../bootstrap/logger.js";
 
-import { RunLockError } from "./run-lock";
-import type { RunLock } from "./run-lock";
-import type { RuntimeModeFlags } from "./runtime-mode";
+import { RunLockError } from "./run-lock.js";
+import type { RunLock } from "./run-lock.js";
+import type { RuntimeModeFlags } from "./runtime-mode.js";
 
 export type SchedulerTrigger = "interval";
 

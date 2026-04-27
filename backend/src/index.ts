@@ -1,3 +1,3 @@
-import { startBackendRuntime } from "./bootstrap/runtime";
+import { startBackendRuntime } from "./bootstrap/runtime.js";
 
 startBackendRuntime();

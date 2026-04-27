@@ -1,40 +1,40 @@
 import { Router } from "express";
 
 import type { RuntimeMode, SchedulerStatus } from "@omen/shared";
-import type { BackendEnv } from "../bootstrap/env";
+import type { BackendEnv } from "../bootstrap/env.js";
 
 import {
   createAnalyticsFeedController,
   createLatestAnalyticsController,
-} from "./analytics.controller";
+} from "./analytics.controller.js";
 import {
   createDashboardSchedulerController,
   createDashboardSummaryController,
-} from "./dashboard.controller";
-import { healthCheck } from "./health.controller";
+} from "./dashboard.controller.js";
+import { healthCheck } from "./health.controller.js";
 import {
   createIntelDetailController,
   createIntelFeedController,
-} from "./intel.controller";
-import { createLogsController } from "./logs.controller";
+} from "./intel.controller.js";
+import { createLogsController } from "./logs.controller.js";
 import {
   createProofDetailController,
   createProofFeedController,
-} from "./proofs.controller";
+} from "./proofs.controller.js";
 import {
   createPostsFeedController,
   createPostStatusController,
-} from "./posts.controller";
-import { listRuns } from "./runs.controller";
+} from "./posts.controller.js";
+import { listRuns } from "./runs.controller.js";
 import {
   createSignalDetailController,
   createSignalFeedController,
-} from "./signals.controller";
+} from "./signals.controller.js";
 import {
   createStatusController,
   type RuntimeStatusControllerContext,
-} from "./status.controller";
-import { createTopologyController } from "./topology.controller";
+} from "./status.controller.js";
+import { createTopologyController } from "./topology.controller.js";
 
 export type ApiRouterContext = RuntimeStatusControllerContext;
 

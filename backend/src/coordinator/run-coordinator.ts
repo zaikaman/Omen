@@ -1,7 +1,7 @@
 import type { SwarmState } from "@omen/agents";
 
-import type { Logger } from "../bootstrap/logger";
-import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
+import type { Logger } from "../bootstrap/logger.js";
+import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler.js";
 
 export type RunPipelineResult = {
   runId: string;

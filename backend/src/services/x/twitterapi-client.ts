@@ -6,13 +6,13 @@ import {
   type XPostDraft,
 } from "@omen/shared";
 
-import type { Logger } from "../../bootstrap/logger";
-import { RateLimitStore } from "./rate-limit-store";
+import type { Logger } from "../../bootstrap/logger.js";
+import { RateLimitStore } from "./rate-limit-store.js";
 import {
   normalizeTwitterApiHttpError,
   normalizeTwitterApiSemanticError,
   TwitterApiProviderError,
-} from "./twitterapi-errors";
+} from "./twitterapi-errors.js";
 
 export class TwitterApiClient {
   private readonly credentials: ReturnType<typeof twitterApiCredentialsSchema.parse>;

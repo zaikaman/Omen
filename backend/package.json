@@ -3,14 +3,15 @@
   "private": true,
   "version": "1.0.0",
   "description": "Node backend for the Omen frontend.",
+  "type": "module",
   "main": "dist/backend/src/index.js",
   "scripts": {
-    "start": "node dist/backend/src/index.js",
+    "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "mcp:host": "tsx src/scripts/omen-mcp-host.ts",
     "run:scheduled": "tsx src/scripts/run-scheduled-cycle.ts",
-    "run:scheduled:prod": "node dist/backend/src/scripts/run-scheduled-cycle.js",
+    "run:scheduled:prod": "tsx src/scripts/run-scheduled-cycle.ts",
     "smoke:live": "tsx src/scripts/smoke-live-swarm.ts",
     "lint": "eslint \"src/**/*.ts\" --no-error-on-unmatched-pattern",
     "lint:fix": "eslint \"src/**/*.ts\" --fix --no-error-on-unmatched-pattern",
@@ -32,7 +33,8 @@
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "morgan": "^1.10.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "tsx": "^4.19.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

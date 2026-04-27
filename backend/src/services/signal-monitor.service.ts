@@ -6,8 +6,8 @@ import {
 } from "@omen/db";
 import { ok, type Result, type Signal } from "@omen/shared";
 
-import type { BackendEnv } from "../bootstrap/env";
-import type { Logger } from "../bootstrap/logger";
+import type { BackendEnv } from "../bootstrap/env.js";
+import type { Logger } from "../bootstrap/logger.js";
 
 type MonitorEnv = Pick<BackendEnv, "supabase" | "providers">;
 

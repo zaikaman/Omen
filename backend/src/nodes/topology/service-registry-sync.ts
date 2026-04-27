@@ -2,7 +2,7 @@ import type { ServiceRegistrySnapshotsRepository } from "@omen/db";
 import { err, ok, type Result } from "@omen/shared";
 import type { AxlServiceRegistrySnapshot } from "@omen/axl";
 
-import type { AxlPeerRegistry } from "../axl-peer-registry";
+import type { AxlPeerRegistry } from "../axl-peer-registry.js";
 
 type SnapshotRepository = Pick<ServiceRegistrySnapshotsRepository, "captureSnapshot">;
 type RegistrySource = Pick<

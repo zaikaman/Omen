@@ -12,7 +12,7 @@ import {
 } from "@omen/shared";
 import { RunManifestBuilder, zeroGManifestableProofArtifactSchema } from "@omen/zero-g";
 
-import type { BackendEnv } from "../bootstrap/env";
+import type { BackendEnv } from "../bootstrap/env.js";
 
 const parseLimit = (value: unknown, fallback: number) => {
   if (typeof value !== "string") {

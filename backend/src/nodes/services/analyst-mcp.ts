@@ -12,7 +12,7 @@ import {
 } from "@omen/market-data";
 import { axlMcpRequestSchema, type AxlMcpResponse } from "@omen/shared";
 
-import { createServiceSwarmState } from "./service-runtime";
+import { createServiceSwarmState } from "./service-runtime.js";
 
 export const analystMcpContract = defineAxlMcpServiceContract({
   service: "analyst",

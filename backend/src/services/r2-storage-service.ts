@@ -1,7 +1,7 @@
 import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 
-import type { BackendEnv } from "../bootstrap/env";
+import type { BackendEnv } from "../bootstrap/env.js";
 
 export class R2StorageService {
   private readonly client: S3Client;

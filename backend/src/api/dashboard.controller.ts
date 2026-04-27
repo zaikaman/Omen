@@ -3,8 +3,8 @@ import type { Request, Response } from "express";
 import { demoSchedulerStatus } from "@omen/db";
 import { schedulerStatusSchema } from "@omen/shared";
 
-import type { BackendEnv } from "../bootstrap/env";
-import { buildDashboardSummaryReadModel } from "../read-models/dashboard-summary";
+import type { BackendEnv } from "../bootstrap/env.js";
+import { buildDashboardSummaryReadModel } from "../read-models/dashboard-summary.js";
 
 const resolveSchedulerStatus = (getSchedulerStatus?: () => unknown) =>
   schedulerStatusSchema.parse(getSchedulerStatus?.() ?? demoSchedulerStatus);

@@ -8,11 +8,11 @@ import {
 } from "@omen/shared";
 import type { OutboundPostsRepository } from "@omen/db";
 
-import type { BackendEnv } from "../bootstrap/env";
-import type { Logger } from "../bootstrap/logger";
-import { formatIntelPostPayload, formatSignalPostPayload } from "../services/x/post-formatter";
-import { PostWorker, type PostWorkerResult } from "../services/x/post-worker";
-import { TwitterApiClient } from "../services/x/twitterapi-client";
+import type { BackendEnv } from "../bootstrap/env.js";
+import type { Logger } from "../bootstrap/logger.js";
+import { formatIntelPostPayload, formatSignalPostPayload } from "../services/x/post-formatter.js";
+import { PostWorker, type PostWorkerResult } from "../services/x/post-worker.js";
+import { TwitterApiClient } from "../services/x/twitterapi-client.js";
 
 const hasTwitterApiKeyAndProxy = (env: BackendEnv) =>
   Boolean(env.twitterApi.apiKey && env.twitterApi.proxy);

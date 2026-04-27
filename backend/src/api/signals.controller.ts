@@ -7,11 +7,11 @@ import {
   type Signal,
 } from "@omen/shared";
 
-import type { BackendEnv } from "../bootstrap/env";
+import type { BackendEnv } from "../bootstrap/env.js";
 import {
   presentSignalDetail,
   presentSignalFeed,
-} from "../presenters/signals.presenter";
+} from "../presenters/signals.presenter.js";
 
 const parseLimit = (value: unknown, fallback: number) => {
   if (typeof value !== "string") {

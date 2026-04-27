@@ -14,11 +14,11 @@ import {
 import type { AxlA2AClient } from "@omen/axl";
 import { err, type Result } from "@omen/shared";
 
-import type { AxlPeerRegistry } from "../axl-peer-registry";
+import type { AxlPeerRegistry } from "../axl-peer-registry.js";
 import {
   A2AResponseCorrelator,
   type CorrelatedDelegationResult,
-} from "./response-correlator";
+} from "./response-correlator.js";
 
 type SpecialistRole = "scanner" | "research" | "analyst" | "critic";
 

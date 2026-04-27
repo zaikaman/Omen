@@ -1,6 +1,6 @@
 import type { Server } from "node:http";
 
-import type { Logger } from "./logger";
+import type { Logger } from "./logger.js";
 
 export type ShutdownHandler = () => Promise<void> | void;
 

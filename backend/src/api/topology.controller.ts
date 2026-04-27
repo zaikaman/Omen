@@ -18,7 +18,7 @@ import {
   axlServiceRegistrySnapshotSchema,
 } from "@omen/axl";
 
-import type { BackendEnv } from "../bootstrap/env";
+import type { BackendEnv } from "../bootstrap/env.js";
 
 const isPersistenceConfigured = (env: Pick<BackendEnv, "supabase">) =>
   Boolean(env.supabase.url && env.supabase.serviceRoleKey);

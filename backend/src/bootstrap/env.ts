@@ -2,7 +2,7 @@ import path from "path";
 
 import dotenv from "dotenv";
 
-import { normalizeRuntimeMode, type RuntimeMode } from "../scheduler/runtime-mode";
+import { normalizeRuntimeMode, type RuntimeMode } from "../scheduler/runtime-mode.js";
 
 export type BackendEnv = {
   nodeEnv: "development" | "test" | "production";

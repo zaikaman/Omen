@@ -7,7 +7,7 @@ import {
 } from "@omen/agents";
 import { TRADEABLE_SYMBOLS, type RuntimeMode } from "@omen/shared";
 
-import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
+import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler.js";
 
 const createDemoRuntimeConfig = (mode: RuntimeMode): SwarmState["config"] => ({
   id: "default",

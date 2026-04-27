@@ -6,8 +6,8 @@ import {
   demoRunBundles,
 } from "@omen/db";
 
-import type { BackendEnv } from "../bootstrap/env";
-import { presentLogFeed } from "../presenters/logs.presenter";
+import type { BackendEnv } from "../bootstrap/env.js";
+import { presentLogFeed } from "../presenters/logs.presenter.js";
 
 const parseLimit = (value: unknown, fallback: number) => {
   if (typeof value !== "string") {

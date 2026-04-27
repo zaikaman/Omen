@@ -1,4 +1,4 @@
-import type { BackendEnv } from "./env";
+import type { BackendEnv } from "./env.js";
 
 export type Logger = {
   debug: (...args: unknown[]) => void;

@@ -4,9 +4,9 @@ import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 
-import type { BackendEnv } from "./bootstrap/env";
-import type { Logger } from "./bootstrap/logger";
-import { createApiRouter } from "./api/routes";
+import type { BackendEnv } from "./bootstrap/env.js";
+import type { Logger } from "./bootstrap/logger.js";
+import { createApiRouter } from "./api/routes.js";
 import type { SchedulerStatus } from "@omen/shared";
 
 export const createServer = (input: {

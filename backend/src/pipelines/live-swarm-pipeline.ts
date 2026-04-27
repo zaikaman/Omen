@@ -39,22 +39,22 @@ import type {
   ProofArtifact,
 } from "@omen/shared";
 
-import type { BackendEnv } from "../bootstrap/env";
-import { createLogger, type Logger } from "../bootstrap/logger";
-import { AxlNodeManager } from "../nodes/axl-node-manager";
-import { AxlPeerRegistry } from "../nodes/axl-peer-registry";
-import { EventPublisher } from "../publishers/event-publisher";
-import { EvidenceBundlePublisher } from "../publishers/evidence-bundle-publisher";
-import { ReportBundlePublisher } from "../publishers/report-bundle-publisher";
-import { RunManifestPublisher } from "../publishers/run-manifest-publisher";
-import { PostProofPublisher } from "../publishers/post-proof-publisher";
-import { PostPublisher } from "../publishers/post-publisher";
-import { PostResultRecorder } from "../publishers/post-result-recorder";
-import { ZeroGPublisher } from "../publishers/zero-g-publisher";
-import { AxlMessageRecorder } from "../publishers/axl-message-recorder";
-import { ZeroGRefRecorder } from "../publishers/zero-g-ref-recorder";
-import { hasIntelImageConfig, IntelImageService } from "../services/intel-image-service";
-import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
+import type { BackendEnv } from "../bootstrap/env.js";
+import { createLogger, type Logger } from "../bootstrap/logger.js";
+import { AxlNodeManager } from "../nodes/axl-node-manager.js";
+import { AxlPeerRegistry } from "../nodes/axl-peer-registry.js";
+import { EventPublisher } from "../publishers/event-publisher.js";
+import { EvidenceBundlePublisher } from "../publishers/evidence-bundle-publisher.js";
+import { ReportBundlePublisher } from "../publishers/report-bundle-publisher.js";
+import { RunManifestPublisher } from "../publishers/run-manifest-publisher.js";
+import { PostProofPublisher } from "../publishers/post-proof-publisher.js";
+import { PostPublisher } from "../publishers/post-publisher.js";
+import { PostResultRecorder } from "../publishers/post-result-recorder.js";
+import { ZeroGPublisher } from "../publishers/zero-g-publisher.js";
+import { AxlMessageRecorder } from "../publishers/axl-message-recorder.js";
+import { ZeroGRefRecorder } from "../publishers/zero-g-ref-recorder.js";
+import { hasIntelImageConfig, IntelImageService } from "../services/intel-image-service.js";
+import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler.js";
 
 const DEFAULT_MARKET_UNIVERSE = TRADEABLE_SYMBOLS;
 const DEFAULT_SCAN_INTERVAL_MINUTES = 60;

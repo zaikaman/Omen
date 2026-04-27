@@ -1,8 +1,8 @@
 import type { OutboundPost } from "@omen/shared";
 import type { OutboundPostsRepository } from "@omen/db";
 
-import { transitionPost } from "./post-state-machine";
-import { PostWorker, type PostWorkerResult } from "./post-worker";
+import { transitionPost } from "./post-state-machine.js";
+import { PostWorker, type PostWorkerResult } from "./post-worker.js";
 
 export class OutboundPostQueue {
   constructor(

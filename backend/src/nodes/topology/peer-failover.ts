@@ -1,7 +1,7 @@
 import { err, ok, type AxlDeliveryStatus, type Result } from "@omen/shared";
 import type { AxlRouteKind, AxlRegisteredService } from "@omen/axl";
 
-import type { AxlPeerRegistry } from "../axl-peer-registry";
+import type { AxlPeerRegistry } from "../axl-peer-registry.js";
 
 type ManagedRole = Parameters<AxlPeerRegistry["getNodeByRole"]>[0];
 type CandidateNodeStatus = "starting" | "online" | "degraded" | "offline" | "unknown";

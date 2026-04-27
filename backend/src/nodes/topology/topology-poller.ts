@@ -1,8 +1,8 @@
 import { err, ok, type Result } from "@omen/shared";
 import type { AxlHttpNodeAdapter, AxlServiceRegistrySnapshot } from "@omen/axl";
 
-import type { AxlPeerRegistry } from "../axl-peer-registry";
-import type { ServiceRegistrySync } from "./service-registry-sync";
+import type { AxlPeerRegistry } from "../axl-peer-registry.js";
+import type { ServiceRegistrySync } from "./service-registry-sync.js";
 
 type TopologyAdapter = Pick<AxlHttpNodeAdapter, "snapshotPeers">;
 type RegistryUpdater = Pick<AxlPeerRegistry, "updatePeerStatuses" | "listNodes">;

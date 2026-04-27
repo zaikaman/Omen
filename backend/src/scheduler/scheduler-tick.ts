@@ -1,5 +1,5 @@
-import type { SchedulerTaskContext } from "./hourly-scheduler";
-import type { RunCoordinator, RunCoordinatorResult } from "../coordinator/run-coordinator";
+import type { SchedulerTaskContext } from "./hourly-scheduler.js";
+import type { RunCoordinator, RunCoordinatorResult } from "../coordinator/run-coordinator.js";
 
 export type SchedulerTickHandler = (context: SchedulerTaskContext) => Promise<RunCoordinatorResult>;
 

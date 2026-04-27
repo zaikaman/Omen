@@ -8,7 +8,7 @@ import {
   type XPostDraft,
 } from "@omen/shared";
 
-import { buildIntelThreadParts } from "./intel-thread-builder";
+import { buildIntelThreadParts } from "./intel-thread-builder.js";
 
 const trimToLength = (value: string, maxLength: number) => {
   if (value.length <= maxLength) {

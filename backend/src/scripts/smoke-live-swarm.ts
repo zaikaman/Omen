@@ -1,6 +1,6 @@
-import { createBackendEnv } from "../bootstrap/env";
-import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline";
-import { getRuntimeModeFlags } from "../scheduler/runtime-mode";
+import { createBackendEnv } from "../bootstrap/env.js";
+import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline.js";
+import { getRuntimeModeFlags } from "../scheduler/runtime-mode.js";
 
 const runSmokeCycle = async () => {
   const env = createBackendEnv();
