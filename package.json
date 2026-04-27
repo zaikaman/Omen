@@ -9,9 +9,11 @@
     "pnpm": ">=10.0.0"
   },
   "scripts": {
+    "backend": "pnpm --dir backend dev",
     "build": "turbo run build",
     "clean": "turbo run clean --force",
     "dev": "turbo run dev --parallel",
+    "frontend": "pnpm --dir frontend dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "heroku-postbuild": "pnpm --filter omen-backend build",
