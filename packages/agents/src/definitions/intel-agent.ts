@@ -114,7 +114,19 @@ const toIntelReport = (
 const deriveFallbackIntelReport = (
   parsed: z.infer<typeof intelInputSchema>,
 ): IntelReport | null => {
-  const symbols = [...new Set(parsed.candidates.map((candidate) => candidate.symbol))];
+  const symbols = [
+    ...new Set(
+      [
+        ...parsed.candidates.map((candidate) => candidate.symbol),
+        parsed.thesis?.asset,
+        ...parsed.evidence
+          .map((item) => item.structuredData.symbol)
+          .filter((symbol): symbol is string => typeof symbol === "string" && symbol.length > 0),
+      ]
+        .filter((symbol): symbol is string => typeof symbol === "string" && symbol.length > 0)
+        .map((symbol) => symbol.toUpperCase()),
+    ),
+  ];
   const leadSymbol = symbols[0] ?? parsed.thesis?.asset ?? "market";
   const evidenceSummary = summarizeEvidence(parsed.evidence);
   const hasEvidenceSummary = evidenceSummary.trim().length > 0;
@@ -129,9 +141,11 @@ const deriveFallbackIntelReport = (
   }
 
   const thesisContext =
-    parsed.thesis === null || parsed.thesis.direction === "NONE"
-      ? "No actionable trade cleared the threshold, but the market context may still be worth tracking."
-      : `${parsed.thesis.asset} remains on the desk as market intel, not a standalone trade call.`;
+    parsed.thesis === null
+      ? "Fresh market intelligence scan found a context worth tracking."
+      : parsed.thesis.direction === "NONE"
+        ? "No actionable trade cleared the threshold, but the market context may still be worth tracking."
+        : `${parsed.thesis.asset} remains on the desk as market intel, not a standalone trade call.`;
   const chartContext = parsed.chartVisionSummary?.trim().length
     ? `Chart context: ${parsed.chartVisionSummary.trim()}`
     : "Chart context remains limited.";
@@ -301,11 +315,7 @@ export class IntelAgentFactory {
     );
     const symbols = [
       ...new Set(
-        [
-          parsed.thesis?.asset,
-          ...parsed.candidates.map((candidate) => candidate.symbol),
-          parsed.bias?.marketBias === "UNKNOWN" ? null : "BTC",
-        ]
+        [parsed.thesis?.asset, ...parsed.candidates.map((candidate) => candidate.symbol)]
           .filter((symbol): symbol is string => Boolean(symbol))
           .map((symbol) => symbol.toUpperCase()),
       ),

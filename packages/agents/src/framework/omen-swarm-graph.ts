@@ -418,9 +418,6 @@ export const buildOmenNodeInput = (input: {
   }
 
   if (input.nodeKey === "intel-agent") {
-    const thesis = input.state.thesisDrafts.at(-1) ?? null;
-    const review = input.state.criticReviews.at(-1) ?? null;
-
     return {
       context,
       bias:
@@ -431,11 +428,11 @@ export const buildOmenNodeInput = (input: {
               reasoning: input.state.marketBiasReasoning,
               confidence: 60,
             },
-      candidates: input.state.activeCandidates,
-      evidence: input.state.evidenceItems,
-      chartVisionSummary: input.state.chartVisionSummaries.at(-1) ?? null,
-      thesis,
-      review,
+      candidates: [],
+      evidence: [],
+      chartVisionSummary: null,
+      thesis: null,
+      review: null,
       recentIntelHistory: input.state.recentIntelHistory,
     };
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildOmenNodeInput,
   createInitialSwarmState,
   createOmenGraphFactory,
   type SwarmCheckpoint,
@@ -116,5 +117,74 @@ describe("omen graph factory", () => {
     expect(finalState.publisherDrafts.length).toBeGreaterThan(0);
     expect(checkpoints.map((checkpoint) => checkpoint.step)).toContain("memory-agent");
     expect(checkpoints.at(-1)?.step).toBe("publisher-agent");
+  });
+
+  it("starts intel from a clean brief instead of rejected trade context", () => {
+    const state = createInitialSwarmState({ run, config });
+    const input = buildOmenNodeInput({
+      nodeKey: "intel-agent",
+      state: {
+        ...state,
+        activeCandidates: [
+          {
+            id: "candidate-etc-1",
+            symbol: "ETC",
+            reason: "Scanner watchlist candidate.",
+            directionHint: "WATCHLIST",
+            status: "researched",
+            sourceUniverse: "ETC,ATOM,TRX",
+            dedupeKey: "ETC",
+            missingDataNotes: [],
+          },
+        ],
+        evidenceItems: [
+          {
+            category: "market",
+            summary: "ETC spot snapshot recorded 8.31.",
+            sourceLabel: "Binance",
+            sourceUrl: null,
+            structuredData: { symbol: "ETC" },
+          },
+        ],
+        chartVisionSummaries: ["ETC 1h chart shows trend is leaning downward."],
+        thesisDrafts: [
+          {
+            candidateId: "candidate-etc-1",
+            asset: "ETC",
+            direction: "NONE",
+            confidence: 62,
+            orderType: null,
+            tradingStyle: null,
+            expectedDuration: null,
+            currentPrice: null,
+            entryPrice: null,
+            targetPrice: null,
+            stopLoss: null,
+            riskReward: null,
+            whyNow: "ETC did not form an executable trade setup.",
+            confluences: ["Mixed structure"],
+            uncertaintyNotes: "No trade.",
+            missingDataNotes: "No additional missing-data flags.",
+          },
+        ],
+        criticReviews: [
+          {
+            candidateId: "candidate-etc-1",
+            decision: "rejected",
+            objections: [],
+            forcedOutcomeReason: "The thesis failed the minimum quality gate.",
+          },
+        ],
+      },
+      threadId: "thread-graph-1",
+    });
+
+    expect(input).toMatchObject({
+      candidates: [],
+      evidence: [],
+      chartVisionSummary: null,
+      thesis: null,
+      review: null,
+    });
   });
 });

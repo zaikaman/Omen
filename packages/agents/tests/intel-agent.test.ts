@@ -296,4 +296,87 @@ describe("intel agent", () => {
     expect(result.report?.importanceScore).toBeGreaterThanOrEqual(7);
     expect(result.report?.summary).toMatch(/Solana market narrative shifts/i);
   });
+
+  it("can start a live intel scan from a clean market brief", async () => {
+    const liveRun = {
+      ...run,
+      mode: "live" as const,
+      marketBias: "NEUTRAL" as const,
+    };
+    const liveConfig = {
+      ...config,
+      mode: "live" as const,
+    };
+    const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
+    const calls: Array<{ symbol: string; query: string }> = [];
+    const agent = createIntelAgent({
+      llmClient: null,
+      marketResearch: {
+        getSymbolResearchBundle: async (input: { symbol: string; query: string }) => {
+          calls.push(input);
+          return {
+            ok: true as const,
+            provider: "news",
+            value: {
+              symbol: input.symbol,
+              narratives: [
+                {
+                  symbol: input.symbol,
+                  title: "Crypto market narratives reset",
+                  summary:
+                    "High-signal accounts are focused on broad liquidity conditions and fresh narrative rotation.",
+                  sentiment: "neutral" as const,
+                  source: "Tavily",
+                  sourceUrl: null,
+                  capturedAt: new Date().toISOString(),
+                },
+              ],
+              macroContext: [],
+            },
+            health: {
+              provider: "news",
+              available: true,
+              degraded: false,
+              checkedAt: new Date().toISOString(),
+              notes: [],
+            },
+          };
+        },
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: liveRun.id,
+          threadId: "thread-intel-clean",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        bias: {
+          marketBias: "NEUTRAL",
+          reasoning: "Market bias stayed neutral.",
+          confidence: 67,
+        },
+        candidates: [],
+        evidence: [],
+        chartVisionSummary: null,
+        thesis: null,
+        review: null,
+        recentIntelHistory: [],
+      },
+      state,
+    );
+
+    expect(calls).toEqual([
+      {
+        symbol: "MARKET",
+        query:
+          "crypto market narratives today high signal accounts WatcherGuru Pentosh1 Cointelegraph",
+      },
+    ]);
+    expect(result.action).toBe("ready");
+    expect(result.report?.summary).toMatch(/Crypto market narratives reset/i);
+    expect(result.report?.summary).not.toMatch(/trade cleared|trade setup|ETC spot/i);
+  });
 });
