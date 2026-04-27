@@ -16,9 +16,12 @@
       "value": "false"
     },
     "SCHEDULER_ENABLED": {
-      "value": "false"
+      "value": "true"
     },
     "FRONTEND_URL": {
+      "required": true
+    },
+    "FRONTEND_ORIGIN": {
       "required": true
     },
     "SUPABASE_URL": {
@@ -26,6 +29,12 @@
     },
     "SUPABASE_SERVICE_KEY": {
       "required": true
+    },
+    "SUPABASE_SERVICE_ROLE_KEY": {
+      "required": false
+    },
+    "SUPABASE_SCHEMA": {
+      "value": "public"
     },
     "OPENAI_API_KEY": {
       "required": true
@@ -47,6 +56,12 @@
     },
     "TAVILY_API_KEY": {
       "required": true
+    },
+    "COINGECKO_API_KEY": {
+      "required": false
+    },
+    "HF_TOKEN": {
+      "required": false
     },
     "TWITTERAPI_BASE_URL": {
       "value": "https://api.twitterapi.io"
@@ -85,6 +100,24 @@
       "required": true
     },
     "ZERO_G_FLOW_CONTRACT_ADDRESS": {
+      "required": false
+    },
+    "ZERO_G_CHECKPOINT_STRATEGY": {
+      "value": "milestone"
+    },
+    "R2_ACCOUNT_ID": {
+      "required": false
+    },
+    "R2_ACCESS_KEY_ID": {
+      "required": false
+    },
+    "R2_SECRET_ACCESS_KEY": {
+      "required": false
+    },
+    "R2_BUCKET_NAME": {
+      "value": "omen"
+    },
+    "R2_PUBLIC_URL": {
       "required": false
     }
   }

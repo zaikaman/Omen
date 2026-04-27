@@ -1,142 +1,148 @@
-# Omen Deployment Notes
+# Omen Deployment
 
-## Recommended production split
+This repo is set up for a split deployment:
 
-- `frontend` -> Vercel
-- `backend` -> Heroku
-- scheduled swarm execution -> Heroku Scheduler
-- remote AXL node bridge -> separate host with a public HTTPS endpoint
+- Frontend: Vercel
+- Backend API: Heroku
+- Hourly swarm execution: backend in-process scheduler
+- Optional remote AXL bridge: separate host, such as Fly.io
 
-## Why this split
+## Frontend on Vercel
 
-- Vercel is a good fit for the static React dashboard and read-only API consumption.
-- Heroku is a better fit for the Express backend and hourly swarm execution.
-- Vercel Cron triggers Vercel Functions in the same project, but Omen's long-lived scheduler and live provider runtime are better treated as backend infrastructure.
-- Heroku Scheduler gives a cleaner hourly execution model than relying on an in-memory interval inside a dyno.
+Create a Vercel project from the repository root, not from `frontend`.
 
-## Vercel project
-
-Use `frontend` as the Vercel project root.
-
-Committed config:
-
-- [frontend/vercel.json](/D:/Omen/frontend/vercel.json)
-- [deploy/env/vercel.frontend.env.example](/D:/Omen/deploy/env/vercel.frontend.env.example)
-
-Required production env:
+The root [vercel.json](/D:/Omen/vercel.json) is workspace-aware and runs:
 
 ```bash
-VITE_API_BASE_URL=https://<your-heroku-backend-domain>/api
+pnpm install --frozen-lockfile
+pnpm --filter omen-frontend build
 ```
 
-## Heroku app
+It serves the static output from:
 
-Deploy from the repo root.
+```bash
+frontend/dist
+```
 
-- `Procfile` starts the backend app.
-- `heroku-postbuild` only builds the backend package.
-- [app.json](/D:/Omen/app.json) captures the expected Heroku env surface.
-- [deploy/env/heroku.backend.env.example](/D:/Omen/deploy/env/heroku.backend.env.example) is the copyable backend env template.
+Required Vercel environment variable:
 
-Recommended dyno/process model:
+```bash
+VITE_API_BASE_URL=https://<your-heroku-app>.herokuapp.com/api
+```
 
-- `web` dyno: `pnpm start:backend`
-- Heroku Scheduler job every hour: `cd backend && pnpm run:scheduled`
+After the Heroku backend is deployed, update `VITE_API_BASE_URL` to the final Heroku app URL and redeploy the Vercel project.
+
+## Backend on Heroku
+
+Deploy Heroku from the repository root.
+
+Committed Heroku files:
+
+- [Procfile](/D:/Omen/Procfile)
+- [app.json](/D:/Omen/app.json)
+- [deploy/env/heroku.backend.env.example](/D:/Omen/deploy/env/heroku.backend.env.example)
+
+The web dyno runs:
+
+```bash
+pnpm start:backend
+```
+
+The root `heroku-postbuild` script builds the backend package before the dyno starts.
 
 Suggested setup:
 
 ```bash
-heroku create your-omen-backend
-heroku buildpacks:set heroku/nodejs
-heroku config:set NODE_ENV=production LOG_LEVEL=info RUNTIME_MODE=production_like ALLOW_CONCURRENT_RUNS=false SCHEDULER_ENABLED=false
+heroku create <your-heroku-app>
+heroku buildpacks:set heroku/nodejs --app <your-heroku-app>
+heroku config:set NODE_ENV=production LOG_LEVEL=info RUNTIME_MODE=production_like ALLOW_CONCURRENT_RUNS=false SCHEDULER_ENABLED=true --app <your-heroku-app>
 ```
 
-Recommended production env:
+Set the remaining backend environment variables from:
 
 ```bash
-NODE_ENV=production
-LOG_LEVEL=info
-RUNTIME_MODE=production_like
-ALLOW_CONCURRENT_RUNS=false
-SCHEDULER_ENABLED=false
-
-FRONTEND_URL=https://<your-vercel-domain>
-SUPABASE_URL=https://<your-project>.supabase.co
-SUPABASE_SERVICE_KEY=<service-role-key>
-
-OPENAI_API_KEY=<key>
-OPENAI_BASE_URL=<openai-compatible-base-url>
-OPENAI_MODEL=gpt-5-nano
-
-SCANNER_API_KEY=<key>
-SCANNER_BASE_URL=https://v98store.com/v1
-SCANNER_MODEL=grok-4-fast
-
-TAVILY_API_KEY=<key>
-COINGECKO_API_KEY=<optional-key>
-
-TWITTERAPI_BASE_URL=https://api.twitterapi.io
-TWITTERAPI_API_KEY=<key>
-TWITTERAPI_LOGIN_COOKIES=<cookies>
-TWITTERAPI_PROXY=<proxy>
-
-AXL_NODE_BASE_URL=https://<your-remote-axl-bridge-domain>
-AXL_API_TOKEN=<shared-secret-if-you-protect-the-bridge>
-AXL_ORCHESTRATOR_NODE_ID=omen-orchestrator
-AXL_SCANNER_NODE_ID=omen-scanner
-AXL_RESEARCH_NODE_ID=omen-research
-AXL_ANALYST_NODE_ID=omen-analyst
-AXL_CRITIC_NODE_ID=omen-critic
-
-ZERO_G_RPC_URL=https://evmrpc-testnet.0g.ai
-ZERO_G_INDEXER_URL=https://indexer-storage-testnet-turbo.0g.ai
-ZERO_G_KV_NODE_URL=https://<your-0g-kv-node>
-ZERO_G_COMPUTE_URL=<your-0g-compute-endpoint>
-ZERO_G_COMPUTE_API_KEY=<your-0g-compute-secret>
-ZERO_G_PRIVATE_KEY=<your-0g-wallet-private-key>
-ZERO_G_FLOW_CONTRACT_ADDRESS=<optional-manual-flow-contract>
+deploy/env/heroku.backend.env.example
 ```
 
-## Remote AXL node bridge
+At minimum, production needs:
 
-The AXL node's HTTP API defaults to `127.0.0.1`, which is local-only. For remote Omen backend access:
+```bash
+FRONTEND_URL=https://<your-vercel-app>.vercel.app
+FRONTEND_ORIGIN=https://<your-vercel-app>.vercel.app
+SUPABASE_URL=https://<your-project>.supabase.co
+SUPABASE_SERVICE_KEY=<service-role-key>
+OPENAI_API_KEY=<key>
+SCANNER_API_KEY=<key>
+TAVILY_API_KEY=<key>
+TWITTERAPI_API_KEY=<key>
+AXL_NODE_BASE_URL=https://<your-remote-axl-bridge>
+ZERO_G_RPC_URL=https://evmrpc-testnet.0g.ai
+ZERO_G_INDEXER_URL=https://indexer-storage-testnet-turbo.0g.ai
+ZERO_G_KV_NODE_URL=<your-0g-kv-node>
+ZERO_G_COMPUTE_URL=<your-0g-compute-endpoint>
+ZERO_G_COMPUTE_API_KEY=<key>
+ZERO_G_PRIVATE_KEY=<wallet-private-key>
+```
 
-1. Run the Go node on a separate host.
-2. Bind the HTTP bridge to a reachable interface instead of localhost.
-3. Put the bridge behind HTTPS and auth at the reverse-proxy layer.
-4. Point `AXL_NODE_BASE_URL` at that public bridge URL.
+`PORT` is supplied by Heroku. Do not hard-code it in Heroku config unless you are debugging locally.
 
-Committed Fly deployment files:
+## Hourly Scheduler
+
+Set this on the Heroku web dyno:
+
+```bash
+SCHEDULER_ENABLED=true
+```
+
+The backend already starts an in-process hourly scheduler when that flag is enabled. It schedules the first run one hour after the dyno boots, then continues every hour while the dyno is alive.
+
+Do not install Heroku Scheduler for the normal production setup.
+
+Important Heroku caveat: Heroku dynos are restarted at least once per day, and deploys/config changes also restart the dyno. After a restart, the in-process scheduler starts fresh and the next run is one hour after boot. That means this setup is simple and fine for hourly background work, but it is not an exact wall-clock scheduler and can miss a run if the dyno is down or sleeping.
+
+For this setup, use a non-sleeping dyno type. If the web dyno sleeps, the in-process scheduler sleeps with it.
+
+Manual one-off run, if needed:
+
+```bash
+pnpm --dir backend run:scheduled:prod
+```
+
+This uses the compiled JavaScript emitted during `heroku-postbuild`, so it does not depend on TypeScript dev tooling being present at runtime.
+
+## CORS
+
+The backend allows browser requests from `FRONTEND_ORIGIN`, falling back to `FRONTEND_URL`.
+
+Use the exact Vercel origin, for example:
+
+```bash
+FRONTEND_ORIGIN=https://omen.example.vercel.app
+```
+
+Do not include a trailing `/api` path in `FRONTEND_ORIGIN`.
+
+## Env Files
+
+The shared local template is [.env.example](/D:/Omen/.env.example).
+
+Deployment-specific templates:
+
+- Vercel frontend: [deploy/env/vercel.frontend.env.example](/D:/Omen/deploy/env/vercel.frontend.env.example)
+- Heroku backend: [deploy/env/heroku.backend.env.example](/D:/Omen/deploy/env/heroku.backend.env.example)
+- Fly AXL bridge: [deploy/env/fly.axl.env.example](/D:/Omen/deploy/env/fly.axl.env.example)
+
+Use `TWITTERAPI_API_KEY` for new deployments. The backend still accepts older aliases such as `TWITTER_IO_API_KEY`.
+
+## Optional AXL Bridge
+
+The backend expects `AXL_NODE_BASE_URL` to point at a reachable AXL HTTP bridge. If the bridge runs on another host, bind it to a reachable interface, put it behind HTTPS/auth, and expose only the reverse-proxied endpoint.
+
+Existing Fly.io helper files:
 
 - [deploy/fly/axl.fly.toml](/D:/Omen/deploy/fly/axl.fly.toml)
 - [deploy/fly/axl.Dockerfile](/D:/Omen/deploy/fly/axl.Dockerfile)
 - [deploy/fly/axl-entrypoint.sh](/D:/Omen/deploy/fly/axl-entrypoint.sh)
-- [deploy/env/fly.axl.env.example](/D:/Omen/deploy/env/fly.axl.env.example)
-
-Useful AXL config concepts from the local docs:
-
-- `bridge_addr` controls the HTTP bind address
-- `api_port` controls the HTTP API port
-- `Listen` is needed if the node is acting as a public peer
-- `router_addr` and `a2a_addr` enable MCP and A2A forwarding
-
-Suggested shape:
-
-```json
-{
-  "PrivateKeyPath": "private.pem",
-  "Peers": ["tls://<bootstrap-peer>:9001"],
-  "Listen": ["tls://0.0.0.0:9001"],
-  "bridge_addr": "0.0.0.0",
-  "api_port": 9002,
-  "router_addr": "http://127.0.0.1",
-  "router_port": 9003,
-  "a2a_addr": "http://127.0.0.1",
-  "a2a_port": 9004
-}
-```
-
-Then expose only the reverse-proxied HTTPS bridge externally, not the raw local Python services.
 
 Suggested Fly bootstrap:
 
@@ -147,34 +153,31 @@ fly secrets set AXL_PRIVATE_KEY_B64=<base64-pem> --app omen-axl-node
 fly deploy -c deploy/fly/axl.fly.toml
 ```
 
-The committed Fly image now starts:
-
-- the Go AXL node bridge
-- the Omen MCP host on `127.0.0.1:7100`
-- the MCP router on `127.0.0.1:9003`
-- the A2A server on `127.0.0.1:9004`
-
-The node config generated by the entrypoint wires `router_addr` and `a2a_addr` back into those local sidecars automatically, and the Omen MCP host self-registers:
-
-- `scanner`
-- `research`
-- `analyst`
-- `critic`
-
-The Fly app now also needs the model/research env that powers those Omen specialist services:
+Then set this on Heroku:
 
 ```bash
-OPENAI_API_KEY=<key>
-OPENAI_BASE_URL=<base-url>
-OPENAI_MODEL=gpt-5-nano
-SCANNER_API_KEY=<key>
-SCANNER_BASE_URL=https://v98store.com/v1
-SCANNER_MODEL=grok-4-fast
-TAVILY_API_KEY=<key>
+AXL_NODE_BASE_URL=https://<your-fly-axl-app>.fly.dev
 ```
 
-Important caveat:
+## Verification
 
-- the MCP host is currently internal to the Fly app and self-registers to the local router
-- this gives you real Omen specialist services behind `/mcp` and `/a2a`
-- it does not yet persist or coordinate state with the Heroku backend; it is a colocated remote specialist runtime
+Before deploying:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter omen-frontend build
+pnpm --filter omen-backend build
+```
+
+After deploying:
+
+```bash
+curl https://<your-heroku-app>.herokuapp.com/
+curl https://<your-heroku-app>.herokuapp.com/api/health
+```
+
+Then open the Vercel app and confirm browser requests go to:
+
+```bash
+https://<your-heroku-app>.herokuapp.com/api
+```

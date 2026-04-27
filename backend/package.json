@@ -10,6 +10,7 @@
     "build": "tsc",
     "mcp:host": "tsx src/scripts/omen-mcp-host.ts",
     "run:scheduled": "tsx src/scripts/run-scheduled-cycle.ts",
+    "run:scheduled:prod": "node dist/backend/src/scripts/run-scheduled-cycle.js",
     "smoke:live": "tsx src/scripts/smoke-live-swarm.ts",
     "lint": "eslint \"src/**/*.ts\" --no-error-on-unmatched-pattern",
     "lint:fix": "eslint \"src/**/*.ts\" --fix --no-error-on-unmatched-pattern",
