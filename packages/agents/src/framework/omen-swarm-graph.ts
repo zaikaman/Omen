@@ -434,6 +434,7 @@ export const buildOmenNodeInput = (input: {
       chartVisionSummary: input.state.chartVisionSummaries.at(-1) ?? null,
       thesis,
       review,
+      recentIntelHistory: input.state.recentIntelHistory,
     };
   }
 
@@ -603,7 +604,9 @@ export const applyOmenNodeOutput = (input: {
           : [...input.state.intelReports, latestIntel],
       notes: [
         ...input.state.notes,
-        latestIntel === null ? "intel-skip:not_enough_value" : `intel-ready:${latestIntel.title}`,
+        latestIntel === null
+          ? `intel-skip:${output.skipReason ?? "not_enough_value"}`
+          : `intel-ready:${latestIntel.title}`,
       ],
     };
 

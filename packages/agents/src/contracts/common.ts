@@ -8,6 +8,7 @@ import {
   evidenceItemSchema,
   intelReportSchema,
   publisherDraftSchema,
+  recentIntelHistoryItemSchema,
   thesisDraftSchema,
 } from "../framework/state.js";
 
@@ -63,6 +64,7 @@ export {
   evidenceItemSchema,
   intelReportSchema,
   publisherDraftSchema,
+  recentIntelHistoryItemSchema,
   thesisDraftSchema,
 };
 

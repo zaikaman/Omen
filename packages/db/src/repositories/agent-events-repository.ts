@@ -3,6 +3,7 @@ import {
   err,
   ok,
   type AgentEvent,
+  type AgentEventType,
   type Result,
 } from "@omen/shared";
 
@@ -132,6 +133,29 @@ export class AgentEventsRepository extends BaseRepository<
       .eq("correlation_id", correlationId)
       .order("timestamp", { ascending: true })
       .limit(limit)
+      .returns<AgentEventRow[]>();
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok((data ?? []).map((row) => toAgentEvent(row)));
+  }
+
+  async listRecentByEventType(input: {
+    eventType: AgentEventType;
+    limit?: number;
+  }): Promise<Result<AgentEvent[], RepositoryError>> {
+    const { data, error } = await this.table()
+      .select("*")
+      .eq("event_type", input.eventType)
+      .order("timestamp", { ascending: false })
+      .limit(input.limit ?? 50)
       .returns<AgentEventRow[]>();
 
     if (error) {

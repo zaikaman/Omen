@@ -6,6 +6,7 @@ import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import {
   type EvidenceItem,
   type IntelReport,
+  type RecentIntelHistoryItem,
   type SwarmState,
   type ThesisDraft,
 } from "../framework/state.js";
@@ -50,6 +51,49 @@ const inferIntelCategory = (input: {
 
   return "market_update" as const;
 };
+
+const normalizeComparableText = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const isWithinLastHours = (timestamp: string, hours: number) => {
+  const parsed = Date.parse(timestamp);
+
+  if (Number.isNaN(parsed)) {
+    return false;
+  }
+
+  return Date.now() - parsed <= hours * 60 * 60 * 1000;
+};
+
+const isDuplicateIntelReport = (input: {
+  report: IntelReport;
+  recentHistory: RecentIntelHistoryItem[];
+}) => {
+  const reportTitle = normalizeComparableText(input.report.title);
+  const reportTopic = normalizeComparableText(input.report.topic);
+  const reportSymbols = new Set(input.report.symbols.map((symbol) => symbol.toUpperCase()));
+
+  return input.recentHistory.some((item) => {
+    if (!isWithinLastHours(item.timestamp, 24)) {
+      return false;
+    }
+
+    const sameTitle = normalizeComparableText(item.title) === reportTitle;
+    const sameTopic = normalizeComparableText(item.topic) === reportTopic;
+    const sameCategoryAndSymbol =
+      item.category === input.report.category &&
+      item.symbols.some((symbol) => reportSymbols.has(symbol.toUpperCase()));
+
+    return sameTitle || sameTopic || sameCategoryAndSymbol;
+  });
+};
+
+const toIntelReport = (
+  report: Omit<IntelReport, "symbols"> & { symbols?: string[] },
+): IntelReport => ({
+  ...report,
+  symbols: report.symbols ?? [],
+});
 
 const deriveFallbackIntelReport = (input: z.input<typeof intelInputSchema>): IntelReport | null => {
   const parsed = intelInputSchema.parse(input);
@@ -122,7 +166,7 @@ export class IntelAgentFactory {
     const parsed = intelInputSchema.parse(input);
 
     const fallbackReport = deriveFallbackIntelReport(parsed);
-    const prompt = buildIntelSystemPrompt({
+  const prompt = buildIntelSystemPrompt({
       runId: parsed.context.runId,
       hasCandidates: parsed.candidates.length > 0,
       hasThesis: parsed.thesis !== null,
@@ -130,9 +174,21 @@ export class IntelAgentFactory {
     });
 
     if (this.llmClient === null) {
+      const dedupedFallback =
+        fallbackReport && isDuplicateIntelReport({
+          report: fallbackReport,
+          recentHistory: parsed.recentIntelHistory,
+        })
+          ? null
+          : fallbackReport;
+
       return intelOutputSchema.parse({
-        action: fallbackReport === null ? "skip" : "ready",
-        report: fallbackReport,
+        action: dedupedFallback === null ? "skip" : "ready",
+        report: dedupedFallback,
+        skipReason:
+          fallbackReport !== null && dedupedFallback === null
+            ? "recent_duplicate"
+            : null,
       });
     }
 
@@ -157,15 +213,43 @@ export class IntelAgentFactory {
       });
 
       if (response.action === "ready" && response.report !== null) {
-        return intelOutputSchema.parse(response);
+        const normalizedReport = toIntelReport(response.report);
+
+        if (
+          isDuplicateIntelReport({
+            report: normalizedReport,
+            recentHistory: parsed.recentIntelHistory,
+          })
+        ) {
+          return intelOutputSchema.parse({
+            action: "skip",
+            report: null,
+            skipReason: "recent_duplicate",
+          });
+        }
+
+        return intelOutputSchema.parse({
+          ...response,
+          report: normalizedReport,
+        });
       }
     } catch {
       // Fall back to deterministic intel shaping.
     }
 
+    const dedupedFallback =
+      fallbackReport && isDuplicateIntelReport({
+        report: fallbackReport,
+        recentHistory: parsed.recentIntelHistory,
+      })
+        ? null
+        : fallbackReport;
+
     return intelOutputSchema.parse({
-      action: fallbackReport === null ? "skip" : "ready",
-      report: fallbackReport,
+      action: dedupedFallback === null ? "skip" : "ready",
+      report: dedupedFallback,
+      skipReason:
+        fallbackReport !== null && dedupedFallback === null ? "recent_duplicate" : null,
     });
   }
 }

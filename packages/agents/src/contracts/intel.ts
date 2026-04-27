@@ -5,6 +5,7 @@ import {
   candidateStateSchema,
   criticReviewSchema,
   evidenceItemSchema,
+  recentIntelHistoryItemSchema,
   orchestrationContextSchema,
   thesisDraftSchema,
 } from "./common.js";
@@ -18,11 +19,13 @@ export const intelInputSchema = z.object({
   chartVisionSummary: z.string().min(1).nullable(),
   thesis: thesisDraftSchema.nullable(),
   review: criticReviewSchema.nullable(),
+  recentIntelHistory: z.array(recentIntelHistoryItemSchema).default([]),
 });
 
 export const intelOutputSchema = z.object({
   action: z.enum(["ready", "skip"]),
   report: intelReportSchema.nullable(),
+  skipReason: z.string().min(1).nullable().default(null),
 });
 
 export type IntelInput = z.infer<typeof intelInputSchema>;

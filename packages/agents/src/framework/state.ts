@@ -76,6 +76,14 @@ export const intelReportSchema = z.object({
   symbols: z.array(z.string().min(1)).default([]),
 });
 
+export const recentIntelHistoryItemSchema = z.object({
+  title: z.string().min(1),
+  topic: z.string().min(1),
+  category: intelCategorySchema,
+  symbols: z.array(z.string().min(1)).default([]),
+  timestamp: z.string().datetime(),
+});
+
 export const publisherDraftSchema = z.object({
   kind: z.enum(["signal_alert", "intel_summary", "intel_thread", "no_conviction"]),
   headline: z.string().min(1),
@@ -94,6 +102,7 @@ export const swarmStateSchema = z.object({
   thesisDrafts: z.array(thesisDraftSchema),
   criticReviews: z.array(criticReviewSchema),
   intelReports: z.array(intelReportSchema),
+  recentIntelHistory: z.array(recentIntelHistoryItemSchema),
   publisherDrafts: z.array(publisherDraftSchema),
   events: z.array(agentEventSchema),
   axlMessages: z.array(axlEnvelopeSchema),
@@ -120,6 +129,7 @@ export const createInitialSwarmState = (input: {
     thesisDrafts: [],
     criticReviews: [],
     intelReports: [],
+    recentIntelHistory: [],
     publisherDrafts: [],
     events: [],
     axlMessages: [],
@@ -140,6 +150,7 @@ export type EvidenceItem = z.infer<typeof evidenceItemSchema>;
 export type ThesisDraft = z.infer<typeof thesisDraftSchema>;
 export type CriticReview = z.infer<typeof criticReviewSchema>;
 export type IntelReport = z.infer<typeof intelReportSchema>;
+export type RecentIntelHistoryItem = z.infer<typeof recentIntelHistoryItemSchema>;
 export type PublisherDraft = z.infer<typeof publisherDraftSchema>;
 export type SwarmState = z.infer<typeof swarmStateSchema>;
 export type SwarmStateUpdate = z.infer<typeof swarmStateUpdateSchema>;

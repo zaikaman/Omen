@@ -55,6 +55,7 @@ const managedStepRoleMap = {
   "chart-vision-agent": "chart_vision",
   "analyst-agent": "analyst",
   "critic-agent": "critic",
+  "intel-agent": "intel",
   "memory-agent": "memory",
   "publisher-agent": "publisher",
 } as const satisfies Record<string, AgentRole>;
@@ -66,6 +67,7 @@ const stepEventTypeMap = {
   "chart-vision-agent": "chart_generated",
   "analyst-agent": "thesis_generated",
   "critic-agent": "critic_decision",
+  "intel-agent": "intel_ready",
   "memory-agent": "zero_g_kv_write",
   "publisher-agent": "report_published",
 } as const satisfies Record<string, AgentEventType>;
@@ -242,6 +244,12 @@ const summarizeCheckpoint = (checkpoint: SwarmCheckpoint) => {
       return review
         ? `Critic decision: ${review.decision}.`
         : "Critic completed without a persisted review.";
+    }
+    case "intel-agent": {
+      const intelReport = checkpoint.state.intelReports.at(-1);
+      return intelReport
+        ? `Intel report ready: ${intelReport.title}.`
+        : "Intel stage completed without a publishable report.";
     }
     case "memory-agent":
       return `Checkpoint persisted as ${checkpoint.state.latestCheckpointRefId ?? "unbound"}.`;
@@ -428,6 +436,8 @@ class LivePipelineExecutionContext {
 
   private readonly runsRepository: RunsRepository | null;
 
+  private readonly agentEventsRepository: AgentEventsRepository | null;
+
   private readonly eventPublisher: EventPublisher | null;
 
   private readonly axlMessageRecorder: AxlMessageRecorder | null;
@@ -470,11 +480,16 @@ class LivePipelineExecutionContext {
     const supabaseClient = hasSupabasePersistenceConfig(input.env)
       ? createServiceRoleClientFromEnv(input.env)
       : null;
+    const runsRepository = supabaseClient ? new RunsRepository(supabaseClient) : null;
+    const agentEventsRepository = supabaseClient
+      ? new AgentEventsRepository(supabaseClient)
+      : null;
 
-    this.runsRepository = supabaseClient ? new RunsRepository(supabaseClient) : null;
-    this.eventPublisher = supabaseClient
+    this.runsRepository = runsRepository;
+    this.agentEventsRepository = agentEventsRepository;
+    this.eventPublisher = supabaseClient && agentEventsRepository
       ? new EventPublisher({
-          events: new AgentEventsRepository(supabaseClient),
+          events: agentEventsRepository,
           nodes: new AgentNodesRepository(supabaseClient),
         })
       : null;
@@ -531,6 +546,55 @@ class LivePipelineExecutionContext {
 
   createCheckpointStore() {
     return new LivePipelineCheckpointStore(this);
+  }
+
+  async loadRecentIntelHistory(): Promise<SwarmState["recentIntelHistory"]> {
+    if (!this.agentEventsRepository) {
+      return [];
+    }
+
+    const recentEvents = await this.agentEventsRepository.listRecentByEventType({
+      eventType: "intel_ready",
+      limit: 25,
+    });
+
+    if (!recentEvents.ok) {
+      throw new Error(
+        `Failed to load recent intel history: ${recentEvents.error.message}`,
+      );
+    }
+
+    return recentEvents.value
+      .map((event) => {
+        const payload = event.payload;
+        const title = typeof payload.title === "string" ? payload.title : null;
+        const topic = typeof payload.topic === "string" ? payload.topic : null;
+        const category = typeof payload.category === "string" ? payload.category : null;
+        const symbols = Array.isArray(payload.symbols)
+          ? payload.symbols.filter((value): value is string => typeof value === "string")
+          : [];
+
+        if (
+          title === null ||
+          topic === null ||
+          (category !== "market_update" &&
+            category !== "narrative_shift" &&
+            category !== "token_watch" &&
+            category !== "macro" &&
+            category !== "opportunity")
+        ) {
+          return null;
+        }
+
+        return {
+          title,
+          topic,
+          category,
+          symbols,
+          timestamp: event.timestamp,
+        } satisfies SwarmState["recentIntelHistory"][number];
+      })
+      .filter((item): item is SwarmState["recentIntelHistory"][number] => item !== null);
   }
 
   async prepareRun(run: SwarmState["run"]) {
@@ -592,6 +656,7 @@ class LivePipelineExecutionContext {
     }
 
     if (this.eventPublisher) {
+      const latestIntel = persisted.state.intelReports.at(-1) ?? null;
       await this.safePublishNodeStatus(
         createAgentNode({
           step: checkpoint.step,
@@ -609,6 +674,15 @@ class LivePipelineExecutionContext {
           payload: {
             activeCandidateCount: persisted.state.activeCandidates.length,
             evidenceCount: persisted.state.evidenceItems.length,
+            ...(checkpoint.step === "intel-agent" && latestIntel
+              ? {
+                  title: latestIntel.title,
+                  topic: latestIntel.topic,
+                  category: latestIntel.category,
+                  symbols: latestIntel.symbols,
+                  importanceScore: latestIntel.importanceScore,
+                }
+              : {}),
           },
           signalId: linkedRecordIds.signalId,
           intelId: linkedRecordIds.intelId,
@@ -1183,15 +1257,16 @@ export class DefaultLiveSwarmRunPipeline implements LiveSwarmPipeline {
         this.input.scanIntervalMinutes ?? DEFAULT_SCAN_INTERVAL_MINUTES,
       postToXEnabledOverride: this.input.postToXEnabledOverride,
     });
-    const initialState = graphFactory.createInitialState({
-      run: createScheduledRun(request),
-      config,
-    });
     const executionContext = new LivePipelineExecutionContext({
       env: this.input.env,
       request,
       config,
     });
+    const initialState = graphFactory.createInitialState({
+      run: createScheduledRun(request),
+      config,
+    });
+    initialState.recentIntelHistory = await executionContext.loadRecentIntelHistory();
 
     await executionContext.prepareRun(initialState.run);
 

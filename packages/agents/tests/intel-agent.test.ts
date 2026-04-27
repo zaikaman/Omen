@@ -113,6 +113,7 @@ describe("intel agent", () => {
           objections: ["Signal confidence stayed below threshold"],
           forcedOutcomeReason: "Good context, not enough for a trade call.",
         },
+        recentIntelHistory: [],
       },
       state,
     );
@@ -120,5 +121,58 @@ describe("intel agent", () => {
     expect(result.action).toBe("ready");
     expect(result.report?.title).toContain("AVAX");
     expect(result.report?.importanceScore).toBeGreaterThanOrEqual(7);
+  });
+
+  it("suppresses duplicate intel when a similar report was published recently", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createIntelAgent({
+      llmClient: {
+        completeJson: async () => ({
+          action: "ready" as const,
+          report: {
+            topic: "AVAX market setup fallback",
+            insight: "Layer-1 rotation kept AVAX on the watchlist despite the signal reject.",
+            importanceScore: 8,
+            category: "token_watch" as const,
+            title: "AVAX market intel",
+            summary: "AVAX rotation remains worth tracking.",
+            confidence: 71,
+            symbols: ["AVAX"],
+          },
+          skipReason: null,
+        }),
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-intel-2",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        bias: null,
+        candidates: [],
+        evidence: [],
+        chartVisionSummary: null,
+        thesis: null,
+        review: null,
+        recentIntelHistory: [
+          {
+            title: "AVAX market intel",
+            topic: "AVAX market setup fallback",
+            category: "token_watch",
+            symbols: ["AVAX"],
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      },
+      state,
+    );
+
+    expect(result.action).toBe("skip");
+    expect(result.report).toBeNull();
+    expect(result.skipReason).toBe("recent_duplicate");
   });
 });
