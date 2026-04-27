@@ -120,7 +120,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T049 [P] [US2] Implement intel, signal, analytics, and outbound-post repositories in `packages/db/src/repositories/intels-repository.ts`, `packages/db/src/repositories/signals-repository.ts`, `packages/db/src/repositories/analytics-snapshots-repository.ts`, and `packages/db/src/repositories/outbound-posts-repository.ts`
+- [x] T049 [P] [US2] Implement intel, signal, analytics, and outbound-post repositories in `packages/db/src/repositories/intels-repository.ts`, `packages/db/src/repositories/signals-repository.ts`, `packages/db/src/repositories/analytics-snapshots-repository.ts`, and `packages/db/src/repositories/outbound-posts-repository.ts`
 - [ ] T050 [P] [US2] Implement response presenters and view-model mappers for dashboard, intel, signals, logs, and analytics in `backend/src/presenters/dashboard.presenter.ts`, `backend/src/presenters/intel.presenter.ts`, `backend/src/presenters/signals.presenter.ts`, `backend/src/presenters/logs.presenter.ts`, and `backend/src/presenters/analytics.presenter.ts`
 - [ ] T051 [P] [US2] Implement dashboard summary aggregation for latest signal, latest intel, system status, next run countdown, and mindshare data in `backend/src/read-models/dashboard-summary.ts` and `backend/src/read-models/runtime-status.ts`
 - [ ] T052 [P] [US2] Implement analytics snapshot projection for activity, confidence bands, token frequency, win-rate, and mindshare summaries in `backend/src/read-models/analytics-snapshots.ts` and `backend/src/read-models/token-frequency.ts`

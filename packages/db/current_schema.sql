@@ -179,6 +179,13 @@ CREATE TABLE public.signals (
   published_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  order_type text CHECK (order_type = ANY (ARRAY['market'::text, 'limit'::text])),
+  trading_style text CHECK (trading_style = ANY (ARRAY['day_trade'::text, 'swing_trade'::text])),
+  expected_duration text,
+  current_price numeric,
+  entry_price numeric,
+  target_price numeric,
+  stop_loss numeric,
   CONSTRAINT signals_pkey PRIMARY KEY (id),
   CONSTRAINT signals_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.runs(id),
   CONSTRAINT signals_final_report_ref_id_fkey FOREIGN KEY (final_report_ref_id) REFERENCES public.zero_g_refs(id)
