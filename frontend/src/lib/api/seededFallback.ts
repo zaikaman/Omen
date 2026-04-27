@@ -10,6 +10,8 @@ import {
   schedulerStatusSchema,
   signalDetailResponseSchema,
   signalFeedResponseSchema,
+  type AgentNode,
+  type AxlPeerStatus,
   type AnalyticsFeedResponse,
   type AnalyticsLatestResponse,
   type DashboardSummary,
@@ -29,6 +31,11 @@ import type {
   ProofDetailResponse,
   ProofFeedResponse,
 } from './proofs';
+import type {
+  AxlRouteRecord,
+  RegisteredAxlService,
+  TopologyResponse,
+} from './topology';
 
 const DEMO_SIGNAL_RUN_STARTED_AT = '2026-04-25T08:00:00.000Z';
 const DEMO_SIGNAL_RUN_COMPLETED_AT = '2026-04-25T08:06:10.000Z';
@@ -335,6 +342,118 @@ const seededEvents = [
     intelId: seededIntel.id,
   },
 ];
+
+const seededAgentNodes: AgentNode[] = [
+  {
+    id: 'agent-orchestrator-001',
+    role: 'orchestrator',
+    transport: 'axl',
+    status: 'online',
+    peerId: 'peer-orchestrator-001',
+    lastHeartbeatAt: '2026-04-25T09:04:25.000Z',
+    lastError: null,
+    metadata: { services: ['omen.orchestrator.dispatch'] },
+  },
+  {
+    id: 'agent-scanner-001',
+    role: 'scanner',
+    transport: 'axl',
+    status: 'online',
+    peerId: 'peer-scanner-001',
+    lastHeartbeatAt: '2026-04-25T09:04:12.000Z',
+    lastError: null,
+    metadata: { services: ['omen.scanner.scan'] },
+  },
+  {
+    id: 'agent-research-001',
+    role: 'research',
+    transport: 'axl',
+    status: 'online',
+    peerId: 'peer-research-001',
+    lastHeartbeatAt: '2026-04-25T09:04:16.000Z',
+    lastError: null,
+    metadata: { services: ['omen.research.context'] },
+  },
+  {
+    id: 'agent-analyst-001',
+    role: 'analyst',
+    transport: 'axl',
+    status: 'online',
+    peerId: 'peer-analyst-001',
+    lastHeartbeatAt: '2026-04-25T09:04:18.000Z',
+    lastError: null,
+    metadata: { services: ['omen.analyst.thesis'] },
+  },
+  {
+    id: 'agent-critic-001',
+    role: 'critic',
+    transport: 'axl',
+    status: 'online',
+    peerId: 'peer-critic-001',
+    lastHeartbeatAt: '2026-04-25T09:04:20.000Z',
+    lastError: null,
+    metadata: { services: ['omen.critic.adjudicate'] },
+  },
+];
+
+const seededPeers: AxlPeerStatus[] = seededAgentNodes
+  .filter((node) => node.peerId)
+  .map((node) => ({
+    peerId: node.peerId ?? node.id,
+    role: node.role,
+    status: node.status === 'starting' ? 'degraded' : node.status,
+    services: Array.isArray(node.metadata.services)
+      ? node.metadata.services.filter(
+          (service): service is string => typeof service === 'string',
+        )
+      : [],
+    lastSeenAt: node.lastHeartbeatAt ?? '2026-04-25T09:04:25.000Z',
+    latencyMs: 38,
+  }));
+
+const seededServices: RegisteredAxlService[] = seededAgentNodes.flatMap((node) => {
+  const services = Array.isArray(node.metadata.services)
+    ? node.metadata.services.filter(
+        (service): service is string => typeof service === 'string',
+      )
+    : [];
+
+  return services.map((service) => ({
+    registrationId: `${node.peerId ?? node.id}:${service}:demo`,
+    service,
+    version: 'demo',
+    peerId: node.peerId,
+    role: node.role,
+    description: `${node.role.replace(/_/g, ' ')} service`,
+    methods: [service],
+    tags: ['demo'],
+    status: node.status === 'starting' ? 'degraded' : node.status,
+    registeredAt: node.lastHeartbeatAt ?? '2026-04-25T09:04:25.000Z',
+    lastSeenAt: node.lastHeartbeatAt ?? '2026-04-25T09:04:25.000Z',
+  }));
+});
+
+const seededRoutes: AxlRouteRecord[] = seededEvents
+  .filter((event) => event.axlMessageId)
+  .map((event) => ({
+    kind: 'mcp',
+    peerId:
+      seededAgentNodes.find((node) => node.id === event.agentId)?.peerId ??
+      event.agentId,
+    service:
+      typeof event.payload.provider === 'string'
+        ? event.payload.provider
+        : event.eventType,
+    operation: event.eventType,
+    runId: event.runId,
+    correlationId: event.correlationId,
+    deliveryStatus: 'delivered',
+    observedAt: event.timestamp,
+    metadata: {
+      axlMessageId: event.axlMessageId,
+      proofRefId: event.proofRefId,
+    },
+  }));
 
 const toFullRun = (
   run: typeof seededSignalRun | typeof seededIntelRun,
@@ -696,3 +815,15 @@ export const getSeededProofDetail = (runId: string): ProofDetailResponse => {
 
   throw new Error(`Seeded proof detail not found: ${runId}`);
 };
+
+export const getSeededTopology = (): TopologyResponse => ({
+  nodes: seededAgentNodes,
+  snapshot: {
+    capturedAt: '2026-04-25T09:04:25.000Z',
+    source: 'seeded-fallback',
+    peers: seededPeers,
+    services: seededServices,
+    routes: seededRoutes,
+    metadata: { mode: 'demo' },
+  },
+});
