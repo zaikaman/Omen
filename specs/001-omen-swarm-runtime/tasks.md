@@ -134,7 +134,7 @@
 - [x] T060 [US2] Surface next scheduled run, runtime mode, and latest posting state in `frontend/src/pages/DashboardHome.tsx` and `frontend/src/components/layout/DashboardLayout.tsx`
 - [x] T093 [P] [US2] Build dashboard sponsor panels for AXL peer graph, service registry, and route history in `frontend/src/components/network/PeerTopologyPanel.tsx`, `frontend/src/components/network/ServiceRegistryPanel.tsx`, and `frontend/src/components/network/RouteTimeline.tsx`
 - [x] T094 [P] [US2] Build 0G proof surfaces for run manifests, artifact refs, compute verification, and optional chain anchors in `frontend/src/components/proofs/RunManifestPanel.tsx`, `frontend/src/components/proofs/ArtifactList.tsx`, `frontend/src/components/proofs/ComputeProofCard.tsx`, and `frontend/src/components/proofs/ChainAnchorCard.tsx`
-- [ ] T095 [US2] Surface sponsor proof data in `frontend/src/pages/DashboardHome.tsx`, `frontend/src/pages/SignalsPage.tsx`, and `frontend/src/pages/IntelPage.tsx` without adding a new non-essential page
+- [x] T095 [US2] Surface sponsor proof data in `frontend/src/pages/DashboardHome.tsx`, `frontend/src/pages/SignalsPage.tsx`, and `frontend/src/pages/IntelPage.tsx` without adding a new non-essential page
 - [ ] T096 [US2] Implement frontend hooks for topology and proof data in `frontend/src/hooks/useTopology.ts` and `frontend/src/hooks/useProofs.ts`
 
 **Checkpoint**: The current Omen UI stops being a static shell and becomes a real read layer over the swarm runtime.

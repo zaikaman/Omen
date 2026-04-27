@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { IntelBlog } from '../components/IntelBlog';
 import { IntelCard } from '../components/IntelCard';
 import { IntelThread } from '../components/IntelThread';
+import { SponsorProofSummary } from '../components/proofs/SponsorProofSummary';
 import { SearchAndSort } from '../components/ui/SearchAndSort';
 import type { SortOption, FilterConfig } from '../components/ui/SearchAndSort';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -10,12 +11,14 @@ import { News01Icon, ArrowLeft01Icon, ArrowRight01Icon, Loading03Icon } from '@h
 import { Button } from '../components/ui/button';
 import type { Intel, IntelListItem } from '@omen/shared';
 import { useIntel, useIntelDetail } from '../hooks/useIntel';
+import { useProofDetail } from '../hooks/useProofs';
 
 const ITEMS_PER_PAGE = 9;
 const REFRESH_INTERVAL_MS = 30_000;
 
 type CardIntel = {
     id: string;
+    runId: string;
     slug: string;
     type: 'deep_dive' | 'alpha_report';
     created_at: string;
@@ -56,6 +59,7 @@ const FILTER_CONFIG: FilterConfig[] = [
 
 const toCardIntel = (intel: Intel | IntelListItem): CardIntel => ({
     id: intel.id,
+    runId: intel.runId,
     slug: intel.slug,
     type: intel.category === 'opportunity' ? 'deep_dive' : 'alpha_report',
     created_at: intel.publishedAt ?? intel.createdAt,
@@ -114,6 +118,11 @@ export function IntelPage() {
     const selectedIntel = detailQuery.intel ? toCardIntel(detailQuery.intel) : cachedSelectedIntel;
 
     const latestIntel = page === 1 && intelItems.length > 0 ? intelItems[0] : null;
+    const proofRunId = selectedIntel?.runId ?? latestIntel?.runId ?? null;
+    const proofDetail = useProofDetail(proofRunId, {
+        enabled: Boolean(proofRunId),
+        refreshIntervalMs: REFRESH_INTERVAL_MS,
+    });
 
     const hasActiveFilters = searchQuery.trim() !== '' || sortBy !== 'newest' || filters.type !== 'all';
 
@@ -203,6 +212,16 @@ export function IntelPage() {
                     proofRefIds={selectedIntel.proofRefIds}
                 />
 
+                <SponsorProofSummary
+                    title="Report Sponsor Proof"
+                    runId={proofRunId}
+                    artifacts={proofDetail.artifacts}
+                    manifest={proofDetail.manifest}
+                    proofRefIds={selectedIntel.proofRefIds ?? []}
+                    isLoading={proofDetail.isLoading}
+                    error={proofDetail.error}
+                />
+
                 <IntelThread
                     title={headline}
                     content={threadContent}
@@ -239,7 +258,7 @@ export function IntelPage() {
                     </h2>
                     <p className="text-gray-400 mt-1">Deep dive analysis and raw intelligence streams.</p>
                 </div>
-                {(feedQuery.isRefreshing || detailQuery.isRefreshing) && <span className="text-xs text-gray-500">Syncing live intel...</span>}
+                {(feedQuery.isRefreshing || detailQuery.isRefreshing || proofDetail.isRefreshing) && <span className="text-xs text-gray-500">Syncing live intel...</span>}
             </div>
 
             {(feedQuery.error || detailQuery.error) && (
@@ -258,6 +277,17 @@ export function IntelPage() {
                         error={feedQuery.error}
                         onClick={() => latestIntel && navigate(`/app/intel/${latestIntel.id}`)}
                     />
+                    <div className="mt-4">
+                        <SponsorProofSummary
+                            title="Latest Report Proof"
+                            runId={proofRunId}
+                            artifacts={proofDetail.artifacts}
+                            manifest={proofDetail.manifest}
+                            proofRefIds={latestIntel?.proofRefIds ?? []}
+                            isLoading={proofDetail.isLoading}
+                            error={proofDetail.error}
+                        />
+                    </div>
                 </div>
             )}
 

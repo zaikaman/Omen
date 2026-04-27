@@ -6,6 +6,7 @@ import {
   intelDetailResponseSchema,
   intelFeedResponseSchema,
   logFeedResponseSchema,
+  runSchema,
   schedulerStatusSchema,
   signalDetailResponseSchema,
   signalFeedResponseSchema,
@@ -15,10 +16,19 @@ import {
   type IntelDetailResponse,
   type IntelFeedResponse,
   type LogFeedResponse,
+  type ProofArtifact,
+  type Run,
+  type RunProofBundle,
   type SchedulerStatus,
   type SignalDetailResponse,
   type SignalFeedResponse,
+  type ZeroGRunManifest,
 } from '@omen/shared';
+
+import type {
+  ProofDetailResponse,
+  ProofFeedResponse,
+} from './proofs';
 
 const DEMO_SIGNAL_RUN_STARTED_AT = '2026-04-25T08:00:00.000Z';
 const DEMO_SIGNAL_RUN_COMPLETED_AT = '2026-04-25T08:06:10.000Z';
@@ -326,6 +336,236 @@ const seededEvents = [
   },
 ];
 
+const toFullRun = (
+  run: typeof seededSignalRun | typeof seededIntelRun,
+  currentCheckpointRefId: string,
+): Run =>
+  runSchema.parse({
+    ...run,
+    activeCandidateCount: 0,
+    currentCheckpointRefId,
+    configSnapshot: {
+      runtimeMode: run.mode,
+      sponsors: {
+        axl: true,
+        zeroGStorage: true,
+        zeroGCompute: true,
+      },
+    },
+    createdAt: run.startedAt,
+    updatedAt: run.completedAt ?? run.startedAt,
+  });
+
+const createProofArtifact = (artifact: ProofArtifact): ProofArtifact => artifact;
+
+const seededSignalProofArtifacts: ProofArtifact[] = [
+  createProofArtifact({
+    id: 'proof-signal-kv-001',
+    runId: seededSignalRun.id,
+    signalId: seededSignal.id,
+    intelId: null,
+    refType: 'kv_state',
+    key: 'omen/run-signal-001/checkpoint/final',
+    locator: '0g://kv/omen/run-signal-001/checkpoint/final',
+    metadata: { namespacePath: 'omen/proof/run-signal-001' },
+    compute: null,
+    createdAt: '2026-04-25T08:05:10.000Z',
+  }),
+  createProofArtifact({
+    id: 'proof-signal-log-001',
+    runId: seededSignalRun.id,
+    signalId: seededSignal.id,
+    intelId: null,
+    refType: 'log_entry',
+    key: 'omen/run-signal-001/debate/critic',
+    locator: '0g://log/omen/run-signal-001/debate/critic',
+    metadata: { phase: 'critic_decision' },
+    compute: null,
+    createdAt: '2026-04-25T08:05:30.000Z',
+  }),
+  createProofArtifact({
+    id: 'proof-signal-compute-001',
+    runId: seededSignalRun.id,
+    signalId: seededSignal.id,
+    intelId: null,
+    refType: 'compute_result',
+    key: 'omen/run-signal-001/compute/adjudication',
+    locator: '0g://compute/omen/run-signal-001/adjudication',
+    metadata: { stage: 'adjudication' },
+    compute: {
+      provider: '0g-compute',
+      model: 'omen-adjudicator-v1',
+      jobId: 'zg-job-signal-001',
+      requestHash: '0xsignalrequest001',
+      responseHash: '0xsignalresponse001',
+      verificationMode: 'deterministic-demo',
+    },
+    createdAt: '2026-04-25T08:05:50.000Z',
+  }),
+  createProofArtifact({
+    id: 'proof-signal-manifest-001',
+    runId: seededSignalRun.id,
+    signalId: seededSignal.id,
+    intelId: null,
+    refType: 'manifest',
+    key: 'omen/run-signal-001/manifest',
+    locator: '0g://file/omen/run-signal-001/manifest.json',
+    metadata: { artifactCount: 4 },
+    compute: null,
+    createdAt: '2026-04-25T08:06:00.000Z',
+  }),
+  createProofArtifact({
+    id: 'proof-signal-post-001',
+    runId: seededSignalRun.id,
+    signalId: seededSignal.id,
+    intelId: null,
+    refType: 'post_result',
+    key: 'omen/run-signal-001/post/x',
+    locator: '0g://file/omen/run-signal-001/post-result.json',
+    metadata: { provider: 'twitterapi' },
+    compute: null,
+    createdAt: '2026-04-25T08:06:10.000Z',
+  }),
+];
+
+const seededIntelProofArtifacts: ProofArtifact[] = [
+  createProofArtifact({
+    id: 'proof-intel-kv-001',
+    runId: seededIntelRun.id,
+    signalId: null,
+    intelId: seededIntel.id,
+    refType: 'kv_state',
+    key: 'omen/run-intel-001/checkpoint/final',
+    locator: '0g://kv/omen/run-intel-001/checkpoint/final',
+    metadata: { namespacePath: 'omen/proof/run-intel-001' },
+    compute: null,
+    createdAt: '2026-04-25T09:03:00.000Z',
+  }),
+  createProofArtifact({
+    id: 'proof-intel-log-001',
+    runId: seededIntelRun.id,
+    signalId: null,
+    intelId: seededIntel.id,
+    refType: 'log_entry',
+    key: 'omen/run-intel-001/debate/analyst',
+    locator: '0g://log/omen/run-intel-001/debate/analyst',
+    metadata: { phase: 'intel_ready' },
+    compute: null,
+    createdAt: '2026-04-25T09:03:20.000Z',
+  }),
+  createProofArtifact({
+    id: 'proof-intel-manifest-001',
+    runId: seededIntelRun.id,
+    signalId: null,
+    intelId: seededIntel.id,
+    refType: 'manifest',
+    key: 'omen/run-intel-001/manifest',
+    locator: '0g://file/omen/run-intel-001/manifest.json',
+    metadata: { artifactCount: 3 },
+    compute: null,
+    createdAt: '2026-04-25T09:04:00.000Z',
+  }),
+  createProofArtifact({
+    id: 'proof-intel-post-001',
+    runId: seededIntelRun.id,
+    signalId: null,
+    intelId: seededIntel.id,
+    refType: 'post_result',
+    key: 'omen/run-intel-001/post/x',
+    locator: '0g://file/omen/run-intel-001/post-result.json',
+    metadata: { provider: 'twitterapi' },
+    compute: null,
+    createdAt: '2026-04-25T09:04:20.000Z',
+  }),
+];
+
+const toProofBundle = (
+  runId: string,
+  artifacts: ProofArtifact[],
+): RunProofBundle => ({
+  runId,
+  manifestRefId:
+    artifacts.find((artifact) => artifact.refType === 'manifest')?.id ?? null,
+  artifactRefs: artifacts,
+});
+
+const toProofManifest = (
+  run: Run,
+  artifacts: ProofArtifact[],
+): ZeroGRunManifest => {
+  const manifestArtifact = artifacts.find((artifact) => artifact.refType === 'manifest');
+
+  return {
+    id: `manifest-${run.id}`,
+    runId: run.id,
+    version: 1,
+    namespace: {
+      app: 'omen',
+      environment: 'demo',
+      scope: 'proof',
+      runId: run.id,
+      signalId: run.finalSignalId,
+      intelId: run.finalIntelId,
+      segments: [run.id],
+      path: `omen/proof/${run.id}`,
+    },
+    manifestArtifact: manifestArtifact
+      ? {
+          label: 'Run manifest',
+          category: 'manifest',
+          namespacePath: `omen/proof/${run.id}`,
+          artifact: manifestArtifact,
+        }
+      : null,
+    checkpoints: artifacts
+      .filter((artifact) => artifact.refType === 'kv_state')
+      .map((artifact) => ({
+        label: 'Final checkpoint',
+        category: 'mutable_state' as const,
+        namespacePath: `omen/proof/${run.id}`,
+        artifact,
+      })),
+    logs: artifacts
+      .filter((artifact) => artifact.refType === 'log_entry' || artifact.refType === 'log_bundle')
+      .map((artifact) => ({
+        label: 'Agent debate log',
+        category: 'immutable_log' as const,
+        namespacePath: `omen/proof/${run.id}`,
+        artifact,
+      })),
+    files: [],
+    computeProofs: artifacts
+      .filter((artifact) => artifact.refType === 'compute_job' || artifact.refType === 'compute_result')
+      .map((artifact) => ({
+        label: '0G Compute adjudication',
+        category: 'compute_proof' as const,
+        namespacePath: `omen/proof/${run.id}`,
+        artifact,
+      })),
+    chainAnchors: [],
+    relatedArtifacts: artifacts
+      .filter((artifact) => artifact.refType === 'post_result')
+      .map((artifact) => ({
+        label: 'Published output proof',
+        category: 'file_bundle' as const,
+        namespacePath: `omen/proof/${run.id}`,
+        artifact,
+      })),
+    summary: {
+      status: run.status,
+      finalSignalId: run.finalSignalId,
+      finalIntelId: run.finalIntelId,
+      checkpointCount: artifacts.filter((artifact) => artifact.refType === 'kv_state').length,
+      artifactCount:
+        artifacts.filter((artifact) => artifact.refType !== 'post_result').length,
+    },
+    createdAt:
+      manifestArtifact?.createdAt ??
+      artifacts.at(-1)?.createdAt ??
+      run.updatedAt,
+  };
+};
+
 export const withSeededFallback = async <TResponse>(
   liveQuery: () => Promise<TResponse>,
   fallback: () => TResponse,
@@ -407,4 +647,52 @@ export const getSeededLogs = (options: {
     items,
     nextCursor: null,
   });
+};
+
+export const getSeededProofFeed = (limit = 20): ProofFeedResponse => ({
+  items: [
+    {
+      runId: seededIntelRun.id,
+      manifestRefId: 'proof-intel-manifest-001',
+      finalSignalId: null,
+      finalIntelId: seededIntel.id,
+      artifactCount: seededIntelProofArtifacts.length,
+      createdAt: DEMO_INTEL_RUN_COMPLETED_AT,
+    },
+    {
+      runId: seededSignalRun.id,
+      manifestRefId: 'proof-signal-manifest-001',
+      finalSignalId: seededSignal.id,
+      finalIntelId: null,
+      artifactCount: seededSignalProofArtifacts.length,
+      createdAt: DEMO_SIGNAL_RUN_COMPLETED_AT,
+    },
+  ].slice(0, limit),
+  nextCursor: null,
+});
+
+export const getSeededProofDetail = (runId: string): ProofDetailResponse => {
+  if (runId === seededSignalRun.id) {
+    const run = toFullRun(seededSignalRun, 'proof-signal-kv-001');
+
+    return {
+      run,
+      proofBundle: toProofBundle(run.id, seededSignalProofArtifacts),
+      artifacts: seededSignalProofArtifacts,
+      manifest: toProofManifest(run, seededSignalProofArtifacts),
+    };
+  }
+
+  if (runId === seededIntelRun.id) {
+    const run = toFullRun(seededIntelRun, 'proof-intel-kv-001');
+
+    return {
+      run,
+      proofBundle: toProofBundle(run.id, seededIntelProofArtifacts),
+      artifacts: seededIntelProofArtifacts,
+      manifest: toProofManifest(run, seededIntelProofArtifacts),
+    };
+  }
+
+  throw new Error(`Seeded proof detail not found: ${runId}`);
 };
