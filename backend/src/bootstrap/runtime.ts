@@ -1,5 +1,10 @@
 import type { Server } from "node:http";
 
+import {
+  RunsRepository,
+  createSupabaseServiceRoleClient,
+} from "@omen/db";
+
 import { createBackendEnv, type BackendEnv } from "./env";
 import { createLogger, type Logger } from "./logger";
 import { registerGracefulShutdown } from "./shutdown";
@@ -29,10 +34,32 @@ export const startBackendRuntime = (): BackendRuntime => {
       : new DefaultLiveSwarmRunPipeline({ env });
   const coordinator = new DefaultRunCoordinator({ logger, pipeline });
   const runtimeWorker = new DefaultRuntimeWorker({ env, logger, coordinator });
+  const schedulerRunsRepository =
+    env.supabase.url && env.supabase.serviceRoleKey
+      ? new RunsRepository(
+          createSupabaseServiceRoleClient({
+            url: env.supabase.url,
+            anonKey: env.supabase.anonKey ?? env.supabase.serviceRoleKey,
+            serviceRoleKey: env.supabase.serviceRoleKey,
+            schema: env.supabase.schema,
+          }),
+        )
+      : null;
   const scheduler = new HourlyScheduler({
     logger,
     runLock: new RunLock(env.allowConcurrentRuns),
     mode: runtimeMode,
+    loadLastRunAt: schedulerRunsRepository
+      ? async () => {
+          const scheduledRuns = await schedulerRunsRepository.listScheduledRuns(1);
+
+          if (!scheduledRuns.ok) {
+            throw new Error(scheduledRuns.error.message);
+          }
+
+          return scheduledRuns.value[0]?.createdAt ?? null;
+        }
+      : undefined,
     task: async (context) => {
       await runtimeWorker.execute(context);
     },
@@ -52,7 +79,7 @@ export const startBackendRuntime = (): BackendRuntime => {
     );
 
     if (env.schedulerEnabled) {
-      scheduler.start();
+      void scheduler.start();
       logger.info("Hourly scheduler started.");
     } else {
       logger.info("Hourly scheduler disabled by env.");

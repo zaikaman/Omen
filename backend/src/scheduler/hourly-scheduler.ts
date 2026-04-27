@@ -27,6 +27,7 @@ export type HourlySchedulerOptions = {
   runLock: RunLock;
   mode: RuntimeModeFlags;
   intervalMs?: number;
+  loadLastRunAt?: () => Promise<string | null>;
   task: (context: SchedulerTaskContext) => Promise<void>;
 };
 
@@ -41,27 +42,28 @@ export class HourlyScheduler {
 
   private isRunning = false;
 
+  private isStarted = false;
+
   private overlapPrevented = false;
 
   constructor(private readonly options: HourlySchedulerOptions) {
     this.intervalMs = options.intervalMs ?? 60 * 60 * 1000;
   }
 
-  start() {
-    if (this.timer) {
+  async start() {
+    if (this.isStarted) {
       return;
     }
 
-    this.scheduleNextTick();
-
-    this.timer = setInterval(() => {
-      void this.tick("interval");
-    }, this.intervalMs);
+    this.isStarted = true;
+    await this.scheduleNextTick();
   }
 
   async stop() {
+    this.isStarted = false;
+
     if (this.timer) {
-      clearInterval(this.timer);
+      clearTimeout(this.timer);
       this.timer = null;
     }
 
@@ -70,7 +72,7 @@ export class HourlyScheduler {
 
   getStatus(): SchedulerStatus {
     return {
-      enabled: this.timer !== null,
+      enabled: this.isStarted,
       isRunning: this.isRunning,
       nextRunAt: this.nextRunAt,
       lastRunAt: this.lastRunAt,
@@ -79,8 +81,64 @@ export class HourlyScheduler {
     };
   }
 
-  private scheduleNextTick() {
-    this.nextRunAt = new Date(Date.now() + this.intervalMs).toISOString();
+  private async scheduleNextTick() {
+    const delayMs = await this.resolveNextDelayMs();
+
+    this.nextRunAt = new Date(Date.now() + delayMs).toISOString();
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.tick("interval");
+    }, delayMs);
+  }
+
+  private async resolveNextDelayMs() {
+    if (!this.options.loadLastRunAt) {
+      return this.intervalMs;
+    }
+
+    try {
+      const lastRunAt = (await this.options.loadLastRunAt()) ?? this.lastRunAt;
+
+      if (!lastRunAt) {
+        this.options.logger.info("No previous scheduled runs found. Running soon.");
+        return 5000;
+      }
+
+      this.lastRunAt = lastRunAt;
+
+      const lastRunTime = new Date(lastRunAt).getTime();
+
+      if (Number.isNaN(lastRunTime)) {
+        this.options.logger.warn(
+          `Ignoring invalid persisted scheduler timestamp: ${lastRunAt}`,
+        );
+        return this.intervalMs;
+      }
+
+      const timeSinceLastRun = Date.now() - lastRunTime;
+      const delayMs = Math.min(
+        this.intervalMs,
+        Math.max(5000, this.intervalMs - timeSinceLastRun),
+      );
+
+      if (timeSinceLastRun < this.intervalMs) {
+        this.options.logger.info(
+          `Last scheduled run was ${Math.round(timeSinceLastRun / 60000).toString()}m ago. Next run in ${Math.round(delayMs / 60000).toString()}m.`,
+        );
+      } else {
+        this.options.logger.info(
+          `Last scheduled run was ${Math.round(timeSinceLastRun / 60000).toString()}m ago. Running soon.`,
+        );
+      }
+
+      return delayMs;
+    } catch (error) {
+      this.options.logger.error(
+        "Failed to load persisted scheduler state. Falling back to interval delay.",
+        error,
+      );
+      return this.intervalMs;
+    }
   }
 
   private async tick(trigger: SchedulerTrigger) {
@@ -118,8 +176,8 @@ export class HourlyScheduler {
     } finally {
       this.isRunning = false;
 
-      if (this.timer) {
-        this.scheduleNextTick();
+      if (this.isStarted && !this.timer) {
+        await this.scheduleNextTick();
       }
     }
   }
