@@ -15,6 +15,11 @@ import {
   demoRuntimeConfig,
   demoSchedulerStatus,
 } from "../../../packages/db/src/index";
+import {
+  buildAnalyticsSnapshotsReadModel,
+  buildLatestAnalyticsSnapshotReadModel,
+  projectAnalyticsSnapshots,
+} from "../../../backend/src/read-models/analytics-snapshots";
 import { buildDashboardSummaryReadModel } from "../../../backend/src/read-models/dashboard-summary";
 import { buildRuntimeStatusReadModel } from "../../../backend/src/read-models/runtime-status";
 
@@ -203,5 +208,93 @@ describe("dashboard read models", () => {
       winRate: 100,
     });
     expect(latest.item?.mindshare).toEqual(demoDashboardSummary.analytics?.mindshare ?? []);
+  });
+
+  it("returns seeded analytics snapshots through the read-model fallback when persistence is unavailable", async () => {
+    const snapshots = await buildAnalyticsSnapshotsReadModel({
+      env: readModelEnv,
+    });
+    const latest = await buildLatestAnalyticsSnapshotReadModel({
+      env: readModelEnv,
+    });
+
+    expect(snapshots.ok).toBe(true);
+    expect(latest.ok).toBe(true);
+
+    if (!snapshots.ok || !latest.ok) {
+      throw new Error("analytics read-model fallback failed");
+    }
+
+    expect(
+      analyticsFeedResponseSchema.parse({
+        items: snapshots.value,
+        nextCursor: null,
+      }),
+    ).toMatchObject({
+      items: demoAnalyticsSnapshots,
+      nextCursor: null,
+    });
+    expect(
+      analyticsLatestResponseSchema.parse({
+        item: latest.value,
+      }),
+    ).toMatchObject({
+      item: demoAnalyticsSnapshots[demoAnalyticsSnapshots.length - 1] ?? null,
+    });
+  });
+
+  it("projects analytics snapshots from runs, published signals, and published intel", () => {
+    const snapshots = projectAnalyticsSnapshots({
+      runs: demoRunBundles.map((bundle) => bundle.run),
+      signals: demoRunBundles
+        .map((bundle) => bundle.signal)
+        .filter((signal): signal is NonNullable<typeof signal> => signal !== null),
+      intels: demoRunBundles
+        .map((bundle) => bundle.intel)
+        .filter((intel): intel is NonNullable<typeof intel> => intel !== null),
+    });
+
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots[0]).toMatchObject({
+      id: "analytics-run-signal-001",
+      runId: "run-signal-001",
+      totals: {
+        totalRuns: 1,
+        completedRuns: 1,
+        publishedSignals: 1,
+        publishedIntel: 0,
+      },
+      confidenceBands: [{ label: "90-94", value: 1 }],
+      tokenFrequency: [{ label: "BTC", value: 1 }],
+      mindshare: [{ label: "BTC", value: 100 }],
+      winRate: 100,
+    });
+    expect(snapshots[1]).toMatchObject({
+      id: "analytics-run-intel-001",
+      runId: "run-intel-001",
+      totals: {
+        totalRuns: 2,
+        completedRuns: 2,
+        publishedSignals: 1,
+        publishedIntel: 1,
+      },
+      confidenceBands: [
+        { label: "85-89", value: 1 },
+        { label: "90-94", value: 1 },
+      ],
+      mindshare: [
+        { label: "AKT", value: 25 },
+        { label: "BTC", value: 25 },
+        { label: "RNDR", value: 25 },
+        { label: "TAO", value: 25 },
+      ],
+      winRate: 100,
+    });
+    expect(snapshots[1]?.tokenFrequency).toEqual([
+      { label: "AKT", value: 1 },
+      { label: "BTC", value: 1 },
+      { label: "RNDR", value: 1 },
+      { label: "TAO", value: 1 },
+    ]);
   });
 });

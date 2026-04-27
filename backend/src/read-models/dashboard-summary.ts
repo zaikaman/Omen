@@ -1,5 +1,4 @@
 import {
-  AnalyticsSnapshotsRepository,
   IntelsRepository,
   OutboundPostsRepository,
   RunsRepository,
@@ -13,6 +12,7 @@ import { ok, type DashboardSummary, type Result, type SchedulerStatus } from "@o
 
 import type { BackendEnv } from "../bootstrap/env.js";
 import { presentDashboardSummary } from "../presenters/dashboard.presenter.js";
+import { buildLatestAnalyticsSnapshotReadModel } from "./analytics-snapshots.js";
 
 type DashboardSummaryReadModelEnv = Pick<BackendEnv, "supabase">;
 
@@ -36,7 +36,6 @@ const createRepositories = (env: DashboardSummaryReadModelEnv) => {
     runs: new RunsRepository(client),
     signals: new SignalsRepository(client),
     intels: new IntelsRepository(client),
-    analyticsSnapshots: new AnalyticsSnapshotsRepository(client),
     outboundPosts: new OutboundPostsRepository(client),
   };
 };
@@ -81,7 +80,7 @@ export const buildDashboardSummaryReadModel = async (
       repositories.runs.findLatestRun(),
       repositories.signals.findLatestPublished(),
       repositories.intels.findLatestPublished(),
-      repositories.analyticsSnapshots.findLatestSnapshot(),
+      buildLatestAnalyticsSnapshotReadModel({ env: input.env }),
       repositories.outboundPosts.listRecentPosts(1),
     ]);
 
