@@ -1,13 +1,39 @@
-import { mockRunStatus, mockHistorySignals } from '../../data/mockData';
 import { MindshareChart } from '../../components/MindshareChart';
 import { ActivityChart } from '../../components/analytics/ActivityChart';
 import { WinRateChart } from '../../components/analytics/WinRateChart';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ChartHistogramIcon, GpsSignal01Icon } from '@hugeicons/core-free-icons';
+import {
+  toActivitySignals,
+  toMindsharePoints,
+  toPerformanceSignals,
+  useAnalyticsOutletContext,
+} from '../AnalyticsPage';
 
 export function AnalyticsOverview() {
-  const runStatus = mockRunStatus;
-  const signals = mockHistorySignals;
+  const { latestSnapshot, snapshots, isLoading } = useAnalyticsOutletContext();
+  const mindshare = toMindsharePoints(latestSnapshot);
+  const signals = toActivitySignals(
+    snapshots,
+    (snapshot) => snapshot.totals.publishedSignals,
+  );
+  const performanceSignals = toPerformanceSignals(latestSnapshot);
+
+  if (isLoading && !latestSnapshot) {
+    return (
+      <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
+        Loading analytics snapshots...
+      </div>
+    );
+  }
+
+  if (!latestSnapshot) {
+    return (
+      <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
+        No analytics snapshots have been generated yet.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -19,7 +45,13 @@ export function AnalyticsOverview() {
             <h3 className="text-lg font-bold text-white">Mindshare Velocity</h3>
           </div>
 
-          <MindshareChart data={runStatus?.mindshare} />
+          {mindshare.length > 0 ? (
+            <MindshareChart data={mindshare} />
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-gray-500">
+              No mindshare data in the latest snapshot.
+            </div>
+          )}
         </div>
 
         {/* Win Rate (New Highlight) */}
@@ -28,7 +60,13 @@ export function AnalyticsOverview() {
             <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-emerald-500" />
             <h3 className="text-lg font-bold text-white">Performance Overview</h3>
           </div>
-          <WinRateChart signals={signals} />
+          {performanceSignals.length > 0 ? (
+            <WinRateChart signals={performanceSignals} />
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-gray-500">
+              No signal performance data in the latest snapshot.
+            </div>
+          )}
         </div>
 
         {/* Signal Activity */}
@@ -40,7 +78,13 @@ export function AnalyticsOverview() {
             </div>
             <h3 className="text-lg font-bold text-white">Signal Activity</h3>
           </div>
-          <ActivityChart signals={signals} />
+          {signals.length > 0 ? (
+            <ActivityChart signals={signals} />
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-gray-500">
+              No signal activity in the analytics feed.
+            </div>
+          )}
         </div>
       </div>
     </div>

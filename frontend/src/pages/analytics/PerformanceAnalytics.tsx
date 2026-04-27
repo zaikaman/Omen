@@ -1,21 +1,40 @@
-import { mockHistorySignals } from '../../data/mockData';
 import { WinRateChart } from '../../components/analytics/WinRateChart';
 import { PnLChart } from '../../components/analytics/PnLChart';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ChartHistogramIcon, AnalyticsUpIcon } from '@hugeicons/core-free-icons';
+import {
+  toPerformanceSignals,
+  toPnlSignals,
+  useAnalyticsOutletContext,
+} from '../AnalyticsPage';
 
 export function PerformanceAnalytics() {
-  const signals = mockHistorySignals;
+  const { latestSnapshot, snapshots, isLoading } = useAnalyticsOutletContext();
+  const signals = toPerformanceSignals(latestSnapshot);
+  const pnlSignals = toPnlSignals(snapshots);
+  const totalClosed = latestSnapshot?.totals.closedSignals ?? 0;
+  const winRate =
+    latestSnapshot?.winRate === null || latestSnapshot?.winRate === undefined
+      ? '0.0'
+      : latestSnapshot.winRate.toFixed(1);
+  const totalPnL = latestSnapshot?.totals.totalPnlPercent ?? 0;
+  const avgPnL = latestSnapshot?.totals.averageR?.toFixed(2) ?? '0.00';
 
-  // Calculate summary metrics
-  const closedSignals = signals.filter(s => s.content.status === 'tp_hit' || s.content.status === 'sl_hit');
-  const totalClosed = closedSignals.length;
-  const wins = closedSignals.filter(s => s.content.status === 'tp_hit').length;
-  const winRate = totalClosed > 0 ? ((wins / totalClosed) * 100).toFixed(1) : '0.0';
+  if (isLoading && !latestSnapshot) {
+    return (
+      <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
+        Loading analytics snapshots...
+      </div>
+    );
+  }
 
-  // PnL calculation
-  const totalPnL = closedSignals.reduce((acc, s) => acc + (s.content.pnl_percent || 0), 0);
-  const avgPnL = totalClosed > 0 ? (totalPnL / totalClosed).toFixed(2) : '0.00';
+  if (!latestSnapshot) {
+    return (
+      <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
+        No analytics snapshots have been generated yet.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -48,7 +67,13 @@ export function PerformanceAnalytics() {
             <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-emerald-500" />
             <h3 className="text-lg font-bold text-white">Win/Loss Ratio</h3>
           </div>
-          <WinRateChart signals={signals} />
+          {signals.length > 0 ? (
+            <WinRateChart signals={signals} />
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-gray-500">
+              No signal performance data in the latest snapshot.
+            </div>
+          )}
         </div>
 
         <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
@@ -56,7 +81,13 @@ export function PerformanceAnalytics() {
             <HugeiconsIcon icon={AnalyticsUpIcon} className="w-5 h-5 text-purple-500" />
             <h3 className="text-lg font-bold text-white">PnL History</h3>
           </div>
-          <PnLChart signals={signals} />
+          {pnlSignals.length > 0 ? (
+            <PnLChart signals={pnlSignals} />
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-gray-500">
+              No closed-signal PnL history in the analytics feed.
+            </div>
+          )}
         </div>
       </div>
     </div>
