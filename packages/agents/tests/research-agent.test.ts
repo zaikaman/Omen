@@ -139,9 +139,7 @@ describe("research agent", () => {
 
     expect(protocolLookups).toBe(0);
     expect(
-      (result.missingDataNotes ?? []).some((note) =>
-        note.startsWith("Protocol snapshot missing:"),
-      ),
+      (result.missingDataNotes ?? []).some((note) => note.startsWith("Protocol snapshot missing:")),
     ).toBe(false);
   });
 
@@ -184,7 +182,8 @@ describe("research agent", () => {
           evidence: [
             {
               category: "market" as const,
-              summary: "BTC outperformed the local major set with positive spot momentum and stable funding.",
+              summary:
+                "BTC outperformed the local major set with positive spot momentum and stable funding.",
               sourceLabel: "Binance",
               sourceUrl: null,
               structuredData: {
@@ -232,9 +231,7 @@ describe("research agent", () => {
 
     expect(result.candidate.status).toBe("researched");
     expect(result.narrativeSummary).toContain("spot strength confirmed");
-    expect(result.evidence[0]?.structuredData).toMatchObject({
-      prompt: expect.any(String),
-    });
+    expect(result.evidence[0]?.structuredData).not.toHaveProperty("prompt");
     expect(result.evidence.some((item) => item.summary.includes("ETF-flow headlines"))).toBe(true);
   });
 });

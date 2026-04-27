@@ -14,12 +14,7 @@ import {
   createScannerAgent,
 } from "../definitions/index.js";
 import type { RuntimeNodeDefinition } from "./agent-runtime.js";
-import {
-  mergeSwarmState,
-  type IntelReport,
-  type SwarmState,
-  type ThesisDraft,
-} from "./state.js";
+import { mergeSwarmState, type IntelReport, type SwarmState, type ThesisDraft } from "./state.js";
 import type { SwarmGraphDefinition } from "./graph-factory.js";
 
 export const omenSwarmNodeKeySchema = z.enum([
@@ -69,10 +64,7 @@ const candidateStatusRank = {
   researched: 1,
   rejected: 2,
   promoted: 3,
-} as const satisfies Record<
-  ReturnType<typeof normalizeCandidate>["status"],
-  number
->;
+} as const satisfies Record<ReturnType<typeof normalizeCandidate>["status"], number>;
 
 const preserveMostAdvancedCandidateStatus = (
   left: ReturnType<typeof normalizeCandidate>["status"],
@@ -80,7 +72,15 @@ const preserveMostAdvancedCandidateStatus = (
 ) => (candidateStatusRank[left] >= candidateStatusRank[right] ? left : right);
 
 const normalizeEvidenceItem = (item: {
-  category: "market" | "technical" | "liquidity" | "funding" | "fundamental" | "catalyst" | "sentiment" | "chart";
+  category:
+    | "market"
+    | "technical"
+    | "liquidity"
+    | "funding"
+    | "fundamental"
+    | "catalyst"
+    | "sentiment"
+    | "chart";
   summary: string;
   sourceLabel: string;
   sourceUrl: string | null;
@@ -159,12 +159,10 @@ const normalizeDraft = (draft: {
 type NormalizedPublisherOutput = {
   outcome: PublisherOutput["outcome"];
   drafts: Array<ReturnType<typeof normalizeDraft>>;
-  packet:
-    | {
-        drafts: Array<ReturnType<typeof normalizeDraft>>;
-        approvedReview: ReturnType<typeof normalizeReview> | null;
-      }
-    | null;
+  packet: {
+    drafts: Array<ReturnType<typeof normalizeDraft>>;
+    approvedReview: ReturnType<typeof normalizeReview> | null;
+  } | null;
 };
 
 const normalizePublisherOutput = (output: {
@@ -176,25 +174,21 @@ const normalizePublisherOutput = (output: {
     text: string;
     metadata?: Record<string, unknown>;
   }>;
-  packet:
-    | {
-        drafts: Array<{
-          kind: "signal_alert" | "intel_summary" | "intel_thread" | "no_conviction";
-          headline: string;
-          summary: string;
-          text: string;
-          metadata?: Record<string, unknown>;
-        }>;
-        approvedReview:
-          | {
-              candidateId: string;
-              decision: "approved" | "rejected" | "watchlist_only";
-              objections?: string[];
-              forcedOutcomeReason: string | null;
-            }
-          | null;
-      }
-    | null;
+  packet: {
+    drafts: Array<{
+      kind: "signal_alert" | "intel_summary" | "intel_thread" | "no_conviction";
+      headline: string;
+      summary: string;
+      text: string;
+      metadata?: Record<string, unknown>;
+    }>;
+    approvedReview: {
+      candidateId: string;
+      decision: "approved" | "rejected" | "watchlist_only";
+      objections?: string[];
+      forcedOutcomeReason: string | null;
+    } | null;
+  } | null;
 }): NormalizedPublisherOutput => {
   const drafts = (output.drafts ?? []).map(normalizeDraft);
 
@@ -251,7 +245,15 @@ const buildPublisherNotes = (output: NormalizedPublisherOutput) => [
   ...output.drafts.map((draft) => `publisher-draft:${draft.kind}`),
 ];
 
-export const createDefaultOmenSwarmNodes = (): readonly RuntimeNodeDefinition<unknown, unknown>[] => [
+const isInternalPromptNote = (note: string) =>
+  /^\s*(prompt shell|prompt:|system prompt|user prompt)\s*:/i.test(note);
+
+const sanitizeNotes = (notes: string[]) => notes.filter((note) => !isInternalPromptNote(note));
+
+export const createDefaultOmenSwarmNodes = (): readonly RuntimeNodeDefinition<
+  unknown,
+  unknown
+>[] => [
   createMarketBiasAgent(),
   createScannerAgent(),
   createResearchAgent(),
@@ -379,9 +381,7 @@ export const buildOmenNodeInput = (input: {
         candidate,
         evidence: input.state.evidenceItems,
         narrativeSummary: researchSummary.replace("research-summary:", "").trim(),
-        chartVisionSummary:
-          input.state.chartVisionSummaries.at(-1) ??
-          null,
+        chartVisionSummary: input.state.chartVisionSummaries.at(-1) ?? null,
         chartVisionTimeframes: input.state.evidenceItems
           .filter((item) => item.category === "chart")
           .map((item) => String(item.structuredData.timeframe ?? ""))
@@ -426,7 +426,7 @@ export const buildOmenNodeInput = (input: {
 
     return {
       context,
-      checkpointLabel: intelReport !== null ? "intel-ready" : review?.decision ?? "no-conviction",
+      checkpointLabel: intelReport !== null ? "intel-ready" : (review?.decision ?? "no-conviction"),
       notes: input.state.notes.slice(-5),
       proofArtifacts: input.state.proofArtifacts,
     };
@@ -551,7 +551,7 @@ export const applyOmenNodeOutput = (input: {
     const thesis = normalizeThesis(output.thesis);
     const stateDelta = {
       thesisDrafts: [...input.state.thesisDrafts, thesis],
-      notes: [...input.state.notes, ...(output.analystNotes ?? [])],
+      notes: sanitizeNotes([...input.state.notes, ...(output.analystNotes ?? [])]),
     };
 
     return {
@@ -561,9 +561,7 @@ export const applyOmenNodeOutput = (input: {
   }
 
   if (input.nodeKey === "chart-vision-agent") {
-    const output = createChartVisionAgent().outputSchema.parse(
-      input.output,
-    ) as ChartVisionOutput;
+    const output = createChartVisionAgent().outputSchema.parse(input.output) as ChartVisionOutput;
     const chartEvidence = output.evidence.map(normalizeEvidenceItem);
     const mergedEvidence = [...input.state.evidenceItems, ...chartEvidence];
     const nextCandidates = input.state.activeCandidates.map((candidate) =>
@@ -571,10 +569,7 @@ export const applyOmenNodeOutput = (input: {
         ? normalizeCandidate({
             ...candidate,
             ...output.candidate,
-            status: preserveMostAdvancedCandidateStatus(
-              candidate.status,
-              output.candidate.status,
-            ),
+            status: preserveMostAdvancedCandidateStatus(candidate.status, output.candidate.status),
             missingDataNotes: output.missingDataNotes,
           })
         : candidate,
@@ -582,16 +577,11 @@ export const applyOmenNodeOutput = (input: {
     const stateDelta = {
       activeCandidates: nextCandidates,
       evidenceItems: mergedEvidence,
-      chartVisionSummaries: [
-        ...input.state.chartVisionSummaries,
-        output.chartSummary,
-      ],
+      chartVisionSummaries: [...input.state.chartVisionSummaries, output.chartSummary],
       notes: [
         ...input.state.notes,
         `chart-vision-summary:${output.chartSummary}`,
-        ...output.frames.map(
-          (frame) => `chart-vision-${frame.timeframe}:${frame.analysis}`,
-        ),
+        ...output.frames.map((frame) => `chart-vision-${frame.timeframe}:${frame.analysis}`),
       ],
     };
 
@@ -662,9 +652,7 @@ export const applyOmenNodeOutput = (input: {
     };
   }
 
-  const output = normalizePublisherOutput(
-    createPublisherAgent().outputSchema.parse(input.output),
-  );
+  const output = normalizePublisherOutput(createPublisherAgent().outputSchema.parse(input.output));
   const drafts = output.drafts;
   const thesis = input.state.thesisDrafts.at(-1) ?? null;
   const intelReport = input.state.intelReports.at(-1) ?? null;
@@ -686,10 +674,7 @@ export const applyOmenNodeOutput = (input: {
   const stateDelta = {
     run: nextRun,
     publisherDrafts: drafts,
-    notes: [
-      ...input.state.notes,
-      ...buildPublisherNotes(output),
-    ],
+    notes: [...input.state.notes, ...buildPublisherNotes(output)],
   };
 
   return {

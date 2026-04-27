@@ -8,8 +8,6 @@ import {
   type XPostDraft,
 } from "@omen/shared";
 
-import { buildIntelThreadParts } from "./intel-thread-builder.js";
-
 const trimToLength = (value: string, maxLength: number) => {
   if (value.length <= maxLength) {
     return value;
@@ -140,14 +138,16 @@ export const formatIntelPost = (
   xPostDraftSchema.parse({
     text: trimToLength(
       [
-        intel.title.toLowerCase(),
+        `omen intel: ${intel.title.toLowerCase()}`,
         "",
         `- ${normalizeAnalysisLine(intel.summary)}`,
+        ...(intel.symbols.length > 0
+          ? [
+              `- watch: ${intel.symbols.map((symbol) => `$${symbol.replace(/^\$/, "")}`).join(" / ")}`,
+            ]
+          : []),
         `- confidence: ${intel.confidence}%`,
         "",
-        ...(intel.symbols.length > 0
-          ? [intel.symbols.map((symbol) => `$${symbol.replace(/^\$/, "")}`).join(" / ")]
-          : []),
         buildHashtagLine(intel.symbols.length > 0 ? intel.symbols : ["crypto"]),
       ].join("\n"),
       280,
@@ -190,14 +190,13 @@ export const formatIntelPostPayload = (
   intel: Pick<Intel, "title" | "summary" | "body" | "confidence" | "symbols">,
 ): OutboundPostPayload => {
   const summary = formatIntelPost(intel);
-  const thread = buildIntelThreadParts(intel).slice(1);
 
   return outboundPostPayloadSchema.parse({
     text: summary.text,
-    thread,
+    thread: [],
     metadata: {
       formatter: "intel_summary:v1",
-      threadPartCount: thread.length,
+      threadPartCount: 0,
     },
   });
 };

@@ -1,11 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  outboundPostSchema,
-  type Intel,
-  type OutboundPost,
-  type Signal,
-} from "@omen/shared";
+import { outboundPostSchema, type Intel, type OutboundPost, type Signal } from "@omen/shared";
 import type { OutboundPostsRepository } from "@omen/db";
 
 import type { BackendEnv } from "../bootstrap/env.js";
@@ -16,6 +11,12 @@ import { TwitterApiClient } from "../services/x/twitterapi-client.js";
 
 const hasTwitterApiKeyAndProxy = (env: BackendEnv) =>
   Boolean(env.twitterApi.apiKey && env.twitterApi.proxy);
+
+const canRefreshOutboundPost = (post: OutboundPost) =>
+  post.status === "queued" ||
+  post.status === "formatting" ||
+  post.status === "ready" ||
+  post.status === "failed";
 
 export class PostPublisher {
   private readonly worker: PostWorker | null;
@@ -110,6 +111,22 @@ export class PostPublisher {
     }
 
     if (existing.value) {
+      if (canRefreshOutboundPost(existing.value)) {
+        const refreshed = await this.input.posts.updatePost(existing.value.id, {
+          payload: post.payload,
+          kind: post.kind,
+          status: "ready",
+          lastError: null,
+          updatedAt: new Date().toISOString(),
+        });
+
+        if (!refreshed.ok) {
+          throw new Error(`Failed to refresh outbound post: ${refreshed.error.message}`);
+        }
+
+        return refreshed.value;
+      }
+
       return existing.value;
     }
 

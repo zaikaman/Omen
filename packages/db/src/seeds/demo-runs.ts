@@ -20,80 +20,78 @@ import {
   demoRuntimeConfig,
 } from "./demo-config.js";
 
-export const demoAgentNodes = z
-  .array(agentNodeSchema)
-  .parse([
-    {
-      id: "agent-orchestrator-001",
-      role: "orchestrator",
-      transport: "axl",
-      status: "online",
-      peerId: "peer-orchestrator",
-      lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
-      lastError: null,
-      metadata: { region: "local", services: ["runtime.plan", "runtime.dispatch"] },
-    },
-    {
-      id: "agent-scanner-001",
-      role: "scanner",
-      transport: "axl",
-      status: "online",
-      peerId: "peer-scanner",
-      lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
-      lastError: null,
-      metadata: { region: "local", services: ["scanner.scan"] },
-    },
-    {
-      id: "agent-research-001",
-      role: "research",
-      transport: "axl",
-      status: "online",
-      peerId: "peer-research",
-      lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
-      lastError: null,
-      metadata: { region: "local", services: ["research.bundle"] },
-    },
-    {
-      id: "agent-analyst-001",
-      role: "analyst",
-      transport: "axl",
-      status: "online",
-      peerId: "peer-analyst",
-      lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
-      lastError: null,
-      metadata: { region: "local", services: ["analyst.thesis"] },
-    },
-    {
-      id: "agent-critic-001",
-      role: "critic",
-      transport: "axl",
-      status: "online",
-      peerId: "peer-critic",
-      lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
-      lastError: null,
-      metadata: { region: "local", services: ["critic.review"] },
-    },
-    {
-      id: "agent-publisher-001",
-      role: "publisher",
-      transport: "local",
-      status: "online",
-      peerId: null,
-      lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
-      lastError: null,
-      metadata: { region: "backend", services: ["publisher.format"] },
-    },
-    {
-      id: "agent-memory-001",
-      role: "memory",
-      transport: "local",
-      status: "online",
-      peerId: null,
-      lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
-      lastError: null,
-      metadata: { region: "backend", services: ["memory.checkpoint"] },
-    },
-  ]);
+export const demoAgentNodes = z.array(agentNodeSchema).parse([
+  {
+    id: "agent-orchestrator-001",
+    role: "orchestrator",
+    transport: "axl",
+    status: "online",
+    peerId: "peer-orchestrator",
+    lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
+    lastError: null,
+    metadata: { region: "local", services: ["runtime.plan", "runtime.dispatch"] },
+  },
+  {
+    id: "agent-scanner-001",
+    role: "scanner",
+    transport: "axl",
+    status: "online",
+    peerId: "peer-scanner",
+    lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
+    lastError: null,
+    metadata: { region: "local", services: ["scanner.scan"] },
+  },
+  {
+    id: "agent-research-001",
+    role: "research",
+    transport: "axl",
+    status: "online",
+    peerId: "peer-research",
+    lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
+    lastError: null,
+    metadata: { region: "local", services: ["research.bundle"] },
+  },
+  {
+    id: "agent-analyst-001",
+    role: "analyst",
+    transport: "axl",
+    status: "online",
+    peerId: "peer-analyst",
+    lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
+    lastError: null,
+    metadata: { region: "local", services: ["analyst.thesis"] },
+  },
+  {
+    id: "agent-critic-001",
+    role: "critic",
+    transport: "axl",
+    status: "online",
+    peerId: "peer-critic",
+    lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
+    lastError: null,
+    metadata: { region: "local", services: ["critic.review"] },
+  },
+  {
+    id: "agent-publisher-001",
+    role: "publisher",
+    transport: "local",
+    status: "online",
+    peerId: null,
+    lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
+    lastError: null,
+    metadata: { region: "backend", services: ["publisher.format"] },
+  },
+  {
+    id: "agent-memory-001",
+    role: "memory",
+    transport: "local",
+    status: "online",
+    peerId: null,
+    lastHeartbeatAt: DEMO_INTEL_RUN_COMPLETED_AT,
+    lastError: null,
+    metadata: { region: "backend", services: ["memory.checkpoint"] },
+  },
+]);
 
 const signalRun = runSchema.parse({
   id: "run-signal-001",
@@ -211,14 +209,17 @@ const signalRecord = signalSchema.parse({
     { label: "TP1", price: 93900 },
     { label: "TP2", price: 94850 },
   ],
-  whyNow: "BTC reclaimed range highs while funding stayed contained and spot-led strength held across majors.",
+  whyNow:
+    "BTC reclaimed range highs while funding stayed contained and spot-led strength held across majors.",
   confluences: [
     "4H breakout above local resistance",
     "Positive spot-led order flow",
     "Critic-approved risk/reward above threshold",
   ],
-  uncertaintyNotes: "Macro headlines can still interrupt follow-through if US rates commentary turns risk-off.",
-  missingDataNotes: "Order-book depth was estimated from fallback market snapshots instead of direct exchange L2.",
+  uncertaintyNotes:
+    "Macro headlines can still interrupt follow-through if US rates commentary turns risk-off.",
+  missingDataNotes:
+    "Order-book depth was estimated from fallback market snapshots instead of direct exchange L2.",
   criticDecision: "approved",
   reportStatus: "published",
   finalReportRefId: "proof-signal-manifest-001",
@@ -487,7 +488,8 @@ const intelRecord = intelSchema.parse({
   runId: intelRun.id,
   title: "AI Infrastructure Names Keep Absorbing Attention While Majors Chop",
   slug: "ai-infrastructure-rotation-2026-04-25",
-  summary: "Omen detected sustained attention rotation into AI-linked infrastructure tokens while BTC stayed rangebound.",
+  summary:
+    "Omen detected sustained attention rotation into AI-linked infrastructure tokens while BTC stayed rangebound.",
   body: "Market breadth stayed mixed, but AI-linked infrastructure symbols kept outpacing majors on both mindshare and relative strength. The swarm treated it as intel rather than a trade because BTC posture stayed neutral and catalyst confirmation was narrative-led.",
   category: "narrative_shift",
   status: "published",
@@ -619,7 +621,7 @@ const intelEvents = z.array(agentEventSchema).parse([
     eventType: "report_published",
     status: "success",
     summary: "Intel summary posted to X and attached to the run manifest.",
-    payload: { provider: "twitterapi", threadCount: 1 },
+    payload: { provider: "twitterapi", threadCount: 0 },
     timestamp: "2026-04-25T09:04:20.000Z",
     correlationId: "corr-intel-003",
     axlMessageId: "axl-intel-003",
@@ -638,10 +640,8 @@ const intelPost = outboundPostSchema.parse({
   kind: "intel_summary",
   status: "posted",
   payload: {
-    text: "Omen intel: AI infrastructure names kept absorbing mindshare while BTC stayed neutral. TAO / RNDR / AKT led the rotation.",
-    thread: [
-      "The swarm kept this as intel, not a signal, because BTC regime confirmation stayed incomplete and catalysts were mostly narrative-led.",
-    ],
+    text: "omen intel: ai infrastructure rotation\n\n- ai infrastructure names kept absorbing mindshare while btc stayed neutral\n- watch: $TAO / $RNDR / $AKT\n- confidence: 88%\n\n#tao #rndr #akt",
+    thread: [],
     metadata: { manifestRefId: "proof-intel-manifest-001" },
   },
   provider: "twitterapi",
@@ -695,9 +695,8 @@ export const demoRunBundleSchema = z.object({
   outboundPosts: z.array(outboundPostSchema),
 });
 
-export const demoRunBundles = z.array(demoRunBundleSchema).parse([
-  demoSignalRunBundle,
-  demoIntelRunBundle,
-]);
+export const demoRunBundles = z
+  .array(demoRunBundleSchema)
+  .parse([demoSignalRunBundle, demoIntelRunBundle]);
 
 export type DemoRunBundle = z.infer<typeof demoRunBundleSchema>;

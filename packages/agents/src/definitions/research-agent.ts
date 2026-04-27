@@ -30,10 +30,7 @@ const researchSynthesisSchema = z.object({
   missingDataNotes: z.array(z.string().min(1)).default([]),
 });
 
-const buildProtocolEvidence = (
-  protocolSnapshot: ProtocolSnapshot,
-  symbol: string,
-): EvidenceItem =>
+const buildProtocolEvidence = (protocolSnapshot: ProtocolSnapshot, symbol: string): EvidenceItem =>
   evidenceItemSchema.parse({
     category: "fundamental",
     summary: `${protocolSnapshot.protocol} TVL snapshot on ${protocolSnapshot.chain} came in at $${protocolSnapshot.tvlUsd.toLocaleString("en-US")}.`,
@@ -210,7 +207,6 @@ export class ResearchAgentFactory {
           sourceLabel: "Omen Research Shell",
           sourceUrl: null,
           structuredData: {
-            prompt,
             marketBiasReasoning: state.marketBiasReasoning,
           },
         }),
@@ -220,7 +216,6 @@ export class ResearchAgentFactory {
         ...evidence[0],
         structuredData: {
           ...evidence[0].structuredData,
-          prompt,
           marketBiasReasoning: state.marketBiasReasoning,
         },
       });
@@ -282,6 +277,5 @@ export class ResearchAgentFactory {
   }
 }
 
-export const createResearchAgent = (
-  input: z.input<typeof researchServiceOptionsSchema> = {},
-) => new ResearchAgentFactory(input).createDefinition();
+export const createResearchAgent = (input: z.input<typeof researchServiceOptionsSchema> = {}) =>
+  new ResearchAgentFactory(input).createDefinition();

@@ -6,14 +6,11 @@ import {
 } from "../../../backend/src/services/x/post-formatter";
 import { transitionPost } from "../../../backend/src/services/x/post-state-machine";
 import { demoIntelRunBundle } from "../../../packages/db/src/index";
-import {
-  outboundPostSchema,
-  zeroGRunManifestSchema,
-} from "../../../packages/shared/src/index";
+import { outboundPostSchema, zeroGRunManifestSchema } from "../../../packages/shared/src/index";
 import { RunManifestBuilder } from "../../../packages/zero-g/src/proofs/run-manifest-builder";
 
 describe("intel publication", () => {
-  it("creates an outbound intel post with optional thread payload and proof refs", () => {
+  it("creates a single outbound intel post with proof refs", () => {
     const { run, intel, outboundPosts, proofs } = demoIntelRunBundle;
 
     expect(intel).not.toBeNull();
@@ -39,8 +36,8 @@ describe("intel publication", () => {
       publishedUrl: "https://x.com/omen/status/1000000000000000002",
       lastError: null,
     });
-    expect(post.payload.text).toContain("AI infrastructure");
-    expect(post.payload.thread.length).toBeGreaterThan(0);
+    expect(post.payload.text).toContain("ai infrastructure");
+    expect(post.payload.thread).toHaveLength(0);
 
     const manifest = new RunManifestBuilder().build({
       environment: "test",
@@ -54,7 +51,7 @@ describe("intel publication", () => {
     expect(manifest.publicPosts[0]?.artifact.refType).toBe("post_result");
   });
 
-  it("formats intel summaries and thread parts inside X limits", () => {
+  it("formats intel summaries as a single X post inside limits", () => {
     const { intel } = demoIntelRunBundle;
 
     expect(intel).not.toBeNull();
@@ -67,8 +64,9 @@ describe("intel publication", () => {
 
     expect(draft.text.length).toBeLessThanOrEqual(280);
     expect(payload.text.length).toBeLessThanOrEqual(280);
-    expect(payload.thread.length).toBeGreaterThan(0);
-    expect(payload.thread.every((part) => part.length <= 280)).toBe(true);
+    expect(payload.thread).toHaveLength(0);
+    expect(payload.text).toContain("omen intel:");
+    expect(payload.text).toContain("- watch:");
   });
 
   it("supports provider failure fallback metadata and retry transitions", () => {

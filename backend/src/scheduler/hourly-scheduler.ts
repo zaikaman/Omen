@@ -95,14 +95,15 @@ export class HourlyScheduler {
 
   private async resolveNextDelayMs() {
     if (!this.options.loadLastRunAt) {
-      return this.intervalMs;
+      this.options.logger.info("No persisted scheduler run store configured. Running soon.");
+      return 5000;
     }
 
     try {
       const lastRunAt = (await this.options.loadLastRunAt()) ?? this.lastRunAt;
 
       if (!lastRunAt) {
-        this.options.logger.info("No previous scheduled runs found. Running soon.");
+        this.options.logger.info("No previous runs found. Running swarm soon.");
         return 5000;
       }
 
@@ -111,17 +112,12 @@ export class HourlyScheduler {
       const lastRunTime = new Date(lastRunAt).getTime();
 
       if (Number.isNaN(lastRunTime)) {
-        this.options.logger.warn(
-          `Ignoring invalid persisted scheduler timestamp: ${lastRunAt}`,
-        );
+        this.options.logger.warn(`Ignoring invalid persisted scheduler timestamp: ${lastRunAt}`);
         return this.intervalMs;
       }
 
       const timeSinceLastRun = Date.now() - lastRunTime;
-      const delayMs = Math.min(
-        this.intervalMs,
-        Math.max(5000, this.intervalMs - timeSinceLastRun),
-      );
+      const delayMs = Math.min(this.intervalMs, Math.max(5000, this.intervalMs - timeSinceLastRun));
 
       if (timeSinceLastRun < this.intervalMs) {
         this.options.logger.info(

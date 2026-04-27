@@ -512,7 +512,6 @@ export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) =
   return analystOutputSchema.parse({
     thesis,
     analystNotes: [
-      `Prompt shell: ${prompt}`,
       `Evidence categories: ${parsed.research.evidence.map((item) => item.category).join(", ")}`,
       ...(parsed.research.chartVisionSummary
         ? [`Chart vision: ${parsed.research.chartVisionSummary}`]

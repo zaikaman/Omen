@@ -1,9 +1,6 @@
 import type { Server } from "node:http";
 
-import {
-  RunsRepository,
-  createSupabaseServiceRoleClient,
-} from "@omen/db";
+import { RunsRepository, createSupabaseServiceRoleClient } from "@omen/db";
 
 import { createBackendEnv, type BackendEnv } from "./env.js";
 import { createLogger, type Logger } from "./logger.js";
@@ -28,10 +25,9 @@ export const startBackendRuntime = (): BackendRuntime => {
   const env = createBackendEnv();
   const logger = createLogger(env);
   const runtimeMode = getRuntimeModeFlags(env.runtimeMode);
-  const pipeline =
-    runtimeMode.usesMockData
-      ? new DefaultDemoRunPipeline()
-      : new DefaultLiveSwarmRunPipeline({ env });
+  const pipeline = runtimeMode.usesMockData
+    ? new DefaultDemoRunPipeline()
+    : new DefaultLiveSwarmRunPipeline({ env });
   const coordinator = new DefaultRunCoordinator({ logger, pipeline });
   const runtimeWorker = new DefaultRuntimeWorker({ env, logger, coordinator });
   const schedulerRunsRepository =
@@ -51,13 +47,13 @@ export const startBackendRuntime = (): BackendRuntime => {
     mode: runtimeMode,
     loadLastRunAt: schedulerRunsRepository
       ? async () => {
-          const scheduledRuns = await schedulerRunsRepository.listScheduledRuns(1);
+          const recentRuns = await schedulerRunsRepository.listRecentRuns(1);
 
-          if (!scheduledRuns.ok) {
-            throw new Error(scheduledRuns.error.message);
+          if (!recentRuns.ok) {
+            throw new Error(recentRuns.error.message);
           }
 
-          return scheduledRuns.value[0]?.createdAt ?? null;
+          return recentRuns.value[0]?.createdAt ?? null;
         }
       : undefined,
     task: async (context) => {

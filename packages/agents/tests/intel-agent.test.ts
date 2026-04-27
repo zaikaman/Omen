@@ -86,6 +86,14 @@ describe("intel agent", () => {
             sourceUrl: null,
             structuredData: {},
           },
+          {
+            category: "sentiment",
+            summary:
+              "Layer-1 rotation chatter kept AVAX on watchlists despite the failed trade setup.",
+            sourceLabel: "Market Desk",
+            sourceUrl: null,
+            structuredData: {},
+          },
         ],
         chartVisionSummary:
           "15m and 1h stayed constructive, while 4h remained range-bound near resistance.",
@@ -121,6 +129,7 @@ describe("intel agent", () => {
     expect(result.action).toBe("ready");
     expect(result.report?.title).toContain("AVAX");
     expect(result.report?.importanceScore).toBeGreaterThanOrEqual(7);
+    expect(result.report?.summary).not.toMatch(/failed the signal gate/i);
   });
 
   it("suppresses duplicate intel when a similar report was published recently", async () => {

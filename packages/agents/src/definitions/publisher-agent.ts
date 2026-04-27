@@ -3,12 +3,7 @@ import { z as zod } from "zod";
 
 import { publisherInputSchema, publisherOutputSchema } from "../contracts/publisher.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
-import type {
-  CriticReview,
-  PublisherDraft,
-  SwarmState,
-  ThesisDraft,
-} from "../framework/state.js";
+import type { CriticReview, PublisherDraft, SwarmState, ThesisDraft } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
 import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildPublisherSystemPrompt } from "../prompts/publisher/system.js";
@@ -30,11 +25,9 @@ const publisherDraftRewriteSchema = zod.object({
     .min(1),
 });
 
-const toFeedSentence = (value: string) =>
-  value.replace(/\s+/g, " ").trim().replace(/\.$/, "");
+const toFeedSentence = (value: string) => value.replace(/\s+/g, " ").trim().replace(/\.$/, "");
 
-const toHashtag = (value: string) =>
-  `#${value.replace(/[^a-z0-9]+/gi, "").toLowerCase()}`;
+const toHashtag = (value: string) => `#${value.replace(/[^a-z0-9]+/gi, "").toLowerCase()}`;
 
 const buildHashtagLine = (values: string[]) => {
   const unique = [...new Set(values.map(toHashtag))].filter((value) => value.length > 1);
@@ -43,13 +36,8 @@ const buildHashtagLine = (values: string[]) => {
 
 const buildSignalBodyLine = (label: string, value: string) => `${label}: ${value}`;
 
-const buildSignalAlertDraft = (
-  thesis: ThesisDraft,
-  review: CriticReview,
-  prompt: string,
-): PublisherDraft => {
-  const riskRewardText =
-    thesis.riskReward === null ? "n/a" : `1:${thesis.riskReward.toFixed(1)}`;
+const buildSignalAlertDraft = (thesis: ThesisDraft, review: CriticReview): PublisherDraft => {
+  const riskRewardText = thesis.riskReward === null ? "n/a" : `1:${thesis.riskReward.toFixed(1)}`;
   const orderTypeText = thesis.orderType ?? "market";
   const tradingStyleText = thesis.tradingStyle ?? "day_trade";
   const durationText = thesis.expectedDuration ?? "8-16 hours";
@@ -64,7 +52,9 @@ const buildSignalAlertDraft = (
     buildSignalBodyLine("order", orderTypeText),
     buildSignalBodyLine("hold", durationText),
     ...(thesis.entryPrice !== null ? [buildSignalBodyLine("entry", `$${thesis.entryPrice}`)] : []),
-    ...(thesis.targetPrice !== null ? [buildSignalBodyLine("target", `$${thesis.targetPrice}`)] : []),
+    ...(thesis.targetPrice !== null
+      ? [buildSignalBodyLine("target", `$${thesis.targetPrice}`)]
+      : []),
     ...(thesis.stopLoss !== null ? [buildSignalBodyLine("stop", `$${thesis.stopLoss}`)] : []),
     buildSignalBodyLine("r:r", riskRewardText),
     buildSignalBodyLine("conf", `${thesis.confidence}%`),
@@ -82,22 +72,18 @@ const buildSignalAlertDraft = (
       candidateId: thesis.candidateId,
       decision: review.decision,
       direction: thesis.direction,
-      prompt,
     },
   };
 };
 
-const buildIntelSummaryDraft = (
-  input: {
-    topic: string;
-    insight: string;
-    category: string;
-    title: string;
-    summary: string;
-    confidence: number;
-  },
-  prompt: string,
-): PublisherDraft => {
+const buildIntelSummaryDraft = (input: {
+  topic: string;
+  insight: string;
+  category: string;
+  title: string;
+  summary: string;
+  confidence: number;
+}): PublisherDraft => {
   const title = toFeedSentence(input.title);
   const summary = toFeedSentence(input.summary);
   const insight = toFeedSentence(input.insight);
@@ -123,22 +109,18 @@ const buildIntelSummaryDraft = (
     ].join("\n"),
     metadata: {
       confidence: input.confidence,
-      prompt,
     },
   };
 };
 
-const buildIntelThreadDraft = (
-  input: {
-    topic: string;
-    insight: string;
-    category: string;
-    title: string;
-    summary: string;
-    confidence: number;
-  },
-  prompt: string,
-): PublisherDraft => {
+const buildIntelThreadDraft = (input: {
+  topic: string;
+  insight: string;
+  category: string;
+  title: string;
+  summary: string;
+  confidence: number;
+}): PublisherDraft => {
   const title = toFeedSentence(input.title);
   const summary = toFeedSentence(input.summary);
   const hashtagLine = buildHashtagLine(
@@ -162,18 +144,14 @@ const buildIntelThreadDraft = (
     ].join("\n"),
     metadata: {
       confidence: input.confidence,
-      prompt,
     },
   };
 };
 
-const buildNoConvictionDraft = (
-  input: {
-    thesis: ThesisDraft | null;
-    review: CriticReview | null;
-  },
-  prompt: string,
-): PublisherDraft => {
+const buildNoConvictionDraft = (input: {
+  thesis: ThesisDraft | null;
+  review: CriticReview | null;
+}): PublisherDraft => {
   const assetLabel = input.thesis?.asset ?? "Current market setup";
   const decision = input.review?.decision ?? "no_conviction";
   const objectionText =
@@ -196,7 +174,6 @@ const buildNoConvictionDraft = (
     ].join("\n"),
     metadata: {
       decision,
-      prompt,
     },
   };
 };
@@ -208,20 +185,12 @@ const isApprovedSignal = (input: z.infer<typeof publisherInputSchema>) =>
 
 export const derivePublisherPacket = (input: z.input<typeof publisherInputSchema>) => {
   const parsed = publisherInputSchema.parse(input);
-  const prompt = buildPublisherSystemPrompt({
-    runId: parsed.context.runId,
-    hasThesis: parsed.thesis !== null,
-    reviewDecision: parsed.review?.decision ?? null,
-    hasIntelSummary: parsed.intelSummary !== null,
-  });
 
   if (isApprovedSignal(parsed) && parsed.thesis !== null && parsed.review !== null) {
-    const drafts: PublisherDraft[] = [
-      buildSignalAlertDraft(parsed.thesis, parsed.review, prompt),
-    ];
+    const drafts: PublisherDraft[] = [buildSignalAlertDraft(parsed.thesis, parsed.review)];
 
     if (parsed.intelSummary !== null) {
-      drafts.push(buildIntelSummaryDraft(parsed.intelSummary, prompt));
+      drafts.push(buildIntelSummaryDraft(parsed.intelSummary));
     }
 
     return publisherOutputSchema.parse({
@@ -236,8 +205,8 @@ export const derivePublisherPacket = (input: z.input<typeof publisherInputSchema
 
   if (parsed.intelSummary !== null) {
     const drafts: PublisherDraft[] = [
-      buildIntelSummaryDraft(parsed.intelSummary, prompt),
-      buildIntelThreadDraft(parsed.intelSummary, prompt),
+      buildIntelSummaryDraft(parsed.intelSummary),
+      buildIntelThreadDraft(parsed.intelSummary),
     ];
 
     return publisherOutputSchema.parse({
@@ -254,14 +223,14 @@ export const derivePublisherPacket = (input: z.input<typeof publisherInputSchema
     return publisherOutputSchema.parse({
       outcome: parsed.review.decision,
       packet: null,
-      drafts: [buildNoConvictionDraft({ thesis: parsed.thesis, review: parsed.review }, prompt)],
+      drafts: [buildNoConvictionDraft({ thesis: parsed.thesis, review: parsed.review })],
     });
   }
 
   return publisherOutputSchema.parse({
     outcome: "no_conviction",
     packet: null,
-    drafts: [buildNoConvictionDraft({ thesis: parsed.thesis, review: null }, prompt)],
+    drafts: [buildNoConvictionDraft({ thesis: parsed.thesis, review: null })],
   });
 };
 
@@ -312,10 +281,7 @@ export class PublisherAgentFactory {
     };
   }
 
-  private async publish(
-    input: z.input<typeof publisherInputSchema>,
-    state: SwarmState,
-  ) {
+  private async publish(input: z.input<typeof publisherInputSchema>, state: SwarmState) {
     void state;
     const basePacket = derivePublisherPacket(input);
 
@@ -383,6 +349,5 @@ export class PublisherAgentFactory {
   }
 }
 
-export const createPublisherAgent = (
-  input: zod.input<typeof publisherAgentOptionsSchema> = {},
-) => new PublisherAgentFactory(input).createDefinition();
+export const createPublisherAgent = (input: zod.input<typeof publisherAgentOptionsSchema> = {}) =>
+  new PublisherAgentFactory(input).createDefinition();

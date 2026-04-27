@@ -96,11 +96,9 @@ describe("memory agent", () => {
     expect(result.checkpointRefId).toBe("checkpoint-run-1-critic-approved");
     expect(result.appendedProofRefs ?? []).toContain("proof-1");
     expect(result.appendedProofRefs ?? []).toContain("proof-2");
-    expect((result.appendedProofRefs ?? []).some((entry) => entry.startsWith("note:"))).toBe(
-      true,
-    );
+    expect((result.appendedProofRefs ?? []).some((entry) => entry.startsWith("note:"))).toBe(true);
     expect((result.appendedProofRefs ?? []).some((entry) => entry.startsWith("prompt:"))).toBe(
-      true,
+      false,
     );
   });
 });

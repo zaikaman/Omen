@@ -24,6 +24,15 @@ const summarizeEvidence = (evidence: EvidenceItem[]) =>
     .map((item) => item.summary.replace(/\s+/g, " ").trim())
     .join(" ");
 
+const hasNarrativeEvidence = (evidence: EvidenceItem[]) =>
+  evidence.some(
+    (item) =>
+      item.category === "fundamental" ||
+      item.category === "catalyst" ||
+      item.category === "sentiment" ||
+      item.category === "liquidity",
+  );
+
 const inferIntelCategory = (input: {
   thesis: ThesisDraft | null;
   symbols: string[];
@@ -42,9 +51,7 @@ const inferIntelCategory = (input: {
   }
 
   if (
-    input.evidence.some(
-      (item) => item.category === "fundamental" || item.category === "sentiment",
-    )
+    input.evidence.some((item) => item.category === "fundamental" || item.category === "sentiment")
   ) {
     return "narrative_shift" as const;
   }
@@ -53,7 +60,10 @@ const inferIntelCategory = (input: {
 };
 
 const normalizeComparableText = (value: string) =>
-  value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
 const isWithinLastHours = (timestamp: string, hours: number) => {
   const parsed = Date.parse(timestamp);
@@ -104,27 +114,38 @@ const deriveFallbackIntelReport = (input: z.input<typeof intelInputSchema>): Int
   const symbols = [...new Set(parsed.candidates.map((candidate) => candidate.symbol))];
   const leadSymbol = symbols[0] ?? parsed.thesis?.asset ?? "market";
   const evidenceSummary = summarizeEvidence(parsed.evidence);
+  const hasEvidenceSummary = evidenceSummary.trim().length > 0;
+  const rejectedTradeOnly =
+    parsed.review?.decision === "rejected" &&
+    parsed.thesis !== null &&
+    !hasNarrativeEvidence(parsed.evidence) &&
+    symbols.length <= 1;
+
+  if (!hasEvidenceSummary || rejectedTradeOnly) {
+    return null;
+  }
+
   const thesisContext =
-    parsed.thesis === null
-      ? "No actionable signal cleared the threshold, but the market context is still worth tracking."
-      : `${parsed.thesis.asset} failed the signal gate, so this is being reframed as intel rather than a trade call.`;
-  const chartContext =
-    parsed.chartVisionSummary?.trim().length
-      ? `Chart context: ${parsed.chartVisionSummary.trim()}`
-      : "Chart context remains limited.";
+    parsed.thesis === null || parsed.thesis.direction === "NONE"
+      ? "No actionable trade cleared the threshold, but the market context may still be worth tracking."
+      : `${parsed.thesis.asset} remains on the desk as market intel, not a standalone trade call.`;
+  const chartContext = parsed.chartVisionSummary?.trim().length
+    ? `Chart context: ${parsed.chartVisionSummary.trim()}`
+    : "Chart context remains limited.";
   const reviewContext =
     parsed.review?.forcedOutcomeReason ??
     parsed.review?.objections.join("; ") ??
     "No explicit critic objections were recorded.";
   const summary = `${thesisContext} ${evidenceSummary} ${chartContext}`.replace(/\s+/g, " ").trim();
-  const importanceScore = parsed.review?.decision === "watchlist_only" ? 7 : 8;
+  const importanceScore =
+    parsed.review?.decision === "watchlist_only" || hasNarrativeEvidence(parsed.evidence) ? 7 : 6;
 
   if (importanceScore < 7) {
     return null;
   }
 
   return {
-    topic: `${leadSymbol} market setup fallback`,
+    topic: symbols.length > 1 ? `${symbols.join(", ")} market watch` : `${leadSymbol} market watch`,
     insight: `${summary} Gate context: ${reviewContext}`.replace(/\s+/g, " ").trim(),
     importanceScore,
     category: inferIntelCategory({
@@ -151,8 +172,7 @@ export class IntelAgentFactory {
   constructor(input: zod.input<typeof intelAgentOptionsSchema> = {}) {
     const parsed = intelAgentOptionsSchema.parse(input);
     this.llmClient =
-      parsed.llmClient ??
-      OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("intel"));
+      parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("intel"));
   }
 
   createDefinition(): RuntimeNodeDefinition<
@@ -168,15 +188,12 @@ export class IntelAgentFactory {
     };
   }
 
-  private async generateIntel(
-    input: z.input<typeof intelInputSchema>,
-    state: SwarmState,
-  ) {
+  private async generateIntel(input: z.input<typeof intelInputSchema>, state: SwarmState) {
     void state;
     const parsed = intelInputSchema.parse(input);
 
     const fallbackReport = deriveFallbackIntelReport(parsed);
-  const prompt = buildIntelSystemPrompt({
+    const prompt = buildIntelSystemPrompt({
       runId: parsed.context.runId,
       hasCandidates: parsed.candidates.length > 0,
       hasThesis: parsed.thesis !== null,
@@ -185,7 +202,8 @@ export class IntelAgentFactory {
 
     if (this.llmClient === null) {
       const dedupedFallback =
-        fallbackReport && isDuplicateIntelReport({
+        fallbackReport &&
+        isDuplicateIntelReport({
           report: fallbackReport,
           recentHistory: parsed.recentIntelHistory,
         })
@@ -195,10 +213,7 @@ export class IntelAgentFactory {
       return intelOutputSchema.parse({
         action: dedupedFallback === null ? "skip" : "ready",
         report: dedupedFallback,
-        skipReason:
-          fallbackReport !== null && dedupedFallback === null
-            ? "recent_duplicate"
-            : null,
+        skipReason: fallbackReport !== null && dedupedFallback === null ? "recent_duplicate" : null,
       });
     }
 
@@ -248,7 +263,8 @@ export class IntelAgentFactory {
     }
 
     const dedupedFallback =
-      fallbackReport && isDuplicateIntelReport({
+      fallbackReport &&
+      isDuplicateIntelReport({
         report: fallbackReport,
         recentHistory: parsed.recentIntelHistory,
       })
@@ -258,12 +274,10 @@ export class IntelAgentFactory {
     return intelOutputSchema.parse({
       action: dedupedFallback === null ? "skip" : "ready",
       report: dedupedFallback,
-      skipReason:
-        fallbackReport !== null && dedupedFallback === null ? "recent_duplicate" : null,
+      skipReason: fallbackReport !== null && dedupedFallback === null ? "recent_duplicate" : null,
     });
   }
 }
 
-export const createIntelAgent = (
-  input: zod.input<typeof intelAgentOptionsSchema> = {},
-) => new IntelAgentFactory(input).createDefinition();
+export const createIntelAgent = (input: zod.input<typeof intelAgentOptionsSchema> = {}) =>
+  new IntelAgentFactory(input).createDefinition();
