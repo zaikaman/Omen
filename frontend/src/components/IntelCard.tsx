@@ -3,19 +3,41 @@ import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Calendar01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { Newspaper } from 'lucide-react';
 import type { IntelCardItem } from '../types/ui-models';
 
 const AGENT_AVATAR = '/logo.png';
 
 interface IntelCardProps {
-  intel: IntelCardItem;
+  intel: IntelCardItem | null | undefined;
+  isLoading?: boolean;
+  error?: Error | null;
   onClick?: () => void;
 }
 
-export function IntelCard({ intel, onClick }: IntelCardProps) {
+export function IntelCard({ intel, isLoading, error, onClick }: IntelCardProps) {
+  if (isLoading) {
+    return <div className="h-72 bg-gray-900/50 animate-pulse rounded-xl border border-gray-800" />;
+  }
+
+  if (!intel) {
+    return (
+      <Card className="bg-gray-900/50 border-gray-800">
+        <div className="flex h-72 flex-col items-center justify-center px-6 text-center text-gray-500">
+          <Newspaper className="mb-4 h-12 w-12 opacity-20" />
+          <p className="text-sm text-gray-400">
+            {error ? 'Unable to load latest intelligence.' : 'No intelligence published yet.'}
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
   const { content, created_at, type } = intel;
   const title = content.topic || "Market Intelligence Report";
-  const excerpt = content.tweet_text || content.formatted_thread?.slice(0, 150) + '...';
+  const excerpt =
+    content.tweet_text ||
+    (content.formatted_thread ? `${content.formatted_thread.slice(0, 150)}...` : 'No summary available yet.');
   const date = new Date(created_at).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',

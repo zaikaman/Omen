@@ -13,10 +13,11 @@ const AGENT_AVATAR = '/logo.png';
 interface SignalCardProps {
   signal: SignalCardItem | null | undefined;
   isLoading?: boolean;
+  error?: Error | null;
   isLatest?: boolean;
 }
 
-export function SignalCard({ signal, isLoading, isLatest }: SignalCardProps) {
+export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardProps) {
   if (isLoading) {
     return <div className="h-64 bg-gray-900/50 animate-pulse rounded-xl border border-gray-800" />;
   }
@@ -26,13 +27,14 @@ export function SignalCard({ signal, isLoading, isLatest }: SignalCardProps) {
       <Card className="bg-gray-900/50 border-gray-800">
         <CardContent className="flex flex-col items-center justify-center h-64 text-gray-500">
           <Activity className="w-12 h-12 mb-4 opacity-20" />
-          <p>No active signal</p>
+          <p>{error ? 'Unable to load latest signal.' : 'No active signal'}</p>
         </CardContent>
       </Card>
     );
   }
 
   const { token, confidence, analysis, entry_price, target_price, stop_loss, status, pnl_percent, current_price, direction } = signal.content;
+  const confidenceScore = confidence ?? signal.content.confidence_score ?? 0;
 
   // Format the timestamp
   const date = new Date(signal.created_at).toLocaleDateString(undefined, {
@@ -98,7 +100,7 @@ export function SignalCard({ signal, isLoading, isLatest }: SignalCardProps) {
             <CardTitle className="text-2xl font-bold text-white flex items-center gap-2">
               {token?.symbol || 'UNKNOWN'}
               <Badge variant="outline" className="text-cyan-400 border-cyan-500/30 bg-cyan-950/30 text-xs h-5">
-                {confidence}/100
+                {confidenceScore}/100
               </Badge>
             </CardTitle>
             <div className="text-sm text-gray-400 mt-0.5">{token?.name}</div>
@@ -122,7 +124,7 @@ export function SignalCard({ signal, isLoading, isLatest }: SignalCardProps) {
         <div className="space-y-4">
           <div className="p-3 bg-gray-950/50 rounded-lg border border-gray-800/50">
             <p className="text-sm text-gray-300 leading-relaxed line-clamp-2">
-              {analysis}
+              {analysis || 'Signal report is pending final analysis.'}
             </p>
           </div>
 
@@ -131,19 +133,19 @@ export function SignalCard({ signal, isLoading, isLatest }: SignalCardProps) {
               <span className="text-[10px] text-gray-500 uppercase flex items-center gap-1">
                 <ArrowUpRight className="w-3 h-3" /> Entry
               </span>
-              <span className="font-mono text-sm text-gray-300">${entry_price}</span>
+              <span className="font-mono text-sm text-gray-300">{entry_price ? `$${entry_price}` : 'TBD'}</span>
             </div>
             <div className="flex flex-col p-2 bg-gray-800/30 rounded border border-gray-800/50">
               <span className="text-[10px] text-gray-500 uppercase flex items-center gap-1">
                 <Target className="w-3 h-3 text-cyan-400" /> Target
               </span>
-              <span className="font-mono text-sm text-cyan-300">${target_price}</span>
+              <span className="font-mono text-sm text-cyan-300">{target_price ? `$${target_price}` : 'TBD'}</span>
             </div>
             <div className="flex flex-col p-2 bg-gray-800/30 rounded border border-gray-800/50">
               <span className="text-xs text-gray-500 uppercase flex items-center gap-1">
                 <ShieldAlert className="w-3 h-3 text-red-400" /> Stop
               </span>
-              <span className="font-mono text-sm text-red-300">${stop_loss}</span>
+              <span className="font-mono text-sm text-red-300">{stop_loss ? `$${stop_loss}` : 'TBD'}</span>
             </div>
           </div>
 
@@ -167,15 +169,15 @@ export function SignalCard({ signal, isLoading, isLatest }: SignalCardProps) {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="flex flex-col p-3 bg-gray-950/50 rounded-lg border border-gray-800">
                     <span className="text-xs text-gray-500 uppercase mb-1">Entry</span>
-                    <span className="font-mono text-lg text-gray-300">${entry_price}</span>
+                    <span className="font-mono text-lg text-gray-300">{entry_price ? `$${entry_price}` : 'TBD'}</span>
                   </div>
                   <div className="flex flex-col p-3 bg-gray-950/50 rounded-lg border border-gray-800">
                     <span className="text-xs text-gray-500 uppercase mb-1">Target</span>
-                    <span className="font-mono text-lg text-cyan-400">${target_price}</span>
+                    <span className="font-mono text-lg text-cyan-400">{target_price ? `$${target_price}` : 'TBD'}</span>
                   </div>
                   <div className="flex flex-col p-3 bg-gray-950/50 rounded-lg border border-gray-800">
                     <span className="text-xs text-gray-500 uppercase mb-1">Stop Loss</span>
-                    <span className="font-mono text-lg text-red-400">${stop_loss}</span>
+                    <span className="font-mono text-lg text-red-400">{stop_loss ? `$${stop_loss}` : 'TBD'}</span>
                   </div>
                 </div>
 
@@ -186,7 +188,7 @@ export function SignalCard({ signal, isLoading, isLatest }: SignalCardProps) {
                   </h3>
                   <div className="p-4 bg-gray-950 rounded-lg border border-gray-800">
                     <p className="text-gray-300 leading-relaxed whitespace-pre-wrap text-base">
-                      {analysis}
+                      {analysis || 'Signal report is pending final analysis.'}
                     </p>
                   </div>
                 </div>
@@ -199,10 +201,10 @@ export function SignalCard({ signal, isLoading, isLatest }: SignalCardProps) {
                     <div className="h-2 w-32 bg-gray-800 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-cyan-500 to-purple-500"
-                        style={{ width: `${confidence}%` }}
+                        style={{ width: `${confidenceScore}%` }}
                       />
                     </div>
-                    <span className="font-mono text-cyan-400">{confidence}/100</span>
+                    <span className="font-mono text-cyan-400">{confidenceScore}/100</span>
                   </div>
                 </div>
               </div>

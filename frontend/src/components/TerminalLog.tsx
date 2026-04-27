@@ -6,10 +6,12 @@ import type { LogEntry } from '../types/ui-models';
 
 interface TerminalLogProps {
   logs: LogEntry[];
+  isLoading?: boolean;
+  error?: Error | null;
   className?: string;
 }
 
-export function TerminalLog({ logs, className }: TerminalLogProps) {
+export function TerminalLog({ logs, isLoading, error, className }: TerminalLogProps) {
   const getIcon = (type: string) => {
     switch (type) {
       case 'signal': return <CheckCircle2 className="w-4 h-4 text-green-500" />;
@@ -27,7 +29,22 @@ export function TerminalLog({ logs, className }: TerminalLogProps) {
       </div>
       <ScrollArea className="flex-1 h-0">
         <div className="p-2 space-y-1">
-          {logs.length === 0 && (
+          {isLoading && logs.length === 0 && (
+            <div className="space-y-2 p-2">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-9 rounded bg-gray-900/60 animate-pulse"
+                />
+              ))}
+            </div>
+          )}
+          {!isLoading && error && logs.length === 0 && (
+            <div className="text-red-400/80 text-xs text-center py-8 italic">
+              Unable to load recent system activity.
+            </div>
+          )}
+          {!isLoading && !error && logs.length === 0 && (
             <div className="text-gray-500 text-xs text-center py-8 italic">
               No recent system activity...
             </div>
