@@ -323,6 +323,20 @@ const createOrchestratorNode = (input: {
   },
 });
 
+const createPublisherNode = (input: { timestamp: string }): AgentNode => ({
+  id: "agent-publisher",
+  role: "publisher",
+  transport: "local",
+  status: "online",
+  peerId: null,
+  lastHeartbeatAt: input.timestamp,
+  lastError: null,
+  metadata: {
+    managedBy: "live-swarm-pipeline",
+    step: "publisher-agent",
+  },
+});
+
 const createAgentEvent = (input: {
   checkpoint: SwarmCheckpoint;
   timestamp: string;
@@ -1152,6 +1166,11 @@ class LivePipelineExecutionContext {
     }
 
     if (this.eventPublisher) {
+      await this.safePublishNodeStatus(
+        createPublisherNode({
+          timestamp: result.post.updatedAt,
+        }),
+      );
       await this.safePublishEvent({
         id: `event-${randomUUID()}`,
         runId: input.run.id,
