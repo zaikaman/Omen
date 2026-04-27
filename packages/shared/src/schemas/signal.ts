@@ -4,6 +4,7 @@ import {
   CRITIC_DECISION_VALUES,
   REPORT_STATUS_VALUES,
   SIGNAL_DIRECTION_VALUES,
+  SIGNAL_STATUS_VALUES,
 } from "../constants/index.js";
 
 export const signalDirectionSchema = z.enum(SIGNAL_DIRECTION_VALUES);
@@ -11,6 +12,8 @@ export const signalDirectionSchema = z.enum(SIGNAL_DIRECTION_VALUES);
 export const criticDecisionSchema = z.enum(CRITIC_DECISION_VALUES);
 
 export const reportStatusSchema = z.enum(REPORT_STATUS_VALUES);
+
+export const signalStatusSchema = z.enum(SIGNAL_STATUS_VALUES);
 
 export const priceBandSchema = z.object({
   low: z.number(),
@@ -37,6 +40,10 @@ export const signalBaseSchema = z.object({
   entryPrice: z.number().positive().nullable().default(null),
   targetPrice: z.number().positive().nullable().default(null),
   stopLoss: z.number().positive().nullable().default(null),
+  signalStatus: signalStatusSchema.nullable().default(null),
+  pnlPercent: z.number().nullable().default(null),
+  closedAt: z.string().datetime().nullable().default(null),
+  priceUpdatedAt: z.string().datetime().nullable().default(null),
   riskReward: z.number().min(0).nullable(),
   entryZone: priceBandSchema.nullable(),
   invalidation: priceBandSchema.nullable(),
@@ -85,12 +92,16 @@ export const signalListItemSchema = signalBaseSchema.pick({
   riskReward: true,
   criticDecision: true,
   reportStatus: true,
+  signalStatus: true,
+  pnlPercent: true,
+  currentPrice: true,
   publishedAt: true,
 });
 
 export type SignalDirection = z.infer<typeof signalDirectionSchema>;
 export type CriticDecision = z.infer<typeof criticDecisionSchema>;
 export type ReportStatus = z.infer<typeof reportStatusSchema>;
+export type SignalStatus = z.infer<typeof signalStatusSchema>;
 export type PriceBand = z.infer<typeof priceBandSchema>;
 export type PriceTarget = z.infer<typeof priceTargetSchema>;
 export type Signal = z.infer<typeof signalSchema>;

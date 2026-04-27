@@ -28,7 +28,7 @@ export const startBackendRuntime = (): BackendRuntime => {
       ? new DefaultDemoRunPipeline()
       : new DefaultLiveSwarmRunPipeline({ env });
   const coordinator = new DefaultRunCoordinator({ logger, pipeline });
-  const runtimeWorker = new DefaultRuntimeWorker({ logger, coordinator });
+  const runtimeWorker = new DefaultRuntimeWorker({ env, logger, coordinator });
   const scheduler = new HourlyScheduler({
     logger,
     runLock: new RunLock(env.allowConcurrentRuns),

@@ -35,6 +35,14 @@ export const CRITIC_DECISION_VALUES = [
 
 export const REPORT_STATUS_VALUES = ["draft", "published", "superseded"] as const;
 
+export const SIGNAL_STATUS_VALUES = [
+  "pending",
+  "active",
+  "tp_hit",
+  "sl_hit",
+  "closed",
+] as const;
+
 export const POST_STATUS_VALUES = [
   "queued",
   "formatting",

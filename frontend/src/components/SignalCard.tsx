@@ -43,7 +43,11 @@ export function SignalCard({ signal, isLoading, isLatest }: SignalCardProps) {
   });
 
   // Infer direction from price structure if not explicitly set
-  const tradeDirection = direction || (target_price > entry_price ? 'LONG' : 'SHORT');
+  const tradeDirection =
+    direction ||
+    (target_price !== undefined && entry_price !== undefined && target_price > entry_price
+      ? 'LONG'
+      : 'SHORT');
   const isLong = tradeDirection === 'LONG';
 
   const getStatusBadge = () => {

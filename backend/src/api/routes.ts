@@ -3,6 +3,10 @@ import { Router } from "express";
 import type { RuntimeMode, SchedulerStatus } from "@omen/shared";
 import type { BackendEnv } from "../bootstrap/env";
 
+import {
+  createAnalyticsFeedController,
+  createLatestAnalyticsController,
+} from "./analytics.controller";
 import { healthCheck } from "./health.controller";
 import {
   createIntelDetailController,
@@ -10,6 +14,10 @@ import {
 } from "./intel.controller";
 import { listLogs } from "./logs.controller";
 import { listRuns } from "./runs.controller";
+import {
+  createSignalDetailController,
+  createSignalFeedController,
+} from "./signals.controller";
 import {
   createStatusController,
   type RuntimeStatusControllerContext,
@@ -28,6 +36,10 @@ export const createApiRouter = (context: {
   router.get("/runs", listRuns);
   router.get("/status", createStatusController(context));
   router.get("/logs", listLogs);
+  router.get("/analytics", createAnalyticsFeedController(context.env));
+  router.get("/analytics/latest", createLatestAnalyticsController(context.env));
+  router.get("/signals", createSignalFeedController(context.env));
+  router.get("/signals/:id", createSignalDetailController(context.env));
   router.get("/intel", createIntelFeedController(context.env));
   router.get("/intel/:id", createIntelDetailController(context.env));
 

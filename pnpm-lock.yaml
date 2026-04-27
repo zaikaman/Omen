@@ -83,6 +83,9 @@ importers:
       '@omen/db':
         specifier: workspace:*
         version: link:../packages/db
+      '@omen/market-data':
+        specifier: workspace:*
+        version: link:../packages/market-data
       '@omen/shared':
         specifier: workspace:*
         version: link:../packages/shared

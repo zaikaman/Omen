@@ -27,6 +27,10 @@ type SignalRow = {
   entry_price: number | null;
   target_price: number | null;
   stop_loss: number | null;
+  signal_status: Signal["signalStatus"];
+  pnl_percent: number | null;
+  closed_at: string | null;
+  price_updated_at: string | null;
   risk_reward: number | null;
   entry_zone: Signal["entryZone"];
   invalidation: Signal["invalidation"];
@@ -59,6 +63,10 @@ type SignalInsert = {
   entry_price?: number | null;
   target_price?: number | null;
   stop_loss?: number | null;
+  signal_status?: Signal["signalStatus"];
+  pnl_percent?: number | null;
+  closed_at?: string | null;
+  price_updated_at?: string | null;
   risk_reward?: number | null;
   entry_zone?: Signal["entryZone"];
   invalidation?: Signal["invalidation"];
@@ -94,6 +102,10 @@ const toSignal = (row: SignalRow): Signal =>
     entryPrice: row.entry_price,
     targetPrice: row.target_price,
     stopLoss: row.stop_loss,
+    signalStatus: row.signal_status,
+    pnlPercent: row.pnl_percent,
+    closedAt: normalizeDatabaseTimestamp(row.closed_at),
+    priceUpdatedAt: normalizeDatabaseTimestamp(row.price_updated_at),
     riskReward: row.risk_reward,
     entryZone: row.entry_zone,
     invalidation: row.invalidation,
@@ -126,6 +138,10 @@ const toInsertRow = (signal: Signal): SignalInsert => ({
   entry_price: signal.entryPrice,
   target_price: signal.targetPrice,
   stop_loss: signal.stopLoss,
+  signal_status: signal.signalStatus,
+  pnl_percent: signal.pnlPercent,
+  closed_at: signal.closedAt,
+  price_updated_at: signal.priceUpdatedAt,
   risk_reward: signal.riskReward,
   entry_zone: signal.entryZone,
   invalidation: signal.invalidation,
@@ -157,6 +173,10 @@ const toUpdateRow = (patch: Partial<Signal>): SignalUpdate => ({
   entry_price: patch.entryPrice,
   target_price: patch.targetPrice,
   stop_loss: patch.stopLoss,
+  signal_status: patch.signalStatus,
+  pnl_percent: patch.pnlPercent,
+  closed_at: patch.closedAt,
+  price_updated_at: patch.priceUpdatedAt,
   risk_reward: patch.riskReward,
   entry_zone: patch.entryZone,
   invalidation: patch.invalidation,
@@ -207,6 +227,18 @@ export class SignalsRepository extends BaseRepository<
     return ok(toSignal(updated.value));
   }
 
+  async findSignalById(
+    signalId: string,
+  ): Promise<Result<Signal | null, RepositoryError>> {
+    const found = await this.findById(signalId);
+
+    if (!found.ok) {
+      return found;
+    }
+
+    return ok(found.value ? toSignal(found.value) : null);
+  }
+
   async listRecentSignals(limit = 20): Promise<Result<Signal[], RepositoryError>> {
     const listed = await this.list({
       limit,
@@ -219,6 +251,31 @@ export class SignalsRepository extends BaseRepository<
     }
 
     return ok(listed.value.map((row) => toSignal(row)));
+  }
+
+  async listTrackableSignals(limit = 50): Promise<Result<Signal[], RepositoryError>> {
+    const { data, error } = await this.table()
+      .select("*")
+      .eq("report_status", "published")
+      .in("direction", ["LONG", "SHORT"])
+      .not("entry_price", "is", null)
+      .not("target_price", "is", null)
+      .not("stop_loss", "is", null)
+      .or("signal_status.is.null,signal_status.in.(pending,active)")
+      .order("published_at", { ascending: false })
+      .limit(limit)
+      .returns<SignalRow[]>();
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok((data ?? []).map((row) => toSignal(row)));
   }
 
   async listByRunId(

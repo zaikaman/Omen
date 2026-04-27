@@ -188,6 +188,10 @@ CREATE TABLE public.signals (
   entry_price numeric,
   target_price numeric,
   stop_loss numeric,
+  signal_status text CHECK (signal_status = ANY (ARRAY['pending'::text, 'active'::text, 'tp_hit'::text, 'sl_hit'::text, 'closed'::text])),
+  pnl_percent numeric,
+  closed_at timestamp with time zone,
+  price_updated_at timestamp with time zone,
   CONSTRAINT signals_pkey PRIMARY KEY (id),
   CONSTRAINT signals_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.runs(id),
   CONSTRAINT signals_final_report_ref_id_fkey FOREIGN KEY (final_report_ref_id) REFERENCES public.zero_g_refs(id)

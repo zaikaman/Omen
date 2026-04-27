@@ -68,6 +68,44 @@ describe("shared schemas", () => {
     ).toThrow();
   });
 
+  it("accepts tracked signal performance fields", () => {
+    expect(() =>
+      signalSchema.parse({
+        id: "signal-1",
+        runId: "run-1",
+        candidateId: null,
+        asset: "BTC",
+        direction: "LONG",
+        confidence: 90,
+        riskReward: 2.5,
+        entryZone: null,
+        invalidation: null,
+        targets: [],
+        whyNow: "Momentum breakout",
+        confluences: [],
+        uncertaintyNotes: "Macro risk",
+        missingDataNotes: "None",
+        criticDecision: "approved",
+        reportStatus: "published",
+        signalStatus: "tp_hit",
+        currentPrice: 105,
+        entryPrice: 100,
+        targetPrice: 105,
+        stopLoss: 98,
+        pnlPercent: 2.5,
+        closedAt: "2026-04-25T08:30:00.000Z",
+        priceUpdatedAt: "2026-04-25T08:30:00.000Z",
+        finalReportRefId: null,
+        proofRefIds: [],
+        disclaimer:
+          "Omen market intelligence is for informational purposes only and is not financial advice.",
+        publishedAt: "2026-04-25T08:00:00.000Z",
+        createdAt: "2026-04-25T08:00:00.000Z",
+        updatedAt: "2026-04-25T08:30:00.000Z",
+      }),
+    ).not.toThrow();
+  });
+
   it("rejects twitterapi payloads that set both quote_tweet_id and attachment_url", () => {
     expect(() =>
       twitterApiCreateTweetRequestSchema.parse({

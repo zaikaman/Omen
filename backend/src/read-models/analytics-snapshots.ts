@@ -90,19 +90,57 @@ const projectConfidenceBands = (
 };
 
 const projectWinRate = (signals: Signal[]) => {
+  const closedSignals = signals.filter(
+    (signal) =>
+      signal.signalStatus === "tp_hit" || signal.signalStatus === "sl_hit",
+  );
+
+  if (closedSignals.length > 0) {
+    const wins = closedSignals.filter(
+      (signal) => signal.signalStatus === "tp_hit",
+    ).length;
+    return Math.round((wins / closedSignals.length) * 100);
+  }
+
   const actionableSignals = signals.filter(
     (signal) => signal.direction === "LONG" || signal.direction === "SHORT",
   );
-
   if (actionableSignals.length === 0) {
     return null;
   }
-
   const approvedSignals = actionableSignals.filter(
     (signal) => signal.criticDecision === "approved",
   ).length;
-
   return Math.round((approvedSignals / actionableSignals.length) * 100);
+};
+
+const projectPerformanceTotals = (signals: Signal[]) => {
+  const activeSignals = signals.filter(
+    (signal) => signal.signalStatus === "active" || signal.signalStatus === "pending",
+  );
+  const closedSignals = signals.filter(
+    (signal) => signal.signalStatus === "tp_hit" || signal.signalStatus === "sl_hit",
+  );
+  const totalPnlPercent = closedSignals.reduce(
+    (total, signal) => total + (signal.pnlPercent ?? 0),
+    0,
+  );
+
+  return {
+    activeSignals: activeSignals.length,
+    closedSignals: closedSignals.length,
+    winningSignals: closedSignals.filter(
+      (signal) => signal.signalStatus === "tp_hit",
+    ).length,
+    losingSignals: closedSignals.filter(
+      (signal) => signal.signalStatus === "sl_hit",
+    ).length,
+    totalPnlPercent: Number(totalPnlPercent.toFixed(4)),
+    averageR:
+      closedSignals.length > 0
+        ? Number((totalPnlPercent / closedSignals.length).toFixed(4))
+        : null,
+  };
 };
 
 const groupByRunId = <T extends { runId: string }>(items: T[]) => {
@@ -153,6 +191,7 @@ export const projectAnalyticsSnapshots = (
       ...cumulativeSignals,
       ...cumulativeIntels,
     ]);
+    const performanceTotals = projectPerformanceTotals(cumulativeSignals);
 
     snapshots.push(
       analyticsSnapshotSchema.parse({
@@ -164,6 +203,7 @@ export const projectAnalyticsSnapshots = (
           completedRuns,
           publishedSignals: cumulativeSignals.length,
           publishedIntel: cumulativeIntels.length,
+          ...performanceTotals,
         },
         confidenceBands,
         tokenFrequency,

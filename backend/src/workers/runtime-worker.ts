@@ -1,7 +1,9 @@
 import type { Logger } from "../bootstrap/logger";
+import type { BackendEnv } from "../bootstrap/env";
 import type { RunCoordinator, RunCoordinatorResult } from "../coordinator/run-coordinator";
 import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
 import { createSchedulerTickHandler, type SchedulerTickHandler } from "../scheduler/scheduler-tick";
+import { SignalMonitorService } from "../services/signal-monitor.service";
 
 export type RuntimeWorker = {
   execute(context: SchedulerTaskContext): Promise<RunCoordinatorResult>;
@@ -14,6 +16,7 @@ export class DefaultRuntimeWorker implements RuntimeWorker {
     private readonly input: {
       logger: Logger;
       coordinator: RunCoordinator;
+      env: BackendEnv;
     },
   ) {
     this.tickHandler = createSchedulerTickHandler(input.coordinator);
@@ -25,6 +28,18 @@ export class DefaultRuntimeWorker implements RuntimeWorker {
     );
 
     const result = await this.tickHandler(context);
+
+    if (context.mode.allowsExternalReads && context.mode.allowsExternalWrites) {
+      const monitor = new SignalMonitorService({
+        env: this.input.env,
+        logger: this.input.logger,
+      });
+      const monitorResult = await monitor.checkActiveSignals();
+
+      if (!monitorResult.ok) {
+        this.input.logger.warn("Signal monitor failed.", monitorResult.error);
+      }
+    }
 
     this.input.logger.info(
       `Runtime worker finished ${result.runId} with ${result.outcomeType} at ${result.completedAt}.`,

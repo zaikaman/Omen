@@ -23,6 +23,7 @@
     "@omen/agents": "workspace:*",
     "@omen/axl": "workspace:*",
     "@omen/db": "workspace:*",
+    "@omen/market-data": "workspace:*",
     "@omen/shared": "workspace:*",
     "@omen/zero-g": "workspace:*",
     "cors": "^2.8.5",
