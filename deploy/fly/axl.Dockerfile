@@ -21,12 +21,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig
 COPY backend /app/backend
 COPY packages /app/packages
 COPY deploy/fly/axl-entrypoint.sh /app/axl-entrypoint.sh
+COPY deploy/fly/axl-public-proxy.py /app/axl-public-proxy.py
 
 RUN python3 -m venv /opt/venv
 RUN pip install /app/integrations
 RUN corepack enable && pnpm install --frozen-lockfile
 RUN chmod +x /app/axl-entrypoint.sh
 
-EXPOSE 9001 9002 9003 9004
+EXPOSE 8080 9001 9002 9003 9004
 
 ENTRYPOINT ["/app/axl-entrypoint.sh"]
