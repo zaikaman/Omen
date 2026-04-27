@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { Logger } from "../bootstrap/logger.js";
 
 import { RunLockError } from "./run-lock.js";
@@ -142,7 +144,7 @@ export class HourlyScheduler {
   }
 
   private async tick(trigger: SchedulerTrigger) {
-    const runId = `scheduled-${Date.now().toString()}`;
+    const runId = `scheduled-${Date.now().toString()}-${randomUUID()}`;
     const triggeredAt = new Date().toISOString();
 
     this.overlapPrevented = false;

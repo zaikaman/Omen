@@ -967,8 +967,13 @@ class LivePipelineExecutionContext {
       return;
     }
 
-    const existing = await this.runsRepository.findLatestRun();
-    const shouldUpdate = existing.ok && existing.value?.id === run.id;
+    const existing = await this.runsRepository.findRunById(run.id);
+
+    if (!existing.ok) {
+      throw new Error(`Failed to check run ${run.id}: ${existing.error.message}`);
+    }
+
+    const shouldUpdate = existing.value !== null;
 
     if (shouldUpdate) {
       const updated = await this.runsRepository.updateRun(run.id, run);
@@ -985,6 +990,18 @@ class LivePipelineExecutionContext {
     const created = await this.runsRepository.createRun(run);
 
     if (!created.ok) {
+      if (created.error.code === "23505") {
+        const updated = await this.runsRepository.updateRun(run.id, run);
+
+        if (updated.ok) {
+          return;
+        }
+
+        throw new Error(
+          `Failed to update duplicate run ${run.id}: ${updated.error.message}`,
+        );
+      }
+
       throw new Error(`Failed to create run ${run.id}: ${created.error.message}`);
     }
   }

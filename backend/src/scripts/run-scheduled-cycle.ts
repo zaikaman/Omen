@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { createBackendEnv } from "../bootstrap/env.js";
 import { createLogger } from "../bootstrap/logger.js";
 import { DefaultRunCoordinator } from "../coordinator/run-coordinator.js";
@@ -17,7 +19,7 @@ const runScheduledCycle = async () => {
     pipeline,
   });
 
-  const runId = `scheduled-${Date.now().toString()}`;
+  const runId = `scheduled-${Date.now().toString()}-${randomUUID()}`;
   const result = await coordinator.executeScheduledRun({
     runId,
     trigger: "interval",
