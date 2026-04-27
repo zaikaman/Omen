@@ -21,6 +21,20 @@ export function TerminalLog({ logs, isLoading, error, className }: TerminalLogPr
     }
   };
 
+  const renderMessage = (log: LogEntry) => {
+    const message = log.content?.log_message || (log.type === 'signal'
+      ? `SIGNAL DETECTED: ${log.content.token?.symbol} - ${log.content.token?.name}`
+      : log.type === 'skip'
+      ? 'Scan completed. No high-confidence signals found.'
+      : 'Intel thread generated.');
+    const postStatus =
+      typeof log.content?.status === 'string' && typeof log.content?.postId === 'string'
+        ? ` X delivery: ${log.content.status}.`
+        : '';
+
+    return `${message}${postStatus}`;
+  };
+
   return (
     <div className={cn("bg-gray-900/30 border border-gray-800 rounded-xl font-mono text-xs flex flex-col", className)}>
       <div className="p-3 border-b border-gray-800 bg-gray-900/50 rounded-t-xl text-xs text-gray-400 font-bold uppercase tracking-wider flex items-center gap-2 shrink-0">
@@ -67,11 +81,7 @@ export function TerminalLog({ logs, isLoading, error, className }: TerminalLogPr
                   )}
                 </div>
                 <div className="text-gray-300 truncate font-mono text-xs">
-                  {log.content?.log_message || (log.type === 'signal' 
-                    ? `SIGNAL DETECTED: ${log.content.token?.symbol} - ${log.content.token?.name}`
-                    : log.type === 'skip'
-                    ? 'Scan completed. No high-confidence signals found.'
-                    : 'Intel thread generated.')}
+                  {renderMessage(log)}
                 </div>
               </div>
             </div>

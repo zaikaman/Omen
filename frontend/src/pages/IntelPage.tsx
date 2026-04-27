@@ -11,6 +11,7 @@ import { News01Icon, ArrowLeft01Icon, ArrowRight01Icon, Loading03Icon } from '@h
 import { Button } from '../components/ui/button';
 import type { Intel, IntelListItem } from '@omen/shared';
 import { useIntel, useIntelDetail } from '../hooks/useIntel';
+import { usePosts } from '../hooks/usePosts';
 import { useProofDetail } from '../hooks/useProofs';
 
 const ITEMS_PER_PAGE = 9;
@@ -79,6 +80,22 @@ const toCardIntel = (intel: Intel | IntelListItem): CardIntel => ({
     proofRefIds: 'proofRefIds' in intel ? intel.proofRefIds : undefined,
 });
 
+const postStatusClassName = (status: string | undefined) => {
+    switch (status) {
+        case 'posted':
+            return 'border-green-500/30 bg-green-500/10 text-green-200';
+        case 'failed':
+            return 'border-red-500/30 bg-red-500/10 text-red-200';
+        case 'queued':
+        case 'formatting':
+        case 'ready':
+        case 'posting':
+            return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-100';
+        default:
+            return 'border-gray-700 bg-gray-900/50 text-gray-400';
+    }
+};
+
 export function IntelPage() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -121,6 +138,11 @@ export function IntelPage() {
     const proofRunId = selectedIntel?.runId ?? latestIntel?.runId ?? null;
     const proofDetail = useProofDetail(proofRunId, {
         enabled: Boolean(proofRunId),
+        refreshIntervalMs: REFRESH_INTERVAL_MS,
+    });
+    const selectedPostQuery = usePosts({
+        intelId: selectedIntel?.id ?? latestIntel?.id,
+        enabled: Boolean(selectedIntel?.id ?? latestIntel?.id),
         refreshIntervalMs: REFRESH_INTERVAL_MS,
     });
 
@@ -212,6 +234,24 @@ export function IntelPage() {
                     proofRefIds={selectedIntel.proofRefIds}
                 />
 
+                {selectedPostQuery.latestPost && (
+                    <div className={`rounded-lg border px-4 py-3 text-sm ${postStatusClassName(selectedPostQuery.latestPost.status)}`}>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <span className="font-mono uppercase">
+                                X delivery: {selectedPostQuery.latestPost.status.replace(/_/g, ' ')}
+                            </span>
+                            {selectedPostQuery.latestPost.publishedUrl && (
+                                <a href={selectedPostQuery.latestPost.publishedUrl} target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-200">
+                                    View published post
+                                </a>
+                            )}
+                        </div>
+                        {selectedPostQuery.latestPost.lastError && (
+                            <p className="mt-2 text-xs opacity-80">{selectedPostQuery.latestPost.lastError}</p>
+                        )}
+                    </div>
+                )}
+
                 <SponsorProofSummary
                     title="Report Sponsor Proof"
                     runId={proofRunId}
@@ -258,7 +298,7 @@ export function IntelPage() {
                     </h2>
                     <p className="text-gray-400 mt-1">Deep dive analysis and raw intelligence streams.</p>
                 </div>
-                {(feedQuery.isRefreshing || detailQuery.isRefreshing || proofDetail.isRefreshing) && <span className="text-xs text-gray-500">Syncing live intel...</span>}
+                {(feedQuery.isRefreshing || detailQuery.isRefreshing || proofDetail.isRefreshing || selectedPostQuery.isRefreshing) && <span className="text-xs text-gray-500">Syncing live intel...</span>}
             </div>
 
             {(feedQuery.error || detailQuery.error) && (
@@ -277,6 +317,23 @@ export function IntelPage() {
                         error={feedQuery.error}
                         onClick={() => latestIntel && navigate(`/app/intel/${latestIntel.id}`)}
                     />
+                    {selectedPostQuery.latestPost && (
+                        <div className={`mt-4 rounded-lg border px-4 py-3 text-sm ${postStatusClassName(selectedPostQuery.latestPost.status)}`}>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <span className="font-mono uppercase">
+                                    X delivery: {selectedPostQuery.latestPost.status.replace(/_/g, ' ')}
+                                </span>
+                                {selectedPostQuery.latestPost.publishedUrl && (
+                                    <a href={selectedPostQuery.latestPost.publishedUrl} target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-200">
+                                        View published post
+                                    </a>
+                                )}
+                            </div>
+                            {selectedPostQuery.latestPost.lastError && (
+                                <p className="mt-2 text-xs opacity-80">{selectedPostQuery.latestPost.lastError}</p>
+                            )}
+                        </div>
+                    )}
                     <div className="mt-4">
                         <SponsorProofSummary
                             title="Latest Report Proof"

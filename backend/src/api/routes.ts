@@ -21,6 +21,10 @@ import {
   createProofDetailController,
   createProofFeedController,
 } from "./proofs.controller";
+import {
+  createPostsFeedController,
+  createPostStatusController,
+} from "./posts.controller";
 import { listRuns } from "./runs.controller";
 import {
   createSignalDetailController,
@@ -60,6 +64,8 @@ export const createApiRouter = (context: {
   router.get("/topology", createTopologyController(context.env));
   router.get("/proofs", createProofFeedController(context.env));
   router.get("/proofs/:runId", createProofDetailController(context.env));
+  router.get("/posts", createPostsFeedController(context.env));
+  router.get("/posts/:id", createPostStatusController(context.env));
 
   return router;
 };

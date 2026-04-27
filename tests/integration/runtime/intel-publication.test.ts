@@ -1,0 +1,110 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  formatIntelPost,
+  formatIntelPostPayload,
+} from "../../../backend/src/services/x/post-formatter";
+import { transitionPost } from "../../../backend/src/services/x/post-state-machine";
+import { demoIntelRunBundle } from "../../../packages/db/src/index";
+import {
+  outboundPostSchema,
+  zeroGRunManifestSchema,
+} from "../../../packages/shared/src/index";
+import { RunManifestBuilder } from "../../../packages/zero-g/src/proofs/run-manifest-builder";
+
+describe("intel publication", () => {
+  it("creates an outbound intel post with optional thread payload and proof refs", () => {
+    const { run, intel, outboundPosts, proofs } = demoIntelRunBundle;
+
+    expect(intel).not.toBeNull();
+    if (!intel) {
+      throw new Error("Expected the deterministic run to produce intel.");
+    }
+
+    const post = outboundPosts.find((candidate) => candidate.intelId === intel.id);
+
+    expect(post).toBeDefined();
+    if (!post) {
+      throw new Error("Expected the completed intel to create an outbound post.");
+    }
+
+    expect(outboundPostSchema.parse(post)).toMatchObject({
+      runId: run.id,
+      signalId: null,
+      intelId: intel.id,
+      kind: "intel_summary",
+      status: "posted",
+      provider: "twitterapi",
+      providerPostId: "tweet-intel-001",
+      publishedUrl: "https://x.com/omen/status/1000000000000000002",
+      lastError: null,
+    });
+    expect(post.payload.text).toContain("AI infrastructure");
+    expect(post.payload.thread.length).toBeGreaterThan(0);
+
+    const manifest = new RunManifestBuilder().build({
+      environment: "test",
+      run,
+      artifacts: proofs.filter((artifact) => artifact.refType !== "manifest"),
+      manifestArtifact: proofs.find((artifact) => artifact.refType === "manifest"),
+      createdAt: run.completedAt ?? run.updatedAt,
+    });
+
+    expect(zeroGRunManifestSchema.parse(manifest).publicPosts).toHaveLength(1);
+    expect(manifest.publicPosts[0]?.artifact.refType).toBe("post_result");
+  });
+
+  it("formats intel summaries and thread parts inside X limits", () => {
+    const { intel } = demoIntelRunBundle;
+
+    expect(intel).not.toBeNull();
+    if (!intel) {
+      throw new Error("Expected the deterministic run to produce intel.");
+    }
+
+    const draft = formatIntelPost(intel);
+    const payload = formatIntelPostPayload(intel);
+
+    expect(draft.text.length).toBeLessThanOrEqual(280);
+    expect(payload.text.length).toBeLessThanOrEqual(280);
+    expect(payload.thread.length).toBeGreaterThan(0);
+    expect(payload.thread.every((part) => part.length <= 280)).toBe(true);
+  });
+
+  it("supports provider failure fallback metadata and retry transitions", () => {
+    const { outboundPosts } = demoIntelRunBundle;
+    const posted = outboundPosts[0];
+
+    if (!posted) {
+      throw new Error("Expected a seeded outbound post.");
+    }
+
+    const posting = { ...posted, status: "posting" as const };
+    const failed = transitionPost(posting, "fail", {
+      lastError: "twitterapi returned HTTP 500.",
+      payload: {
+        ...posting.payload,
+        metadata: {
+          ...posting.payload.metadata,
+          attemptCount: 1,
+          retryable: true,
+          nextRetryAt: "2026-04-25T09:05:20.000Z",
+        },
+      },
+    });
+    const retried = transitionPost(failed, "retry");
+
+    expect(failed).toMatchObject({
+      status: "failed",
+      lastError: "twitterapi returned HTTP 500.",
+      payload: {
+        metadata: {
+          attemptCount: 1,
+          retryable: true,
+          nextRetryAt: "2026-04-25T09:05:20.000Z",
+        },
+      },
+    });
+    expect(retried.status).toBe("queued");
+  });
+});

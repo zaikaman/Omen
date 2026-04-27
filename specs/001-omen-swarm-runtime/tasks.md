@@ -151,20 +151,20 @@
 
 - [x] T061 [P] [US3] Add contract tests for outbound-post status endpoints and dashboard posting fields in `tests/integration/contracts/outbound-posts-api.contract.test.ts`
 - [x] T062 [P] [US3] Add integration test for signal publication from run completion to outbound post completion in `tests/integration/runtime/signal-publication.test.ts`
-- [ ] T063 [P] [US3] Add integration test for intel publication, retry handling, and provider failure fallbacks in `tests/integration/runtime/intel-publication.test.ts`
+- [x] T063 [P] [US3] Add integration test for intel publication, retry handling, and provider failure fallbacks in `tests/integration/runtime/intel-publication.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T064 [P] [US3] Implement outbound-post lifecycle schemas, repository methods, and delivery-state transitions in `packages/shared/src/schemas/post.ts`, `packages/db/src/repositories/outbound-posts-repository.ts`, and `backend/src/services/x/post-state-machine.ts`
-- [ ] T065 [P] [US3] Implement the unofficial `twitterapi` client, auth/env parsing, and provider-specific error normalization in `backend/src/services/x/twitterapi-client.ts`, `backend/src/bootstrap/env.ts`, and `backend/src/services/x/twitterapi-errors.ts`
-- [ ] T066 [P] [US3] Implement post formatting for signal alerts, intel summaries, and optional intel threads in `backend/src/services/x/post-formatter.ts`, `backend/src/services/x/intel-thread-builder.ts`, and `packages/shared/src/schemas/x-post.ts`
-- [ ] T067 [P] [US3] Implement the outbound post queue worker, retry policy, and rate-limit tracking in `backend/src/services/x/post-queue.ts`, `backend/src/services/x/post-worker.ts`, and `backend/src/services/x/rate-limit-store.ts`
-- [ ] T068 [US3] Connect the publisher node and run coordinator to outbound post creation for approved signals and publishable intel in `packages/agents/src/definitions/publisher-agent.ts`, `backend/src/coordinator/run-coordinator.ts`, and `backend/src/publishers/post-publisher.ts`
-- [ ] T069 [US3] Persist post results back into run records and analytics projections in `backend/src/publishers/post-result-recorder.ts`, `backend/src/read-models/dashboard-summary.ts`, and `backend/src/read-models/analytics-snapshots.ts`
-- [ ] T070 [US3] Implement outbound post query APIs in `backend/src/api/posts.controller.ts`, `backend/src/api/dashboard.controller.ts`, and `backend/src/api/routes.ts`
-- [ ] T071 [US3] Surface posting status, published URLs, and failed delivery states in `frontend/src/pages/DashboardHome.tsx`, `frontend/src/pages/IntelPage.tsx`, `frontend/src/pages/SignalsPage.tsx`, and `frontend/src/components/TerminalLog.tsx`
-- [ ] T097 [US3] Append final X post payloads, provider responses, and published URLs into the 0G run manifest and artifact set in `backend/src/publishers/post-proof-publisher.ts`, `packages/zero-g/src/proofs/run-manifest-builder.ts`, and `packages/shared/src/schemas/post-proof.ts`
-- [ ] T098 [US3] Surface public post proof refs alongside delivery status in `frontend/src/components/proofs/ArtifactList.tsx`, `frontend/src/pages/SignalsPage.tsx`, and `frontend/src/pages/IntelPage.tsx`
+- [x] T064 [P] [US3] Implement outbound-post lifecycle schemas, repository methods, and delivery-state transitions in `packages/shared/src/schemas/post.ts`, `packages/db/src/repositories/outbound-posts-repository.ts`, and `backend/src/services/x/post-state-machine.ts`
+- [x] T065 [P] [US3] Implement the unofficial `twitterapi` client, auth/env parsing, and provider-specific error normalization in `backend/src/services/x/twitterapi-client.ts`, `backend/src/bootstrap/env.ts`, and `backend/src/services/x/twitterapi-errors.ts`
+- [x] T066 [P] [US3] Implement post formatting for signal alerts, intel summaries, and optional intel threads in `backend/src/services/x/post-formatter.ts`, `backend/src/services/x/intel-thread-builder.ts`, and `packages/shared/src/schemas/x-post.ts`
+- [x] T067 [P] [US3] Implement the outbound post queue worker, retry policy, and rate-limit tracking in `backend/src/services/x/post-queue.ts`, `backend/src/services/x/post-worker.ts`, and `backend/src/services/x/rate-limit-store.ts`
+- [x] T068 [US3] Connect the publisher node and run coordinator to outbound post creation for approved signals and publishable intel in `packages/agents/src/definitions/publisher-agent.ts`, `backend/src/coordinator/run-coordinator.ts`, and `backend/src/publishers/post-publisher.ts`
+- [x] T069 [US3] Persist post results back into run records and analytics projections in `backend/src/publishers/post-result-recorder.ts`, `backend/src/read-models/dashboard-summary.ts`, and `backend/src/read-models/analytics-snapshots.ts`
+- [x] T070 [US3] Implement outbound post query APIs in `backend/src/api/posts.controller.ts`, `backend/src/api/dashboard.controller.ts`, and `backend/src/api/routes.ts`
+- [x] T071 [US3] Surface posting status, published URLs, and failed delivery states in `frontend/src/pages/DashboardHome.tsx`, `frontend/src/pages/IntelPage.tsx`, `frontend/src/pages/SignalsPage.tsx`, and `frontend/src/components/TerminalLog.tsx`
+- [x] T097 [US3] Append final X post payloads, provider responses, and published URLs into the 0G run manifest and artifact set in `backend/src/publishers/post-proof-publisher.ts`, `packages/zero-g/src/proofs/run-manifest-builder.ts`, and `packages/shared/src/schemas/post-proof.ts`
+- [x] T098 [US3] Surface public post proof refs alongside delivery status in `frontend/src/components/proofs/ArtifactList.tsx`, `frontend/src/pages/SignalsPage.tsx`, and `frontend/src/pages/IntelPage.tsx`
 
 **Checkpoint**: The MVP can complete a swarm run and push its public-facing output all the way to X using the new delivery path.
 

@@ -26,6 +26,9 @@ export const runOutcomeSchema = z.object({
   summary: z.string().min(1),
   signalId: z.string().min(1).nullable(),
   intelId: z.string().min(1).nullable(),
+  postId: z.string().min(1).nullable().optional(),
+  postStatus: z.string().min(1).nullable().optional(),
+  publishedUrl: z.string().url().nullable().optional(),
 });
 
 export const runBaseSchema = z.object({

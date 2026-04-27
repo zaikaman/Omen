@@ -8,6 +8,11 @@ import {
 
 import type { Logger } from "../../bootstrap/logger";
 import { RateLimitStore } from "./rate-limit-store";
+import {
+  normalizeTwitterApiHttpError,
+  normalizeTwitterApiSemanticError,
+  TwitterApiProviderError,
+} from "./twitterapi-errors";
 
 export class TwitterApiClient {
   private readonly credentials: ReturnType<typeof twitterApiCredentialsSchema.parse>;
@@ -15,14 +20,77 @@ export class TwitterApiClient {
   constructor(
     credentials: {
       apiKey: string;
-      loginCookies: string;
+      loginCookies?: string | null;
       proxy: string;
       baseUrl?: string;
+      userName?: string | null;
+      email?: string | null;
+      password?: string | null;
+      totpSecret?: string | null;
     },
     private readonly logger: Logger,
     private readonly rateLimitStore = new RateLimitStore(),
   ) {
     this.credentials = twitterApiCredentialsSchema.parse(credentials);
+  }
+
+  private async ensureLoginCookies() {
+    if (this.credentials.loginCookies) {
+      return this.credentials.loginCookies;
+    }
+
+    if (
+      !this.credentials.userName ||
+      !this.credentials.email ||
+      !this.credentials.password
+    ) {
+      throw new TwitterApiProviderError(
+        "twitterapi write credentials are incomplete. Set TWITTERAPI_LOGIN_COOKIES or login username, email, and password.",
+        {
+          kind: "configuration",
+          retryable: false,
+        },
+      );
+    }
+
+    const body = {
+      user_name: this.credentials.userName,
+      email: this.credentials.email,
+      password: this.credentials.password,
+      proxy: this.credentials.proxy,
+      totp_secret: this.credentials.totpSecret ?? undefined,
+    };
+    const response = await fetch(
+      new URL("/twitter/user_login_v2", this.credentials.baseUrl),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.credentials.apiKey,
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    const json = (await response.json().catch(() => null)) as unknown;
+
+    if (!response.ok) {
+      throw normalizeTwitterApiHttpError({
+        statusCode: response.status,
+        body: json,
+      });
+    }
+
+    const loginCookies =
+      json && typeof json === "object" && "login_cookies" in json
+        ? (json as { login_cookies?: unknown }).login_cookies
+        : null;
+
+    if (typeof loginCookies !== "string" || loginCookies.length === 0) {
+      throw normalizeTwitterApiSemanticError(json);
+    }
+
+    this.credentials.loginCookies = loginCookies;
+    return loginCookies;
   }
 
   async createTweet(draft: XPostDraft): Promise<TwitterApiCreateTweetResponse> {
@@ -34,8 +102,9 @@ export class TwitterApiClient {
       );
     }
 
+    const loginCookies = await this.ensureLoginCookies();
     const payload = twitterApiCreateTweetRequestSchema.parse({
-      login_cookies: this.credentials.loginCookies,
+      login_cookies: loginCookies,
       tweet_text: draft.text,
       proxy: this.credentials.proxy,
       reply_to_tweet_id: draft.replyToTweetId ?? undefined,
@@ -53,33 +122,44 @@ export class TwitterApiClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": this.credentials.apiKey,
+          "x-api-key": this.credentials.apiKey,
         },
         body: JSON.stringify(payload),
       },
     );
 
     if (response.status === 429) {
+      const resetAt = response.headers.get("retry-after")
+        ? new Date(
+            Date.now() + Number(response.headers.get("retry-after")) * 1000,
+          ).toISOString()
+        : null;
       this.rateLimitStore.markRateLimited("twitterapi", {
         error: "HTTP 429 from twitterapi create_tweet_v2",
+        resetAt,
       });
 
-      throw new Error("twitterapi returned HTTP 429.");
+      throw normalizeTwitterApiHttpError({
+        statusCode: response.status,
+        body: await response.json().catch(() => null),
+        resetAt,
+      });
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      this.logger.error("twitterapi create_tweet_v2 failed.", errorText);
-      throw new Error(
-        `twitterapi create_tweet_v2 failed with HTTP ${response.status.toString()}.`,
-      );
+      const errorBody = await response.json().catch(() => null);
+      this.logger.error("twitterapi create_tweet_v2 failed.", errorBody);
+      throw normalizeTwitterApiHttpError({
+        statusCode: response.status,
+        body: errorBody,
+      });
     }
 
     const json = (await response.json()) as unknown;
     const parsed = twitterApiCreateTweetResponseSchema.parse(json);
 
-    if (parsed.status !== "success") {
-      throw new Error(parsed.msg ?? "twitterapi returned a non-success status.");
+    if (parsed.status !== "success" || parsed.tweet_id.length === 0) {
+      throw normalizeTwitterApiSemanticError(json);
     }
 
     this.rateLimitStore.clear("twitterapi");

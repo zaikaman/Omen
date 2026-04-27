@@ -11,9 +11,12 @@ import { AxlHttpNodeAdapter } from "@omen/axl";
 import {
   AgentEventsRepository,
   AgentNodesRepository,
+  AnalyticsSnapshotsRepository,
   AxlMessagesRepository,
   IntelsRepository,
+  OutboundPostsRepository,
   RunsRepository,
+  SignalsRepository,
   ZeroGRefsRepository,
   createSupabaseServiceRoleClient,
 } from "@omen/db";
@@ -32,6 +35,7 @@ import type {
   AxlEnvelope,
   EventStatus,
   Intel,
+  Signal,
   ProofArtifact,
 } from "@omen/shared";
 
@@ -43,6 +47,9 @@ import { EventPublisher } from "../publishers/event-publisher";
 import { EvidenceBundlePublisher } from "../publishers/evidence-bundle-publisher";
 import { ReportBundlePublisher } from "../publishers/report-bundle-publisher";
 import { RunManifestPublisher } from "../publishers/run-manifest-publisher";
+import { PostProofPublisher } from "../publishers/post-proof-publisher";
+import { PostPublisher } from "../publishers/post-publisher";
+import { PostResultRecorder } from "../publishers/post-result-recorder";
 import { ZeroGPublisher } from "../publishers/zero-g-publisher";
 import { AxlMessageRecorder } from "../publishers/axl-message-recorder";
 import { ZeroGRefRecorder } from "../publishers/zero-g-ref-recorder";
@@ -103,7 +110,6 @@ const getEventTypeForStep = (step: string): AgentEventType =>
 const hasTwitterPostingConfig = (env: BackendEnv) =>
   Boolean(
     env.twitterApi.apiKey &&
-      env.twitterApi.loginCookies &&
       env.twitterApi.proxy,
   );
 
@@ -466,6 +472,10 @@ class LivePipelineExecutionContext {
 
   private readonly intelsRepository: IntelsRepository | null;
 
+  private readonly signalsRepository: SignalsRepository | null;
+
+  private readonly outboundPostsRepository: OutboundPostsRepository | null;
+
   private readonly agentEventsRepository: AgentEventsRepository | null;
 
   private readonly eventPublisher: EventPublisher | null;
@@ -492,6 +502,12 @@ class LivePipelineExecutionContext {
 
   private readonly runManifestPublisher: RunManifestPublisher | null;
 
+  private readonly postProofPublisher: PostProofPublisher | null;
+
+  private readonly postPublisher: PostPublisher | null;
+
+  private readonly postResultRecorder: PostResultRecorder | null;
+
   private axlTransportAvailable = false;
 
   private axlServicePeerId: string | null = null;
@@ -517,13 +533,32 @@ class LivePipelineExecutionContext {
       : null;
     const runsRepository = supabaseClient ? new RunsRepository(supabaseClient) : null;
     const intelsRepository = supabaseClient ? new IntelsRepository(supabaseClient) : null;
+    const signalsRepository = supabaseClient ? new SignalsRepository(supabaseClient) : null;
+    const outboundPostsRepository = supabaseClient
+      ? new OutboundPostsRepository(supabaseClient)
+      : null;
     const agentEventsRepository = supabaseClient
       ? new AgentEventsRepository(supabaseClient)
       : null;
 
     this.runsRepository = runsRepository;
     this.intelsRepository = intelsRepository;
+    this.signalsRepository = signalsRepository;
+    this.outboundPostsRepository = outboundPostsRepository;
     this.agentEventsRepository = agentEventsRepository;
+    this.postPublisher = outboundPostsRepository
+      ? new PostPublisher({
+          env: input.env,
+          posts: outboundPostsRepository,
+          logger: this.logger,
+        })
+      : null;
+    this.postResultRecorder = new PostResultRecorder({
+      runs: runsRepository,
+      analytics: supabaseClient
+        ? new AnalyticsSnapshotsRepository(supabaseClient)
+        : null,
+    });
     this.eventPublisher = supabaseClient && agentEventsRepository
       ? new EventPublisher({
           events: agentEventsRepository,
@@ -574,6 +609,7 @@ class LivePipelineExecutionContext {
       this.evidenceBundlePublisher = new EvidenceBundlePublisher(zeroGConfig);
       this.reportBundlePublisher = new ReportBundlePublisher(zeroGConfig);
       this.runManifestPublisher = new RunManifestPublisher(zeroGConfig);
+      this.postProofPublisher = new PostProofPublisher(zeroGConfig);
     } else {
       this.zeroGStateStore = null;
       this.zeroGLogStore = null;
@@ -581,6 +617,7 @@ class LivePipelineExecutionContext {
       this.evidenceBundlePublisher = null;
       this.reportBundlePublisher = null;
       this.runManifestPublisher = null;
+      this.postProofPublisher = null;
     }
   }
 
@@ -833,18 +870,43 @@ class LivePipelineExecutionContext {
   }
 
   async finalizeRun(finalState: SwarmState) {
+    const persistedSignal = await this.safePersistFinalSignal(finalState);
     const persistedIntel = await this.safePersistFinalIntel(finalState);
     let persistedRun = this.toPersistableRun({
       ...finalState.run,
+      finalSignalId: persistedSignal?.id ?? finalState.run.finalSignalId,
       finalIntelId: persistedIntel?.id ?? finalState.run.finalIntelId,
       outcome: finalState.run.outcome
         ? {
             ...finalState.run.outcome,
+            signalId: persistedSignal?.id ?? finalState.run.outcome.signalId,
             intelId: persistedIntel?.id ?? finalState.run.outcome.intelId,
           }
         : null,
     });
     await this.safePersistRun(persistedRun);
+
+    const outboundPost = await this.safePublishOutboundPost({
+      run: persistedRun,
+      signal: persistedSignal,
+      intel: persistedIntel,
+    });
+
+    if (outboundPost) {
+      persistedRun = {
+        ...persistedRun,
+        outcome: persistedRun.outcome
+          ? {
+              ...persistedRun.outcome,
+              postId: outboundPost.id,
+              postStatus: outboundPost.status,
+              publishedUrl: outboundPost.publishedUrl,
+            }
+          : null,
+        updatedAt: outboundPost.updatedAt,
+      };
+      await this.safePersistRun(persistedRun);
+    }
 
     if (this.zeroGPublisher) {
       const zeroGArtifacts = await this.safePublishFinalArtifacts({
@@ -987,6 +1049,168 @@ class LivePipelineExecutionContext {
     return created.value;
   }
 
+  private async safePersistFinalSignal(finalState: SwarmState): Promise<Signal | null> {
+    if (
+      !this.signalsRepository ||
+      finalState.run.outcome?.outcomeType !== "signal"
+    ) {
+      return null;
+    }
+
+    const thesis = finalState.thesisDrafts.at(-1);
+    const review = finalState.criticReviews.at(-1);
+
+    if (!thesis || review?.decision !== "approved") {
+      return null;
+    }
+
+    const signalId = finalState.run.finalSignalId ?? `signal-${finalState.run.id}`;
+    const existing = await this.signalsRepository.findSignalById(signalId);
+
+    if (!existing.ok) {
+      throw new Error(
+        `Failed to check signal ${signalId}: ${existing.error.message}`,
+      );
+    }
+
+    if (existing.value) {
+      return existing.value;
+    }
+
+    const timestamp = finalState.run.completedAt ?? new Date().toISOString();
+    const signal = {
+      id: signalId,
+      runId: finalState.run.id,
+      candidateId: thesis.candidateId,
+      asset: thesis.asset,
+      direction: thesis.direction,
+      confidence: thesis.confidence,
+      orderType: thesis.orderType,
+      tradingStyle: thesis.tradingStyle,
+      expectedDuration: thesis.expectedDuration,
+      currentPrice: thesis.currentPrice,
+      entryPrice: thesis.entryPrice,
+      targetPrice: thesis.targetPrice,
+      stopLoss: thesis.stopLoss,
+      signalStatus: "active",
+      pnlPercent: null,
+      closedAt: null,
+      priceUpdatedAt: null,
+      riskReward: thesis.riskReward,
+      entryZone: thesis.entryPrice
+        ? {
+            low: thesis.entryPrice,
+            high: thesis.entryPrice,
+            rationale: "Publisher-approved thesis entry.",
+          }
+        : null,
+      invalidation: thesis.stopLoss
+        ? {
+            low: thesis.stopLoss,
+            high: thesis.stopLoss,
+            rationale: "Analyst stop-loss invalidation.",
+          }
+        : null,
+      targets: thesis.targetPrice
+        ? [{ label: "TP1", price: thesis.targetPrice }]
+        : [],
+      whyNow: thesis.whyNow,
+      confluences: thesis.confluences,
+      uncertaintyNotes: thesis.uncertaintyNotes,
+      missingDataNotes: thesis.missingDataNotes,
+      criticDecision: review.decision,
+      reportStatus: "published",
+      finalReportRefId: null,
+      proofRefIds: this.artifacts.map((artifact) => artifact.id),
+      disclaimer:
+        "Omen market intelligence is for informational purposes only and is not financial advice.",
+      publishedAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    } satisfies Signal;
+    const created = await this.signalsRepository.createSignal(signal);
+
+    if (!created.ok) {
+      throw new Error(`Failed to create signal ${signal.id}: ${created.error.message}`);
+    }
+
+    return created.value;
+  }
+
+  private async safePublishOutboundPost(input: {
+    run: SwarmState["run"];
+    signal: Signal | null;
+    intel: Intel | null;
+  }) {
+    if (!this.postPublisher || !this.input.config.postToXEnabled) {
+      return null;
+    }
+
+    const result = input.signal
+      ? await this.postPublisher.publishSignal(input.signal)
+      : input.intel
+        ? await this.postPublisher.publishIntel(input.intel)
+        : null;
+
+    if (!result) {
+      return null;
+    }
+
+    await this.postResultRecorder?.recordPostResult({
+      run: input.run,
+      post: result.post,
+    });
+
+    if (this.postProofPublisher) {
+      const proofArtifacts = await this.postProofPublisher.publish({
+        environment: this.environment,
+        post: result.post,
+        providerResponse: result.providerResponse
+          ? {
+              provider: result.post.provider,
+              providerPostId: result.post.providerPostId,
+              publishedUrl: result.post.publishedUrl,
+              raw: result.providerResponse,
+            }
+          : null,
+      });
+
+      for (const artifact of proofArtifacts) {
+        await this.safeRecordArtifact(artifact);
+      }
+    }
+
+    if (this.eventPublisher) {
+      await this.safePublishEvent({
+        id: `event-${randomUUID()}`,
+        runId: input.run.id,
+        agentId: "agent-publisher",
+        agentRole: "publisher",
+        eventType: "post_queued",
+        status: result.post.status === "posted" ? "success" : "warning",
+        summary:
+          result.post.status === "posted"
+            ? "Outbound X post published through twitterapi."
+            : `Outbound X post ended in ${result.post.status}.`,
+        payload: {
+          postId: result.post.id,
+          provider: result.post.provider,
+          status: result.post.status,
+          publishedUrl: result.post.publishedUrl,
+          lastError: result.post.lastError,
+        },
+        timestamp: result.post.updatedAt,
+        correlationId: `${input.run.id}:post:${result.post.id}`,
+        axlMessageId: null,
+        proofRefId: null,
+        signalId: result.post.signalId,
+        intelId: result.post.intelId,
+      });
+    }
+
+    return result.post;
+  }
+
   private async probeAxlTransport(runId: string, observedAt: string) {
     if (!this.axlNodeManager || !this.axlAdapter) {
       return false;
@@ -1097,7 +1321,7 @@ class LivePipelineExecutionContext {
         logUploadsEnabled: true,
         reportPrompt: hasZeroGComputeConfig(this.input.env) ? reportPrompt : null,
       });
-      const finalArtifacts = [...runArtifacts.artifacts];
+      const finalArtifacts = [...this.artifacts, ...runArtifacts.artifacts];
 
       if (this.evidenceBundlePublisher) {
         const evidenceBundle = await this.evidenceBundlePublisher.publish({
@@ -1218,11 +1442,13 @@ class LivePipelineExecutionContext {
   }
 
   private async safeRecordArtifact(artifact: ProofArtifact) {
-    if (!this.artifacts.some((entry) => entry.id === artifact.id)) {
+    const alreadyRecorded = this.artifacts.some((entry) => entry.id === artifact.id);
+
+    if (!alreadyRecorded) {
       this.artifacts.push(artifact);
     }
 
-    if (this.zeroGRefRecorder) {
+    if (this.zeroGRefRecorder && !alreadyRecorded) {
       const recorded = await this.zeroGRefRecorder.recordArtifact(artifact);
 
       if (!recorded.ok) {
@@ -1277,12 +1503,12 @@ class LivePipelineExecutionContext {
     return {
       ...run,
       currentCheckpointRefId: latestCheckpointArtifact?.id ?? null,
-      finalSignalId: null,
+      finalSignalId: run.finalSignalId,
       finalIntelId: run.finalIntelId,
       outcome: run.outcome
         ? {
             ...run.outcome,
-            signalId: null,
+            signalId: run.outcome.signalId,
             intelId: run.outcome.intelId,
           }
         : null,

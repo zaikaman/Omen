@@ -73,6 +73,10 @@ export type BackendEnv = {
     apiKey: string | null;
     loginCookies: string | null;
     proxy: string | null;
+    userName: string | null;
+    email: string | null;
+    password: string | null;
+    totpSecret: string | null;
   };
   deferred: {
     futuresEncryptionKey: string | null;
@@ -170,6 +174,8 @@ export const createBackendEnv = (
     `http://localhost:${webPort.toString()}`;
   const twitterApiKey =
     env.TWITTERAPI_API_KEY ??
+    env.TWITTER_IO_API_KEY ??
+    env.TWITTERAPI_IO_KEY ??
     env.TWITTER_API_KEY ??
     env.TWITTERIO_API_KEY ??
     null;
@@ -252,6 +258,10 @@ export const createBackendEnv = (
       apiKey: twitterApiKey,
       loginCookies: twitterLoginCookies,
       proxy: twitterProxy,
+      userName: env.TWITTERAPI_USER_NAME ?? env.TWITTER_USER_NAME ?? null,
+      email: env.TWITTERAPI_EMAIL ?? env.TWITTER_EMAIL ?? null,
+      password: env.TWITTERAPI_PASSWORD ?? env.TWITTER_PASSWORD ?? null,
+      totpSecret: env.TWITTERAPI_TOTP_SECRET ?? env.TWITTER_TOTP_SECRET ?? null,
     },
     deferred: {
       futuresEncryptionKey: env.FUTURES_ENCRYPTION_KEY ?? null,

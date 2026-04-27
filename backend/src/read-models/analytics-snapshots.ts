@@ -1,5 +1,6 @@
 import {
   IntelsRepository,
+  OutboundPostsRepository,
   RunsRepository,
   SignalsRepository,
   createSupabaseServiceRoleClient,
@@ -11,6 +12,7 @@ import {
   ok,
   type AnalyticsSnapshot,
   type Intel,
+  type OutboundPost,
   type Result,
   type Run,
   type Signal,
@@ -32,6 +34,7 @@ type ProjectionInput = {
   runs: Run[];
   signals: Signal[];
   intels: Intel[];
+  posts?: OutboundPost[];
 };
 
 const MAX_RECORDS = 1000;
@@ -51,6 +54,7 @@ const createRepositories = (env: AnalyticsSnapshotsReadModelEnv) => {
     runs: new RunsRepository(client),
     signals: new SignalsRepository(client),
     intels: new IntelsRepository(client),
+    posts: new OutboundPostsRepository(client),
   };
 };
 
@@ -160,6 +164,15 @@ const groupByRunId = <T extends { runId: string }>(items: T[]) => {
   return grouped;
 };
 
+const projectPostingTotals = (posts: OutboundPost[]) => ({
+  outboundPosts: posts.length,
+  postedToX: posts.filter((post) => post.status === "posted").length,
+  failedPosts: posts.filter((post) => post.status === "failed").length,
+  latestPostStatus: posts
+    .slice()
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]?.status ?? null,
+});
+
 export const projectAnalyticsSnapshots = (
   input: ProjectionInput,
 ): AnalyticsSnapshot[] => {
@@ -168,10 +181,13 @@ export const projectAnalyticsSnapshots = (
   );
   const publishedSignals = input.signals.filter(isPublishedSignal);
   const publishedIntels = input.intels.filter(isPublishedIntel);
+  const posts = input.posts ?? [];
   const publishedSignalsByRunId = groupByRunId(publishedSignals);
   const publishedIntelsByRunId = groupByRunId(publishedIntels);
+  const postsByRunId = groupByRunId(posts);
   const cumulativeSignals: Signal[] = [];
   const cumulativeIntels: Intel[] = [];
+  const cumulativePosts: OutboundPost[] = [];
   const snapshots: AnalyticsSnapshot[] = [];
   let completedRuns = 0;
 
@@ -182,6 +198,7 @@ export const projectAnalyticsSnapshots = (
 
     cumulativeSignals.push(...(publishedSignalsByRunId.get(run.id) ?? []));
     cumulativeIntels.push(...(publishedIntelsByRunId.get(run.id) ?? []));
+    cumulativePosts.push(...(postsByRunId.get(run.id) ?? []));
 
     const tokenFrequency = projectTokenFrequency({
       signals: cumulativeSignals,
@@ -203,6 +220,7 @@ export const projectAnalyticsSnapshots = (
           completedRuns,
           publishedSignals: cumulativeSignals.length,
           publishedIntel: cumulativeIntels.length,
+          ...projectPostingTotals(cumulativePosts),
           ...performanceTotals,
         },
         confidenceBands,
@@ -224,10 +242,11 @@ export const buildAnalyticsSnapshotsReadModel = async (
   }
 
   const repositories = createRepositories(input.env);
-  const [runs, signals, intels] = await Promise.all([
+  const [runs, signals, intels, posts] = await Promise.all([
     repositories.runs.listRecentRuns(MAX_RECORDS),
     repositories.signals.listRecentSignals(MAX_RECORDS),
     repositories.intels.listRecentIntel(MAX_RECORDS),
+    repositories.posts.listRecentPosts(MAX_RECORDS),
   ]);
 
   if (!runs.ok) {
@@ -242,11 +261,16 @@ export const buildAnalyticsSnapshotsReadModel = async (
     return intels;
   }
 
+  if (!posts.ok) {
+    return posts;
+  }
+
   return ok(
     projectAnalyticsSnapshots({
       runs: runs.value,
       signals: signals.value,
       intels: intels.value,
+      posts: posts.value,
     }),
   );
 };

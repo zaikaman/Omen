@@ -17,6 +17,8 @@ export const zeroGManifestableProofArtifactSchema = proofArtifactSchema.refine(
     artifact.refType === "file_artifact" ||
     artifact.refType === "compute_job" ||
     artifact.refType === "compute_result" ||
+    artifact.refType === "post_payload" ||
+    artifact.refType === "post_result" ||
     artifact.refType === "manifest" ||
     artifact.refType === "chain_proof",
   {
@@ -40,6 +42,9 @@ export function categorizeProofArtifact(
     case "compute_job":
     case "compute_result":
       return "compute_proof";
+    case "post_payload":
+    case "post_result":
+      return "public_post";
     case "manifest":
       return "manifest";
     case "chain_proof":

@@ -9,6 +9,7 @@ export * from "./config.js";
 export * from "./event.js";
 export * from "./intel.js";
 export * from "./post.js";
+export * from "./post-proof.js";
 export * from "./proofs.js";
 export * from "./run.js";
 export * from "./signal.js";

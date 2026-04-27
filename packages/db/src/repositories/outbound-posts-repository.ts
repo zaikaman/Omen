@@ -3,6 +3,7 @@ import {
   ok,
   outboundPostSchema,
   type OutboundPost,
+  type PostStatus,
   type Result,
 } from "@omen/shared";
 
@@ -105,6 +106,11 @@ const toUpdateRow = (patch: Partial<OutboundPost>): OutboundPostUpdate => ({
   published_at: patch.publishedAt,
 });
 
+const withoutUndefined = <T extends Record<string, unknown>>(input: T): T =>
+  Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined),
+  ) as T;
+
 export class OutboundPostsRepository extends BaseRepository<
   OutboundPostRow,
   OutboundPostInsert,
@@ -128,7 +134,7 @@ export class OutboundPostsRepository extends BaseRepository<
     postId: string,
     patch: Partial<OutboundPost>,
   ): Promise<Result<OutboundPost, RepositoryError>> {
-    const updated = await this.updateById(postId, toUpdateRow(patch));
+    const updated = await this.updateById(postId, withoutUndefined(toUpdateRow(patch)));
 
     if (!updated.ok) {
       return updated;
@@ -184,6 +190,82 @@ export class OutboundPostsRepository extends BaseRepository<
       .order("updated_at", { ascending: false })
       .limit(limit)
       .returns<OutboundPostRow[]>();
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok((data ?? []).map((row) => toOutboundPost(row)));
+  }
+
+  async findPostById(
+    postId: string,
+  ): Promise<Result<OutboundPost | null, RepositoryError>> {
+    const found = await this.findById(postId);
+
+    if (!found.ok) {
+      return found;
+    }
+
+    return ok(found.value ? toOutboundPost(found.value) : null);
+  }
+
+  async claimNextReadyPost(): Promise<Result<OutboundPost | null, RepositoryError>> {
+    const { data, error } = await this.table()
+      .select("*")
+      .in("status", ["queued", "ready"] satisfies PostStatus[])
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle<OutboundPostRow>();
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    if (!data) {
+      return ok(null);
+    }
+
+    return this.updatePost(data.id, {
+      status: "posting",
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  async listByLinkedRecord(input: {
+    runId?: string;
+    signalId?: string;
+    intelId?: string;
+    limit?: number;
+  }): Promise<Result<OutboundPost[], RepositoryError>> {
+    let query = this.table()
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(input.limit ?? 50);
+
+    if (input.runId) {
+      query = query.eq("run_id", input.runId);
+    }
+
+    if (input.signalId) {
+      query = query.eq("signal_id", input.signalId);
+    }
+
+    if (input.intelId) {
+      query = query.eq("intel_id", input.intelId);
+    }
+
+    const { data, error } = await query.returns<OutboundPostRow[]>();
 
     if (error) {
       return err({

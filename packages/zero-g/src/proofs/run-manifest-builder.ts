@@ -57,6 +57,7 @@ export class RunManifestBuilder {
       logs: relatedArtifacts.filter((link) => link.category === "immutable_log"),
       files: relatedArtifacts.filter((link) => link.category === "file_bundle"),
       computeProofs: relatedArtifacts.filter((link) => link.category === "compute_proof"),
+      publicPosts: relatedArtifacts.filter((link) => link.category === "public_post"),
       chainAnchors: relatedArtifacts.filter((link) => link.category === "chain_anchor"),
       relatedArtifacts,
       summary: {

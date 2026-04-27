@@ -35,16 +35,30 @@ export const twitterApiCreateTweetRequestSchema = z
   });
 
 export const twitterApiCreateTweetResponseSchema = z.object({
-  tweet_id: z.string().min(1),
+  tweet_id: z.string().min(1).optional(),
+  id: z.string().min(1).optional(),
+  data: z
+    .object({
+      id: z.string().min(1).optional(),
+      tweet_id: z.string().min(1).optional(),
+    })
+    .optional(),
   status: z.string().min(1),
   msg: z.string().min(1).optional(),
-});
+}).transform((value) => ({
+  ...value,
+  tweet_id: value.tweet_id ?? value.id ?? value.data?.tweet_id ?? value.data?.id ?? "",
+}));
 
 export const twitterApiCredentialsSchema = z.object({
   apiKey: z.string().min(1),
-  loginCookies: z.string().min(1),
+  loginCookies: z.string().min(1).nullable().default(null),
   proxy: z.string().min(1),
   baseUrl: z.string().url().default("https://api.twitterapi.io"),
+  userName: z.string().min(1).nullable().default(null),
+  email: z.string().min(1).nullable().default(null),
+  password: z.string().min(1).nullable().default(null),
+  totpSecret: z.string().min(1).nullable().default(null),
 });
 
 export type XPostDraft = z.infer<typeof xPostDraftSchema>;

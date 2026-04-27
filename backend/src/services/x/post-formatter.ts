@@ -1,10 +1,14 @@
 import {
   OMEN_DISCLAIMER,
+  outboundPostPayloadSchema,
   xPostDraftSchema,
   type Intel,
+  type OutboundPostPayload,
   type Signal,
   type XPostDraft,
 } from "@omen/shared";
+
+import { buildIntelThreadParts } from "./intel-thread-builder";
 
 const trimToLength = (value: string, maxLength: number) => {
   if (value.length <= maxLength) {
@@ -38,7 +42,7 @@ export const formatSignalPost = (signal: Pick<
   xPostDraftSchema.parse({
     text: trimToLength(
       [
-        `${signal.tradingStyle === "swing_trade" ? "📈" : "🎯"} $${signal.asset} ${signal.tradingStyle === "swing_trade" ? "swing trade" : "day trade"}`,
+        `$${signal.asset} ${signal.direction} ${signal.tradingStyle === "swing_trade" ? "swing trade" : "day trade"}`,
         `order: ${signal.orderType ?? "market"}`,
         `hold: ${signal.expectedDuration ?? "8-16 hours"}`,
         ...(signal.entryPrice !== null ? [`entry: $${signal.entryPrice}`] : []),
@@ -101,3 +105,30 @@ export const formatThreadPosts = (parts: string[]): XPostDraft[] =>
       scheduleFor: null,
     }),
   );
+
+export const formatSignalPostPayload = (
+  signal: Parameters<typeof formatSignalPost>[0],
+): OutboundPostPayload =>
+  outboundPostPayloadSchema.parse({
+    text: formatSignalPost(signal).text,
+    thread: [],
+    metadata: {
+      formatter: "signal_alert:v1",
+    },
+  });
+
+export const formatIntelPostPayload = (
+  intel: Pick<Intel, "title" | "summary" | "body" | "confidence" | "symbols">,
+): OutboundPostPayload => {
+  const summary = formatIntelPost(intel);
+  const thread = buildIntelThreadParts(intel).slice(1);
+
+  return outboundPostPayloadSchema.parse({
+    text: summary.text,
+    thread,
+    metadata: {
+      formatter: "intel_summary:v1",
+      threadPartCount: thread.length,
+    },
+  });
+};

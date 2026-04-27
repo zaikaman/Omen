@@ -28,6 +28,7 @@ export const zeroGArtifactCategorySchema = z.enum([
   "immutable_log",
   "file_bundle",
   "compute_proof",
+  "public_post",
   "manifest",
   "chain_anchor",
 ]);
@@ -95,6 +96,19 @@ export const zeroGComputeProofLinkSchema = zeroGArtifactLinkSchema
     }
   });
 
+export const zeroGPublicPostLinkSchema = zeroGArtifactLinkSchema
+  .extend({
+    category: z.literal("public_post"),
+  })
+  .refine(
+    ({ artifact }) =>
+      artifact.refType === "post_payload" || artifact.refType === "post_result",
+    {
+      message: "Public post links must point to X post payload or result artifacts.",
+      path: ["artifact", "refType"],
+    },
+  );
+
 export const zeroGManifestArtifactLinkSchema = zeroGArtifactLinkSchema
   .extend({
     category: z.literal("manifest"),
@@ -132,6 +146,7 @@ export const zeroGRunManifestSchema = z
     logs: z.array(zeroGImmutableLogLinkSchema).default([]),
     files: z.array(zeroGFileBundleLinkSchema).default([]),
     computeProofs: z.array(zeroGComputeProofLinkSchema).default([]),
+    publicPosts: z.array(zeroGPublicPostLinkSchema).default([]),
     chainAnchors: z.array(zeroGChainAnchorLinkSchema).default([]),
     relatedArtifacts: z.array(zeroGArtifactLinkSchema).default([]),
     summary: zeroGManifestSummarySchema,
@@ -143,6 +158,7 @@ export const zeroGRunManifestSchema = z
       manifest.logs.length +
       manifest.files.length +
       manifest.computeProofs.length +
+      manifest.publicPosts.length +
       manifest.chainAnchors.length +
       (manifest.manifestArtifact ? 1 : 0);
 
@@ -191,6 +207,7 @@ export type ZeroGFileBundleLink = z.infer<typeof zeroGFileBundleLinkSchema>;
 export type ZeroGComputeProofLink = z.infer<
   typeof zeroGComputeProofLinkSchema
 >;
+export type ZeroGPublicPostLink = z.infer<typeof zeroGPublicPostLinkSchema>;
 export type ZeroGManifestArtifactLink = z.infer<
   typeof zeroGManifestArtifactLinkSchema
 >;

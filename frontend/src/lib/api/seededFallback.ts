@@ -613,6 +613,29 @@ const toProofManifest = (
   artifacts: ProofArtifact[],
 ): ZeroGRunManifest => {
   const manifestArtifact = artifacts.find((artifact) => artifact.refType === 'manifest');
+  const toArtifactCategory = (artifact: ProofArtifact) => {
+    if (artifact.refType === 'post_payload' || artifact.refType === 'post_result') {
+      return 'public_post' as const;
+    }
+
+    if (artifact.refType === 'kv_state') {
+      return 'mutable_state' as const;
+    }
+
+    if (artifact.refType === 'log_entry' || artifact.refType === 'log_bundle') {
+      return 'immutable_log' as const;
+    }
+
+    if (artifact.refType === 'compute_job' || artifact.refType === 'compute_result') {
+      return 'compute_proof' as const;
+    }
+
+    if (artifact.refType === 'manifest') {
+      return 'manifest' as const;
+    }
+
+    return 'file_bundle' as const;
+  };
 
   return {
     id: `manifest-${run.id}`,
@@ -661,12 +684,19 @@ const toProofManifest = (
         namespacePath: `omen/proof/${run.id}`,
         artifact,
       })),
+    publicPosts: artifacts
+      .filter((artifact) => artifact.refType === 'post_payload' || artifact.refType === 'post_result')
+      .map((artifact) => ({
+        label: 'Published X post proof',
+        category: 'public_post' as const,
+        namespacePath: `omen/proof/${run.id}`,
+        artifact,
+      })),
     chainAnchors: [],
     relatedArtifacts: artifacts
-      .filter((artifact) => artifact.refType === 'post_result')
       .map((artifact) => ({
-        label: 'Published output proof',
-        category: 'file_bundle' as const,
+        label: artifact.refType === 'post_result' ? 'Published output proof' : artifact.refType,
+        category: toArtifactCategory(artifact),
         namespacePath: `omen/proof/${run.id}`,
         artifact,
       })),
@@ -675,8 +705,7 @@ const toProofManifest = (
       finalSignalId: run.finalSignalId,
       finalIntelId: run.finalIntelId,
       checkpointCount: artifacts.filter((artifact) => artifact.refType === 'kv_state').length,
-      artifactCount:
-        artifacts.filter((artifact) => artifact.refType !== 'post_result').length,
+      artifactCount: artifacts.length,
     },
     createdAt:
       manifestArtifact?.createdAt ??

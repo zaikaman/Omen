@@ -60,6 +60,9 @@ const shorten = (value: string | null | undefined) => {
   return value.length > 18 ? `${value.slice(0, 10)}...${value.slice(-6)}` : value;
 };
 
+const metadataText = (value: unknown) =>
+  typeof value === 'string' && value.trim().length > 0 ? value : null;
+
 export function ArtifactList({
   artifacts = [],
   links,
@@ -122,6 +125,8 @@ export function ArtifactList({
             <div className="space-y-2">
               {orderedArtifacts.map((artifact) => {
                 const Icon = categoryIcon(artifact.refType);
+                const postStatus = metadataText(artifact.metadata.status);
+                const publishedUrl = metadataText(artifact.metadata.publishedUrl);
 
                 return (
                   <div key={artifact.id} className="rounded-lg border border-gray-800 bg-gray-950/40 p-3">
@@ -153,6 +158,20 @@ export function ArtifactList({
                         <div className="font-mono text-gray-400">{shorten(artifact.signalId ?? artifact.intelId)}</div>
                       </div>
                     </div>
+                    {(postStatus || publishedUrl) && (
+                      <div className="mt-3 rounded-md border border-pink-500/20 bg-pink-500/5 px-3 py-2 text-xs">
+                        {postStatus && (
+                          <div className="font-mono uppercase text-pink-100">
+                            X delivery: {postStatus.replace(/_/g, ' ')}
+                          </div>
+                        )}
+                        {publishedUrl && (
+                          <a href={publishedUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-cyan-300 hover:text-cyan-200">
+                            View published post
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
