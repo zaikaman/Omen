@@ -6,6 +6,12 @@ import {
 } from '@omen/shared';
 
 import { apiRequest } from './client';
+import {
+  getSeededDashboardSummary,
+  getSeededRuntimeStatus,
+  seededSchedulerStatus,
+  withSeededFallback,
+} from './seededFallback';
 
 const dashboardSummaryResponseSchema = dashboardSummarySchema;
 const schedulerStatusResponseSchema = schedulerStatusSchema;
@@ -24,14 +30,23 @@ const runtimeStatusResponseSchema = {
   },
 };
 
-export const getDashboardSummary = () =>
+export const getLiveDashboardSummary = () =>
   apiRequest('/dashboard/summary', dashboardSummaryResponseSchema);
 
-export const getSchedulerStatus = () =>
+export const getDashboardSummary = () =>
+  withSeededFallback(getLiveDashboardSummary, getSeededDashboardSummary);
+
+export const getLiveSchedulerStatus = () =>
   apiRequest('/dashboard/scheduler', schedulerStatusResponseSchema);
 
-export const getRuntimeStatus = () =>
+export const getSchedulerStatus = () =>
+  withSeededFallback(getLiveSchedulerStatus, () => seededSchedulerStatus);
+
+export const getLiveRuntimeStatus = () =>
   apiRequest('/status/runtime', runtimeStatusResponseSchema);
+
+export const getRuntimeStatus = () =>
+  withSeededFallback(getLiveRuntimeStatus, getSeededRuntimeStatus);
 
 export type DashboardSummaryResponse = DashboardSummary;
 export type SchedulerStatusResponse = SchedulerStatus;

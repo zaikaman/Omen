@@ -6,6 +6,11 @@ import {
 } from '@omen/shared';
 
 import { apiRequest } from './client';
+import {
+  getSeededSignalDetail,
+  getSeededSignals,
+  withSeededFallback,
+} from './seededFallback';
 
 export type GetSignalsOptions = {
   cursor?: string | null;
@@ -15,7 +20,7 @@ export type GetSignalsOptions = {
   query?: string;
 };
 
-export const getSignals = async (
+export const getLiveSignals = async (
   options: GetSignalsOptions = {},
 ): Promise<SignalFeedResponse> => {
   const searchParams = new URLSearchParams();
@@ -44,5 +49,21 @@ export const getSignals = async (
   return apiRequest(`/signals${suffix}`, signalFeedResponseSchema);
 };
 
-export const getSignalDetail = (id: string): Promise<SignalDetailResponse> =>
+export const getSignals = (
+  options: GetSignalsOptions = {},
+): Promise<SignalFeedResponse> =>
+  withSeededFallback(
+    () => getLiveSignals(options),
+    () => getSeededSignals(),
+  );
+
+export const getLiveSignalDetail = (
+  id: string,
+): Promise<SignalDetailResponse> =>
   apiRequest(`/signals/${encodeURIComponent(id)}`, signalDetailResponseSchema);
+
+export const getSignalDetail = (id: string): Promise<SignalDetailResponse> =>
+  withSeededFallback(
+    () => getLiveSignalDetail(id),
+    () => getSeededSignalDetail(id),
+  );

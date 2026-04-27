@@ -6,6 +6,11 @@ import {
 } from '@omen/shared';
 
 import { apiRequest } from './client';
+import {
+  getSeededIntelDetail,
+  getSeededIntelFeed,
+  withSeededFallback,
+} from './seededFallback';
 
 export type GetIntelFeedOptions = {
   cursor?: string | null;
@@ -13,7 +18,7 @@ export type GetIntelFeedOptions = {
   query?: string;
 };
 
-export const getIntelFeed = async (
+export const getLiveIntelFeed = async (
   options: GetIntelFeedOptions = {},
 ): Promise<IntelFeedResponse> => {
   const searchParams = new URLSearchParams();
@@ -34,5 +39,19 @@ export const getIntelFeed = async (
   return apiRequest(`/intel${suffix}`, intelFeedResponseSchema);
 };
 
-export const getIntelDetail = (id: string): Promise<IntelDetailResponse> =>
+export const getIntelFeed = (
+  options: GetIntelFeedOptions = {},
+): Promise<IntelFeedResponse> =>
+  withSeededFallback(
+    () => getLiveIntelFeed(options),
+    () => getSeededIntelFeed(),
+  );
+
+export const getLiveIntelDetail = (id: string): Promise<IntelDetailResponse> =>
   apiRequest(`/intel/${encodeURIComponent(id)}`, intelDetailResponseSchema);
+
+export const getIntelDetail = (id: string): Promise<IntelDetailResponse> =>
+  withSeededFallback(
+    () => getLiveIntelDetail(id),
+    () => getSeededIntelDetail(id),
+  );
