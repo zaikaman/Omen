@@ -3,10 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   analyticsFeedResponseSchema,
   analyticsLatestResponseSchema,
-  dashboardSummarySchema,
   intelDetailResponseSchema,
   intelFeedResponseSchema,
-  runListItemSchema,
   signalDetailResponseSchema,
   signalFeedResponseSchema,
 } from "../../../packages/shared/src/index";
@@ -14,46 +12,21 @@ import {
   demoAnalyticsSnapshots,
   demoDashboardSummary,
   demoRunBundles,
+  demoRuntimeConfig,
   demoSchedulerStatus,
 } from "../../../packages/db/src/index";
+import { buildDashboardSummaryReadModel } from "../../../backend/src/read-models/dashboard-summary";
+import { buildRuntimeStatusReadModel } from "../../../backend/src/read-models/runtime-status";
 
-const projectRunListItem = (run: (typeof demoRunBundles)[number]["run"]) =>
-  runListItemSchema.parse({
-    id: run.id,
-    mode: run.mode,
-    status: run.status,
-    marketBias: run.marketBias,
-    startedAt: run.startedAt,
-    completedAt: run.completedAt,
-    triggeredBy: run.triggeredBy,
-    finalSignalId: run.finalSignalId,
-    finalIntelId: run.finalIntelId,
-    failureReason: run.failureReason,
-    outcome: run.outcome,
-  });
-
-const projectDashboardSummary = () => {
-  const latestRunBundle = demoRunBundles[demoRunBundles.length - 1] ?? null;
-  const latestSignalBundle = [...demoRunBundles]
-    .reverse()
-    .find((bundle) => bundle.signal !== null);
-  const latestIntelBundle = [...demoRunBundles]
-    .reverse()
-    .find((bundle) => bundle.intel !== null);
-  const latestPost = [...demoRunBundles]
-    .flatMap((bundle) => bundle.outboundPosts)
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null;
-  const latestAnalytics = demoAnalyticsSnapshots[demoAnalyticsSnapshots.length - 1] ?? null;
-
-  return dashboardSummarySchema.parse({
-    activeRun: null,
-    latestRun: latestRunBundle ? projectRunListItem(latestRunBundle.run) : null,
-    latestSignalId: latestSignalBundle?.signal?.id ?? null,
-    latestIntelId: latestIntelBundle?.intel?.id ?? null,
-    scheduler: demoSchedulerStatus,
-    latestPost,
-    analytics: latestAnalytics,
-  });
+const readModelEnv = {
+  supabase: {
+    url: null,
+    anonKey: null,
+    serviceRoleKey: null,
+    schema: "public",
+    projectId: null,
+    dbPassword: null,
+  },
 };
 
 const projectIntelFeed = () =>
@@ -98,24 +71,53 @@ const projectSignalFeed = () =>
   });
 
 describe("dashboard read models", () => {
-  it("projects the dashboard summary from persisted runs, scheduler state, posts, and analytics", () => {
-    const summary = projectDashboardSummary();
+  it("projects the dashboard summary from persisted runs, scheduler state, posts, and analytics", async () => {
+    const summary = await buildDashboardSummaryReadModel({
+      env: readModelEnv,
+      scheduler: demoSchedulerStatus,
+    });
 
-    expect(summary).toEqual(demoDashboardSummary);
-    expect(summary.latestRun).not.toBeNull();
-    expect(summary.latestRun?.id).toBe("run-intel-001");
-    expect(summary.scheduler).toMatchObject({
+    expect(summary.ok).toBe(true);
+    if (!summary.ok) {
+      throw new Error(summary.error.message);
+    }
+
+    expect(summary.value).toEqual(demoDashboardSummary);
+    expect(summary.value.latestRun).not.toBeNull();
+    expect(summary.value.latestRun?.id).toBe("run-intel-001");
+    expect(summary.value.scheduler).toMatchObject({
       enabled: true,
       isRunning: false,
       scanIntervalMinutes: 60,
     });
-    expect(summary.latestPost).toMatchObject({
+    expect(summary.value.latestPost).toMatchObject({
       id: "post-intel-001",
-      runId: summary.latestRun?.id,
+      runId: summary.value.latestRun?.id,
     });
-    expect(summary.analytics).toMatchObject({
+    expect(summary.value.analytics).toMatchObject({
       id: "analytics-snapshot-002",
-      runId: summary.latestRun?.id,
+      runId: summary.value.latestRun?.id,
+    });
+  });
+
+  it("projects runtime status from active and latest run state plus scheduler timing", async () => {
+    const runtimeStatus = await buildRuntimeStatusReadModel({
+      env: readModelEnv,
+      runtimeMode: demoRuntimeConfig.mode,
+      scheduler: demoSchedulerStatus,
+    });
+
+    expect(runtimeStatus.ok).toBe(true);
+    if (!runtimeStatus.ok) {
+      throw new Error(runtimeStatus.error.message);
+    }
+
+    expect(runtimeStatus.value).toMatchObject({
+      runtimeMode: "mocked",
+      scheduler: demoSchedulerStatus,
+      activeRun: null,
+      latestRun: { id: "run-intel-001" },
+      lastCompletedRunId: "run-intel-001",
     });
   });
 

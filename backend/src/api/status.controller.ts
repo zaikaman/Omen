@@ -1,55 +1,40 @@
 import type { Request, Response } from "express";
 
 import {
-  runListItemSchema,
-  runtimeModeSchema,
   schedulerStatusSchema,
   type RuntimeMode,
   type SchedulerStatus,
 } from "@omen/shared";
-import {
-  demoRunBundles,
-  demoSchedulerStatus,
-} from "@omen/db";
+import { demoSchedulerStatus } from "@omen/db";
+
+import type { BackendEnv } from "../bootstrap/env.js";
+import { buildRuntimeStatusReadModel } from "../read-models/runtime-status.js";
 
 export type RuntimeStatusControllerContext = {
+  env: Pick<BackendEnv, "supabase">;
   runtimeMode: RuntimeMode;
   getSchedulerStatus?: () => SchedulerStatus;
 };
 
 export const createStatusController = (
   context: RuntimeStatusControllerContext,
-) => {
-  return (_req: Request, res: Response) => {
-    const latestRunBundle = demoRunBundles[demoRunBundles.length - 1] ?? null;
-    const latestRun = latestRunBundle
-      ? runListItemSchema.parse({
-          id: latestRunBundle.run.id,
-          mode: latestRunBundle.run.mode,
-          status: latestRunBundle.run.status,
-          marketBias: latestRunBundle.run.marketBias,
-          startedAt: latestRunBundle.run.startedAt,
-          completedAt: latestRunBundle.run.completedAt,
-          triggeredBy: latestRunBundle.run.triggeredBy,
-          finalSignalId: latestRunBundle.run.finalSignalId,
-          finalIntelId: latestRunBundle.run.finalIntelId,
-          failureReason: latestRunBundle.run.failureReason,
-          outcome: latestRunBundle.run.outcome,
-        })
-      : null;
-    const scheduler = schedulerStatusSchema.parse(
-      context.getSchedulerStatus?.() ?? demoSchedulerStatus,
-    );
+) => async (_req: Request, res: Response) => {
+  const scheduler = schedulerStatusSchema.parse(
+    context.getSchedulerStatus?.() ?? demoSchedulerStatus,
+  );
+  const runtimeStatus = await buildRuntimeStatusReadModel({
+    env: context.env,
+    runtimeMode: context.runtimeMode,
+    scheduler,
+  });
 
-    res.json({
-      success: true,
-      data: {
-        runtimeMode: runtimeModeSchema.parse(context.runtimeMode),
-        scheduler,
-        activeRun: null,
-        latestRun,
-        lastCompletedRunId: latestRun?.id ?? null,
-      },
-    });
-  };
+  if (!runtimeStatus.ok) {
+    res.status(500).json({ success: false, error: runtimeStatus.error.message });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: runtimeStatus.value,
+  });
 };
