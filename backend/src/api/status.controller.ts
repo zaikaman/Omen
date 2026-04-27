@@ -33,8 +33,11 @@ export const createStatusController = (
     return;
   }
 
-  res.json({
-    success: true,
-    data: runtimeStatus.value,
-  });
-};
+    res.json({
+      success: true,
+      data: {
+        ...runtimeStatus.value,
+        activeRunId: runtimeStatus.value.activeRun?.id ?? null,
+      },
+    });
+  };

@@ -7,6 +7,7 @@ import {
 } from "@omen/shared";
 
 import type { BackendEnv } from "../bootstrap/env";
+import { presentIntelDetail, presentIntelFeed } from "../presenters/intel.presenter";
 
 const parseLimit = (value: unknown, fallback: number) => {
   if (typeof value !== "string") {
@@ -66,7 +67,7 @@ export const createIntelFeedController =
 
     res.json({
       success: true,
-      data: intelFeedResponseSchema.parse({ items, nextCursor: null }),
+      data: presentIntelFeed({ items, nextCursor: null }),
     });
   };
 
@@ -97,6 +98,6 @@ export const createIntelDetailController =
 
     res.json({
       success: true,
-      data: intelDetailResponseSchema.parse({ item: found.value }),
+      data: presentIntelDetail(found.value),
     });
   };

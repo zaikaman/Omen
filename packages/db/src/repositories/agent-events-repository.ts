@@ -124,6 +124,27 @@ export class AgentEventsRepository extends BaseRepository<
     return ok((data ?? []).map((row) => toAgentEvent(row)));
   }
 
+  async listRecentEvents(
+    limit = 100,
+  ): Promise<Result<AgentEvent[], RepositoryError>> {
+    const { data, error } = await this.table()
+      .select("*")
+      .order("timestamp", { ascending: false })
+      .limit(limit)
+      .returns<AgentEventRow[]>();
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok((data ?? []).map((row) => toAgentEvent(row)));
+  }
+
   async listByCorrelationId(
     correlationId: string,
     limit = 100,

@@ -7,12 +7,20 @@ import {
   createAnalyticsFeedController,
   createLatestAnalyticsController,
 } from "./analytics.controller";
+import {
+  createDashboardSchedulerController,
+  createDashboardSummaryController,
+} from "./dashboard.controller";
 import { healthCheck } from "./health.controller";
 import {
   createIntelDetailController,
   createIntelFeedController,
 } from "./intel.controller";
-import { listLogs } from "./logs.controller";
+import { createLogsController } from "./logs.controller";
+import {
+  createProofDetailController,
+  createProofFeedController,
+} from "./proofs.controller";
 import { listRuns } from "./runs.controller";
 import {
   createSignalDetailController,
@@ -22,6 +30,7 @@ import {
   createStatusController,
   type RuntimeStatusControllerContext,
 } from "./status.controller";
+import { createTopologyController } from "./topology.controller";
 
 export type ApiRouterContext = RuntimeStatusControllerContext;
 
@@ -34,14 +43,23 @@ export const createApiRouter = (context: {
 
   router.get("/health", healthCheck);
   router.get("/runs", listRuns);
+  router.get("/dashboard/summary", createDashboardSummaryController(context));
+  router.get(
+    "/dashboard/scheduler",
+    createDashboardSchedulerController(context.getSchedulerStatus),
+  );
   router.get("/status", createStatusController(context));
-  router.get("/logs", listLogs);
+  router.get("/status/runtime", createStatusController(context));
+  router.get("/logs", createLogsController(context.env));
   router.get("/analytics", createAnalyticsFeedController(context.env));
   router.get("/analytics/latest", createLatestAnalyticsController(context.env));
   router.get("/signals", createSignalFeedController(context.env));
   router.get("/signals/:id", createSignalDetailController(context.env));
   router.get("/intel", createIntelFeedController(context.env));
   router.get("/intel/:id", createIntelDetailController(context.env));
+  router.get("/topology", createTopologyController(context.env));
+  router.get("/proofs", createProofFeedController(context.env));
+  router.get("/proofs/:runId", createProofDetailController(context.env));
 
   return router;
 };

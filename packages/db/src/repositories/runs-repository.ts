@@ -115,6 +115,16 @@ export class RunsRepository extends BaseRepository<RunRow, RunInsert, RunUpdate>
     super(client, "runs");
   }
 
+  async findRunById(runId: string): Promise<Result<Run | null, RepositoryError>> {
+    const found = await this.findById(runId);
+
+    if (!found.ok) {
+      return found;
+    }
+
+    return ok(found.value ? toRun(found.value) : null);
+  }
+
   async createRun(run: Run): Promise<Result<Run, RepositoryError>> {
     const inserted = await this.insertOne(toInsertRow(run));
 
