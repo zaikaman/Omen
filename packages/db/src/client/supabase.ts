@@ -56,14 +56,8 @@ export const createSupabaseServiceRoleClient = (
 
 export const getSupabaseClientConfigFromEnv = (env: Record<string, string | undefined>) =>
   supabaseClientConfigSchema.parse({
-    url: env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL,
-    anonKey:
-      env.SUPABASE_ANON_KEY ??
-      env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-      env.SUPABASE_SERVICE_ROLE_KEY ??
-      env.SUPABASE_SERVICE_KEY ??
-      null,
-    serviceRoleKey:
-      env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_KEY ?? null,
+    url: env.SUPABASE_URL,
+    anonKey: env.SUPABASE_ANON_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY ?? null,
+    serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY ?? null,
     schema: env.SUPABASE_SCHEMA ?? "public",
   });

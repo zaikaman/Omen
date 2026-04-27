@@ -27,11 +27,8 @@
     "SUPABASE_URL": {
       "required": true
     },
-    "SUPABASE_SERVICE_KEY": {
-      "required": true
-    },
     "SUPABASE_SERVICE_ROLE_KEY": {
-      "required": false
+      "required": true
     },
     "SUPABASE_SCHEMA": {
       "value": "public"

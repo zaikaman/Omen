@@ -24,7 +24,7 @@ Committed frontend config:
 Build behavior inside that project:
 
 ```bash
-pnpm build
+cd .. && pnpm --filter omen-frontend build
 ```
 
 It serves the output from:
@@ -49,7 +49,7 @@ Committed Heroku files:
 
 - [Procfile](/D:/Omen/Procfile)
 - [app.json](/D:/Omen/app.json)
-- [deploy/env/heroku.backend.env.example](/D:/Omen/deploy/env/heroku.backend.env.example)
+- [backend/.env.example](/D:/Omen/backend/.env.example)
 
 The web dyno runs:
 
@@ -70,7 +70,7 @@ heroku config:set NODE_ENV=production LOG_LEVEL=info RUNTIME_MODE=production_lik
 Set the remaining backend environment variables from:
 
 ```bash
-deploy/env/heroku.backend.env.example
+backend/.env.example
 ```
 
 At minimum, production needs:
@@ -79,7 +79,7 @@ At minimum, production needs:
 FRONTEND_URL=https://<your-vercel-app>.vercel.app
 FRONTEND_ORIGIN=https://<your-vercel-app>.vercel.app
 SUPABASE_URL=https://<your-project>.supabase.co
-SUPABASE_SERVICE_KEY=<service-role-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 OPENAI_API_KEY=<key>
 SCANNER_API_KEY=<key>
 TAVILY_API_KEY=<key>
@@ -133,15 +133,15 @@ Do not include a trailing `/api` path in `FRONTEND_ORIGIN`.
 
 ## Env Files
 
-The shared local template is [.env.example](/D:/Omen/.env.example).
+Local env files are package-scoped.
 
-Deployment-specific templates:
+Package templates:
 
-- Vercel frontend: [deploy/env/vercel.frontend.env.example](/D:/Omen/deploy/env/vercel.frontend.env.example)
-- Heroku backend: [deploy/env/heroku.backend.env.example](/D:/Omen/deploy/env/heroku.backend.env.example)
+- Frontend local/Vercel: [frontend/.env.example](/D:/Omen/frontend/.env.example)
+- Backend local/Heroku: [backend/.env.example](/D:/Omen/backend/.env.example)
 - Fly AXL bridge: [deploy/env/fly.axl.env.example](/D:/Omen/deploy/env/fly.axl.env.example)
 
-Use `TWITTERAPI_API_KEY` for new deployments. The backend still accepts older aliases such as `TWITTER_IO_API_KEY`.
+Use `SUPABASE_SERVICE_ROLE_KEY` for backend Supabase service access.
 
 ## Optional AXL Bridge
 

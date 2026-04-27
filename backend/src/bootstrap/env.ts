@@ -12,17 +12,11 @@ export type BackendEnv = {
   allowConcurrentRuns: boolean;
   schedulerEnabled: boolean;
   logLevel: "debug" | "info" | "warn" | "error";
-  frontend: {
-    appName: string;
-    apiBaseUrl: string;
-  };
   supabase: {
     url: string | null;
     anonKey: string | null;
     serviceRoleKey: string | null;
     schema: string;
-    projectId: string | null;
-    dbPassword: string | null;
   };
   axl: {
     nodeBaseUrl: string;
@@ -158,7 +152,7 @@ const normalizeZeroGCheckpointStrategy = (value: string | undefined) =>
 
 const loadEnvFiles = () => {
   dotenv.config({ path: path.resolve(process.cwd(), ".env") });
-  dotenv.config({ path: path.resolve(process.cwd(), "../.env"), override: false });
+  dotenv.config({ path: path.resolve(process.cwd(), "backend/.env"), override: false });
 };
 
 export const createBackendEnv = (
@@ -166,23 +160,20 @@ export const createBackendEnv = (
 ): BackendEnv => {
   loadEnvFiles();
 
-  const webPort = parsePort(env.WEB_PORT, 3000);
-  const runtimePort = parsePort(env.RUNTIME_PORT ?? env.PORT, 4001);
+  const runtimePort = parsePort(env.PORT, 4001);
   const frontendOrigin =
     env.FRONTEND_ORIGIN ??
     env.FRONTEND_URL ??
-    `http://localhost:${webPort.toString()}`;
+    "http://localhost:5173";
   const twitterApiKey =
     env.TWITTERAPI_API_KEY ??
-    env.TWITTER_IO_API_KEY ??
     env.TWITTERAPI_IO_KEY ??
     env.TWITTER_API_KEY ??
     env.TWITTERIO_API_KEY ??
     null;
   const twitterLoginCookies =
     env.TWITTERAPI_LOGIN_COOKIES ?? env.TWITTER_LOGIN_COOKIES ?? null;
-  const twitterProxy =
-    env.TWITTERAPI_PROXY ?? env.TWITTER_PROXY ?? env.PROXY ?? null;
+  const twitterProxy = env.TWITTERAPI_PROXY ?? env.TWITTER_PROXY ?? null;
 
   return {
     nodeEnv: normalizeNodeEnv(env.NODE_ENV),
@@ -192,20 +183,11 @@ export const createBackendEnv = (
     allowConcurrentRuns: parseBoolean(env.ALLOW_CONCURRENT_RUNS, false),
     schedulerEnabled: parseBoolean(env.SCHEDULER_ENABLED, true),
     logLevel: normalizeLogLevel(env.LOG_LEVEL),
-    frontend: {
-      appName: env.NEXT_PUBLIC_APP_NAME ?? "Omen",
-      apiBaseUrl:
-        env.VITE_API_BASE_URL ?? `http://localhost:${runtimePort.toString()}/api`,
-    },
     supabase: {
-      url: env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL ?? null,
-      anonKey:
-        env.SUPABASE_ANON_KEY ?? env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? null,
-      serviceRoleKey:
-        env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_KEY ?? null,
+      url: env.SUPABASE_URL ?? null,
+      anonKey: env.SUPABASE_ANON_KEY ?? null,
+      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY ?? null,
       schema: env.SUPABASE_SCHEMA ?? "public",
-      projectId: env.SUPABASE_PROJECT_ID ?? null,
-      dbPassword: env.SUPABASE_DB_PASSWORD ?? null,
     },
     axl: {
       nodeBaseUrl: env.AXL_NODE_BASE_URL ?? "http://127.0.0.1:8080",

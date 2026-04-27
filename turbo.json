@@ -1,8 +1,8 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": [
-    ".env",
-    ".env.example",
+    "frontend/.env.example",
+    "backend/.env.example",
     ".editorconfig",
     "eslint.config.mjs",
     "prettier.config.mjs",
