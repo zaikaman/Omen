@@ -13,6 +13,7 @@ export const agentModelRoutingSchema = z.enum([
   "critic",
   "intel",
   "publisher",
+  "writer",
 ]);
 
 export type AgentModelRoutingRole = z.infer<typeof agentModelRoutingSchema>;
@@ -26,6 +27,7 @@ const ROUTING_TABLE: Record<AgentModelRoutingRole, ModelProfile> = {
   critic: "reasoning",
   intel: "scanner",
   publisher: "reasoning",
+  writer: "reasoning",
 };
 
 export const resolveModelProfileForRole = (role: AgentModelRoutingRole) =>

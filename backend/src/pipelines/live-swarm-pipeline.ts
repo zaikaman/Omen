@@ -58,10 +58,7 @@ import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler.js";
 
 const DEFAULT_MARKET_UNIVERSE = TRADEABLE_SYMBOLS;
 const DEFAULT_SCAN_INTERVAL_MINUTES = 60;
-const ZERO_G_MILESTONE_CHECKPOINT_STEPS = new Set([
-  "memory-agent",
-  "publisher-agent",
-]);
+const ZERO_G_MILESTONE_CHECKPOINT_STEPS = new Set(["memory-agent", "publisher-agent"]);
 
 const managedStepRoleMap = {
   "market-bias-agent": "market_bias",
@@ -71,6 +68,7 @@ const managedStepRoleMap = {
   "analyst-agent": "analyst",
   "critic-agent": "critic",
   "intel-agent": "intel",
+  "writer-agent": "writer",
   "memory-agent": "memory",
   "publisher-agent": "publisher",
 } as const satisfies Record<string, AgentRole>;
@@ -83,6 +81,7 @@ const stepEventTypeMap = {
   "analyst-agent": "thesis_generated",
   "critic-agent": "critic_decision",
   "intel-agent": "intel_ready",
+  "writer-agent": "intel_ready",
   "memory-agent": "zero_g_kv_write",
   "publisher-agent": "report_published",
 } as const satisfies Record<string, AgentEventType>;
@@ -108,16 +107,12 @@ const getEventTypeForStep = (step: string): AgentEventType =>
   stepEventTypeMap[step as keyof typeof stepEventTypeMap] ?? "warning";
 
 const hasTwitterPostingConfig = (env: BackendEnv) =>
-  Boolean(
-    env.twitterApi.apiKey &&
-      env.twitterApi.proxy,
-  );
+  Boolean(env.twitterApi.apiKey && env.twitterApi.proxy);
 
 const hasSupabasePersistenceConfig = (env: BackendEnv) =>
   Boolean(env.supabase.url && env.supabase.serviceRoleKey);
 
-const hasAxlTransportConfig = (env: BackendEnv) =>
-  Boolean(env.axl.nodeBaseUrl);
+const hasAxlTransportConfig = (env: BackendEnv) => Boolean(env.axl.nodeBaseUrl);
 
 const hasZeroGStorageConfig = (env: BackendEnv) =>
   Boolean(env.zeroG.indexerUrl && env.zeroG.rpcUrl && env.zeroG.privateKey);
@@ -142,17 +137,13 @@ const buildIntelImagePrompt = (report: SwarmState["intelReports"][number]) =>
   [
     "Premium editorial crypto market intelligence cover art",
     `headline theme: ${report.title}`,
-    report.symbols.length > 0
-      ? `assets: ${report.symbols.join(", ")}`
-      : "broad crypto market",
+    report.symbols.length > 0 ? `assets: ${report.symbols.join(", ")}` : "broad crypto market",
     `category: ${report.category.replace(/_/g, " ")}`,
     "cinematic research terminal, market data streams, institutional analyst desk",
     "sharp focus, high contrast, no text, no logos, 16:9",
   ].join(", ");
 
-const buildZeroGAdapterConfig = (
-  env: BackendEnv,
-): ZeroGAdapterConfig | null => {
+const buildZeroGAdapterConfig = (env: BackendEnv): ZeroGAdapterConfig | null => {
   if (!env.zeroG.indexerUrl) {
     return null;
   }
@@ -215,8 +206,7 @@ const createLiveRuntimeConfig = (input: {
       coinGecko: { enabled: externalReadsEnabled, required: false },
       defiLlama: { enabled: externalReadsEnabled, required: false },
       news: {
-        enabled:
-          externalReadsEnabled && Boolean(input.env.providers.tavilyApiKey),
+        enabled: externalReadsEnabled && Boolean(input.env.providers.tavilyApiKey),
         required: false,
       },
       twitterapi: {
@@ -301,10 +291,7 @@ const createAgentNode = (input: {
 }): AgentNode => {
   const role = getRoleForStep(input.step);
   const transport =
-    role === "scanner" ||
-    role === "research" ||
-    role === "analyst" ||
-    role === "critic"
+    role === "scanner" || role === "research" || role === "analyst" || role === "critic"
       ? "axl"
       : "local";
 
@@ -370,13 +357,8 @@ const createAgentEvent = (input: {
   axlMessageId: input.axlMessageId ?? null,
   proofRefId: input.proofRefId ?? null,
   signalId:
-    input.signalId !== undefined
-      ? input.signalId
-      : input.checkpoint.state.run.finalSignalId,
-  intelId:
-    input.intelId !== undefined
-      ? input.intelId
-      : input.checkpoint.state.run.finalIntelId,
+    input.signalId !== undefined ? input.signalId : input.checkpoint.state.run.finalSignalId,
+  intelId: input.intelId !== undefined ? input.intelId : input.checkpoint.state.run.finalIntelId,
 });
 
 const createRunLifecycleEvent = (input: {
@@ -453,11 +435,10 @@ class InMemoryCheckpointStore implements SwarmCheckpointStore {
 
   async loadLatest(input: { runId: string; threadId: string }) {
     const matches = this.checkpoints.filter(
-      (checkpoint) =>
-        checkpoint.runId === input.runId && checkpoint.threadId === input.threadId,
+      (checkpoint) => checkpoint.runId === input.runId && checkpoint.threadId === input.threadId,
     );
 
-    return matches.length > 0 ? matches[matches.length - 1] ?? null : null;
+    return matches.length > 0 ? (matches[matches.length - 1] ?? null) : null;
   }
 
   async listByRun(runId: string) {
@@ -537,9 +518,7 @@ class LivePipelineExecutionContext {
     const outboundPostsRepository = supabaseClient
       ? new OutboundPostsRepository(supabaseClient)
       : null;
-    const agentEventsRepository = supabaseClient
-      ? new AgentEventsRepository(supabaseClient)
-      : null;
+    const agentEventsRepository = supabaseClient ? new AgentEventsRepository(supabaseClient) : null;
 
     this.runsRepository = runsRepository;
     this.intelsRepository = intelsRepository;
@@ -555,16 +534,15 @@ class LivePipelineExecutionContext {
       : null;
     this.postResultRecorder = new PostResultRecorder({
       runs: runsRepository,
-      analytics: supabaseClient
-        ? new AnalyticsSnapshotsRepository(supabaseClient)
-        : null,
+      analytics: supabaseClient ? new AnalyticsSnapshotsRepository(supabaseClient) : null,
     });
-    this.eventPublisher = supabaseClient && agentEventsRepository
-      ? new EventPublisher({
-          events: agentEventsRepository,
-          nodes: new AgentNodesRepository(supabaseClient),
-        })
-      : null;
+    this.eventPublisher =
+      supabaseClient && agentEventsRepository
+        ? new EventPublisher({
+            events: agentEventsRepository,
+            nodes: new AgentNodesRepository(supabaseClient),
+          })
+        : null;
     this.axlMessageRecorder = supabaseClient
       ? new AxlMessageRecorder(new AxlMessagesRepository(supabaseClient))
       : null;
@@ -636,9 +614,7 @@ class LivePipelineExecutionContext {
     });
 
     if (!recentEvents.ok) {
-      throw new Error(
-        `Failed to load recent intel history: ${recentEvents.error.message}`,
-      );
+      throw new Error(`Failed to load recent intel history: ${recentEvents.error.message}`);
     }
 
     return recentEvents.value
@@ -770,10 +746,7 @@ class LivePipelineExecutionContext {
       );
     }
 
-    if (
-      this.axlTransportAvailable &&
-      checkpoint.step in axlStepRoleMap
-    ) {
+    if (this.axlTransportAvailable && checkpoint.step in axlStepRoleMap) {
       const toRole = axlStepRoleMap[checkpoint.step as keyof typeof axlStepRoleMap];
       const envelope: AxlEnvelope = {
         ...createAxlEnvelopeForCheckpoint({
@@ -979,9 +952,7 @@ class LivePipelineExecutionContext {
       const updated = await this.runsRepository.updateRun(run.id, run);
 
       if (!updated.ok) {
-        throw new Error(
-          `Failed to update run ${run.id}: ${updated.error.message}`,
-        );
+        throw new Error(`Failed to update run ${run.id}: ${updated.error.message}`);
       }
 
       return;
@@ -997,9 +968,7 @@ class LivePipelineExecutionContext {
           return;
         }
 
-        throw new Error(
-          `Failed to update duplicate run ${run.id}: ${updated.error.message}`,
-        );
+        throw new Error(`Failed to update duplicate run ${run.id}: ${updated.error.message}`);
       }
 
       throw new Error(`Failed to create run ${run.id}: ${created.error.message}`);
@@ -1007,10 +976,7 @@ class LivePipelineExecutionContext {
   }
 
   private async safePersistFinalIntel(finalState: SwarmState): Promise<Intel | null> {
-    if (
-      !this.intelsRepository ||
-      finalState.run.outcome?.outcomeType !== "intel"
-    ) {
+    if (!this.intelsRepository || finalState.run.outcome?.outcomeType !== "intel") {
       return null;
     }
 
@@ -1024,9 +990,7 @@ class LivePipelineExecutionContext {
     const existing = await this.intelsRepository.findIntelById(intelId);
 
     if (!existing.ok) {
-      throw new Error(
-        `Failed to check intel ${intelId}: ${existing.error.message}`,
-      );
+      throw new Error(`Failed to check intel ${intelId}: ${existing.error.message}`);
     }
 
     if (existing.value) {
@@ -1038,13 +1002,14 @@ class LivePipelineExecutionContext {
       ? await this.intelImageService.generateAndStore(imagePrompt)
       : null;
     const timestamp = finalState.run.completedAt ?? new Date().toISOString();
+    const article = finalState.intelArticles.at(-1) ?? null;
     const intel = {
       id: intelId,
       runId: finalState.run.id,
-      title: report.title,
-      slug: `${slugify(report.title) || "intel"}-${finalState.run.id.slice(0, 8)}`,
-      summary: report.summary,
-      body: report.insight,
+      title: article?.headline ?? report.title,
+      slug: `${slugify(article?.headline ?? report.title) || "intel"}-${finalState.run.id.slice(0, 8)}`,
+      summary: article?.tldr ?? report.summary,
+      body: article?.content ?? report.insight,
       category: report.category,
       status: "published",
       symbols: report.symbols,
@@ -1067,10 +1032,7 @@ class LivePipelineExecutionContext {
   }
 
   private async safePersistFinalSignal(finalState: SwarmState): Promise<Signal | null> {
-    if (
-      !this.signalsRepository ||
-      finalState.run.outcome?.outcomeType !== "signal"
-    ) {
+    if (!this.signalsRepository || finalState.run.outcome?.outcomeType !== "signal") {
       return null;
     }
 
@@ -1085,9 +1047,7 @@ class LivePipelineExecutionContext {
     const existing = await this.signalsRepository.findSignalById(signalId);
 
     if (!existing.ok) {
-      throw new Error(
-        `Failed to check signal ${signalId}: ${existing.error.message}`,
-      );
+      throw new Error(`Failed to check signal ${signalId}: ${existing.error.message}`);
     }
 
     if (existing.value) {
@@ -1128,9 +1088,7 @@ class LivePipelineExecutionContext {
             rationale: "Analyst stop-loss invalidation.",
           }
         : null,
-      targets: thesis.targetPrice
-        ? [{ label: "TP1", price: thesis.targetPrice }]
-        : [],
+      targets: thesis.targetPrice ? [{ label: "TP1", price: thesis.targetPrice }] : [],
       whyNow: thesis.whyNow,
       confluences: thesis.confluences,
       uncertaintyNotes: thesis.uncertaintyNotes,
@@ -1352,8 +1310,7 @@ class LivePipelineExecutionContext {
       let evidenceBundleArtifact =
         [...finalArtifacts]
           .reverse()
-          .find((artifact) => artifact.metadata?.artifactType === "evidence_pack") ??
-        null;
+          .find((artifact) => artifact.metadata?.artifactType === "evidence_pack") ?? null;
 
       if (this.reportBundlePublisher) {
         const reportBundle = await this.reportBundlePublisher.publish({
@@ -1370,8 +1327,7 @@ class LivePipelineExecutionContext {
       evidenceBundleArtifact =
         [...finalArtifacts]
           .reverse()
-          .find((artifact) => artifact.metadata?.artifactType === "evidence_pack") ??
-        null;
+          .find((artifact) => artifact.metadata?.artifactType === "evidence_pack") ?? null;
 
       if (this.runManifestPublisher) {
         const manifestBundle = await this.runManifestPublisher.publish({
@@ -1421,10 +1377,7 @@ class LivePipelineExecutionContext {
     return artifact.value;
   }
 
-  private async safeAppendCheckpointLog(
-    checkpoint: SwarmCheckpoint,
-    summary: string,
-  ) {
+  private async safeAppendCheckpointLog(checkpoint: SwarmCheckpoint, summary: string) {
     if (!this.zeroGLogStore) {
       throw new Error("0G checkpoint log storage is not configured.");
     }
@@ -1469,9 +1422,7 @@ class LivePipelineExecutionContext {
       const recorded = await this.zeroGRefRecorder.recordArtifact(artifact);
 
       if (!recorded.ok) {
-        throw new Error(
-          `Failed to persist 0G ref ${artifact.id}: ${recorded.error.message}`,
-        );
+        throw new Error(`Failed to persist 0G ref ${artifact.id}: ${recorded.error.message}`);
       }
     }
   }
@@ -1481,9 +1432,7 @@ class LivePipelineExecutionContext {
       const recorded = await this.axlMessageRecorder.recordMessage(message);
 
       if (!recorded.ok) {
-        throw new Error(
-          `Failed to persist AXL message ${message.id}: ${recorded.error.message}`,
-        );
+        throw new Error(`Failed to persist AXL message ${message.id}: ${recorded.error.message}`);
       }
     }
   }
@@ -1493,9 +1442,7 @@ class LivePipelineExecutionContext {
       const published = await this.eventPublisher.syncNodeStatus(node);
 
       if (!published.ok) {
-        throw new Error(
-          `Failed to persist node ${node.id}: ${published.error.message}`,
-        );
+        throw new Error(`Failed to persist node ${node.id}: ${published.error.message}`);
       }
     }
   }
@@ -1505,9 +1452,7 @@ class LivePipelineExecutionContext {
       const published = await this.eventPublisher.publishEvent(event);
 
       if (!published.ok) {
-        throw new Error(
-          `Failed to persist event ${event.id}: ${published.error.message}`,
-        );
+        throw new Error(`Failed to persist event ${event.id}: ${published.error.message}`);
       }
     }
   }
@@ -1547,9 +1492,7 @@ class LivePipelineExecutionContext {
     }
   }
 
-  private resolvePeerIdForRole(
-    role: (typeof axlStepRoleMap)[keyof typeof axlStepRoleMap],
-  ) {
+  private resolvePeerIdForRole(role: (typeof axlStepRoleMap)[keyof typeof axlStepRoleMap]) {
     switch (role) {
       case "scanner":
         return this.input.env.axl.nodes.scanner;
@@ -1566,9 +1509,7 @@ class LivePipelineExecutionContext {
 }
 
 class LivePipelineCheckpointStore extends InMemoryCheckpointStore {
-  constructor(
-    private readonly executionContext: LivePipelineExecutionContext,
-  ) {
+  constructor(private readonly executionContext: LivePipelineExecutionContext) {
     super();
   }
 
@@ -1609,8 +1550,7 @@ export class DefaultLiveSwarmRunPipeline implements LiveSwarmPipeline {
       env: this.input.env,
       request,
       marketUniverse: this.input.marketUniverse ?? [...DEFAULT_MARKET_UNIVERSE],
-      scanIntervalMinutes:
-        this.input.scanIntervalMinutes ?? DEFAULT_SCAN_INTERVAL_MINUTES,
+      scanIntervalMinutes: this.input.scanIntervalMinutes ?? DEFAULT_SCAN_INTERVAL_MINUTES,
       postToXEnabledOverride: this.input.postToXEnabledOverride,
     });
     const executionContext = new LivePipelineExecutionContext({
@@ -1659,10 +1599,7 @@ export class DefaultLiveSwarmRunPipeline implements LiveSwarmPipeline {
       await executionContext.failRun({
         fallbackRun: initialState.run,
         checkpointStore,
-        error:
-          error instanceof Error
-            ? error
-            : new Error("Live swarm pipeline failed."),
+        error: error instanceof Error ? error : new Error("Live swarm pipeline failed."),
       });
       throw error;
     }

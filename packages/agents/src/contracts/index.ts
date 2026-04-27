@@ -8,3 +8,4 @@ export * from "./orchestrator.js";
 export * from "./publisher.js";
 export * from "./research.js";
 export * from "./scanner.js";
+export * from "./writer.js";

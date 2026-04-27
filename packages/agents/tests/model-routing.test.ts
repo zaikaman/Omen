@@ -15,5 +15,6 @@ describe("model routing", () => {
     expect(resolveModelProfileForRole("analyst")).toBe("reasoning");
     expect(resolveModelProfileForRole("critic")).toBe("reasoning");
     expect(resolveModelProfileForRole("publisher")).toBe("reasoning");
+    expect(resolveModelProfileForRole("writer")).toBe("reasoning");
   });
 });

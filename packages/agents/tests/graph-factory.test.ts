@@ -91,6 +91,7 @@ describe("omen graph factory", () => {
       "analyst-agent",
       "critic-agent",
       "intel-agent",
+      "writer-agent",
       "memory-agent",
       "publisher-agent",
     ]);

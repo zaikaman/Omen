@@ -12,6 +12,7 @@ import {
   createPublisherAgent,
   createResearchAgent,
   createScannerAgent,
+  createWriterAgent,
 } from "../definitions/index.js";
 import type { RuntimeNodeDefinition } from "./agent-runtime.js";
 import { mergeSwarmState, type IntelReport, type SwarmState, type ThesisDraft } from "./state.js";
@@ -25,6 +26,7 @@ export const omenSwarmNodeKeySchema = z.enum([
   "analyst-agent",
   "critic-agent",
   "intel-agent",
+  "writer-agent",
   "memory-agent",
   "publisher-agent",
 ]);
@@ -41,6 +43,7 @@ const nodeKeyOrder = [
   "analyst-agent",
   "critic-agent",
   "intel-agent",
+  "writer-agent",
   "memory-agent",
   "publisher-agent",
 ] as const satisfies readonly OmenSwarmNodeKey[];
@@ -261,6 +264,7 @@ export const createDefaultOmenSwarmNodes = (): readonly RuntimeNodeDefinition<
   createAnalystAgent(),
   createCriticAgent(),
   createIntelAgent(),
+  createWriterAgent(),
   createMemoryAgent(),
   createPublisherAgent(),
 ];
@@ -307,6 +311,10 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "intel-agent") {
+    return state.intelReports.length > 0 ? "writer-agent" : "memory-agent";
+  }
+
+  if (current === "writer-agent") {
     return "memory-agent";
   }
 
@@ -452,6 +460,20 @@ export const buildOmenNodeInput = (input: {
       thesis,
       review,
       recentIntelHistory: input.state.recentIntelHistory,
+    };
+  }
+
+  if (input.nodeKey === "writer-agent") {
+    const report = input.state.intelReports.at(-1);
+
+    if (!report) {
+      throw new Error("Writer node requires an intel report.");
+    }
+
+    return {
+      context,
+      report,
+      evidence: input.state.evidenceItems,
     };
   }
 
@@ -644,6 +666,19 @@ export const applyOmenNodeOutput = (input: {
         `checkpoint:${output.checkpointRefId ?? "none"}`,
         ...appendedProofRefs.map((ref) => `proof-ref:${ref}`),
       ],
+    };
+
+    return {
+      state: mergeSwarmState(input.state, stateDelta),
+      stateDelta,
+    };
+  }
+
+  if (input.nodeKey === "writer-agent") {
+    const output = createWriterAgent().outputSchema.parse(input.output);
+    const stateDelta = {
+      intelArticles: [...input.state.intelArticles, output.article],
+      notes: [...input.state.notes, `writer-ready:${output.article.headline}`],
     };
 
     return {
