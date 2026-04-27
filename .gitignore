@@ -10,5 +10,9 @@ template
 0g-ts-sdk
 0g-doc
 axl
+!packages/axl/
+!packages/axl/**
+packages/axl/node_modules/
+packages/axl/.turbo/
 langgraphjs
 twitterapi-io
