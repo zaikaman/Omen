@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ok } from "@omen/shared";
+import { ok, type Result } from "@omen/shared";
 
 import {
   createZeroGArtifactLink,
@@ -16,6 +16,14 @@ import {
 } from "../src/index.js";
 import { ZeroGLogAdapter } from "../src/storage/log-adapter.js";
 import { ZeroGStorageAdapter } from "../src/storage/storage-adapter.js";
+import { ZeroGSdkClient } from "../src/internal/sdk-client.js";
+
+type SignerQueueHarness = {
+  withSerializedSignerResult<T>(
+    blockchainRpcUrl: string,
+    operation: () => Promise<Result<T, Error>>,
+  ): Promise<Result<T, Error>>;
+};
 
 describe("zero-g adapter", () => {
   afterEach(() => {
@@ -102,6 +110,48 @@ describe("zero-g adapter", () => {
       expect(result.value.refType).toBe("kv_state");
       expect(result.value.key).toBe("runs/run-1/checkpoint");
     }
+  });
+
+  it("serializes 0G signer writes that share an RPC and private key", async () => {
+    const firstClient = new ZeroGSdkClient({
+      indexerUrl: "https://indexer-storage-testnet.0g.ai",
+      blockchainRpcUrl: "https://evmrpc-testnet.0g.ai",
+      privateKey: `0x${"1".repeat(64)}`,
+    }) as unknown as SignerQueueHarness;
+    const secondClient = new ZeroGSdkClient({
+      indexerUrl: "https://indexer-storage-testnet.0g.ai",
+      blockchainRpcUrl: "https://evmrpc-testnet.0g.ai",
+      privateKey: `0x${"1".repeat(64)}`,
+    }) as unknown as SignerQueueHarness;
+    const calls: string[] = [];
+    const first = firstClient.withSerializedSignerResult(
+      "https://evmrpc-testnet.0g.ai",
+      async () => {
+        calls.push("first:start");
+        await new Promise((resolve) => {
+          setTimeout(resolve, 20);
+        });
+        calls.push("first:end");
+        return ok("first");
+      },
+    );
+    const second = secondClient.withSerializedSignerResult(
+      "https://evmrpc-testnet.0g.ai",
+      async () => {
+        calls.push("second:start");
+        calls.push("second:end");
+        return ok("second");
+      },
+    );
+
+    await Promise.all([first, second]);
+
+    expect(calls).toEqual([
+      "first:start",
+      "first:end",
+      "second:start",
+      "second:end",
+    ]);
   });
 
   it("creates proof artifacts for log appends", async () => {

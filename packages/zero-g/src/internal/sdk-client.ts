@@ -13,9 +13,11 @@ const DEFAULT_EXPECTED_REPLICA = 1;
 const DEFAULT_NAMESPACE_SEED = "omen-zero-g-kv-v1";
 const ZERO_G_UPLOAD_RESULT_PREFIX = "__ZERO_G_UPLOAD_RESULT__";
 const ZERO_G_CHILD_UPLOAD_TIMEOUT_MS = 180_000;
+const ZERO_G_WRITE_RETRY_DELAYS_MS = [2_000, 5_000];
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
+const signerWriteQueues = new Map<string, Promise<void>>();
 
 export type ZeroGSdkClientConfig = {
   indexerUrl: string;
@@ -93,64 +95,66 @@ export class ZeroGSdkClient {
       return blockchainRpcUrl;
     }
 
-    const signer = this.createSigner(blockchainRpcUrl.value);
-    const indexer = new Indexer(this.config.indexerUrl);
+    return this.withSerializedSignerResult(blockchainRpcUrl.value, async () => {
+      const signer = this.createSigner(blockchainRpcUrl.value);
+      const indexer = new Indexer(this.config.indexerUrl);
 
-    try {
-      const selectedNodes = await this.withTimeout(
-        indexer.selectNodes(this.expectedReplica),
-        "0G indexer node selection timed out.",
-      );
-      const [clients, selectError] = selectedNodes;
+      try {
+        const selectedNodes = await this.withTimeout(
+          indexer.selectNodes(this.expectedReplica),
+          "0G indexer node selection timed out.",
+        );
+        const [clients, selectError] = selectedNodes;
 
-      if (selectError || clients.length === 0) {
+        if (selectError || clients.length === 0) {
+          return err(
+            selectError ?? new Error("0G indexer did not return any writable storage nodes."),
+          );
+        }
+
+        const flowAddress = await this.resolveFlowAddress(clients);
+
+        if (!flowAddress.ok) {
+          return flowAddress;
+        }
+
+        const batcher = new Batcher(
+          1,
+          clients,
+          getFlowContract(flowAddress.value, signer),
+          blockchainRpcUrl.value,
+        );
+        const streamId = this.deriveStreamId(key);
+        const encodedKeyBytes = this.encodeKeyBytes(key);
+
+        batcher.streamDataBuilder.set(streamId, encodedKeyBytes, value);
+
+        const executed = await this.withTimeout(
+          batcher.exec(),
+          "0G KV batch execution timed out.",
+        );
+        const [result, execError] = executed;
+
+        if (execError) {
+          return err(execError);
+        }
+
+        const encodedKey = this.encodeKeyBase64(key);
+
+        return ok({
+          key,
+          streamId,
+          encodedKey,
+          locator: this.buildKvLocator(streamId, encodedKey),
+          txHash: result.txHash,
+          rootHash: result.rootHash,
+        });
+      } catch (error) {
         return err(
-          selectError ?? new Error("0G indexer did not return any writable storage nodes."),
+          error instanceof Error ? error : new Error("0G KV write failed."),
         );
       }
-
-      const flowAddress = await this.resolveFlowAddress(clients);
-
-      if (!flowAddress.ok) {
-        return flowAddress;
-      }
-
-      const batcher = new Batcher(
-        1,
-        clients,
-        getFlowContract(flowAddress.value, signer),
-        blockchainRpcUrl.value,
-      );
-      const streamId = this.deriveStreamId(key);
-      const encodedKeyBytes = this.encodeKeyBytes(key);
-
-      batcher.streamDataBuilder.set(streamId, encodedKeyBytes, value);
-
-      const executed = await this.withTimeout(
-        batcher.exec(),
-        "0G KV batch execution timed out.",
-      );
-      const [result, execError] = executed;
-
-      if (execError) {
-        return err(execError);
-      }
-
-      const encodedKey = this.encodeKeyBase64(key);
-
-      return ok({
-        key,
-        streamId,
-        encodedKey,
-        locator: this.buildKvLocator(streamId, encodedKey),
-        txHash: result.txHash,
-        rootHash: result.rootHash,
-      });
-    } catch (error) {
-      return err(
-        error instanceof Error ? error : new Error("0G KV write failed."),
-      );
-    }
+    });
   }
 
   async getKeyValue(key: string): Promise<Result<ZeroGStoredValue | null, Error>> {
@@ -200,19 +204,21 @@ export class ZeroGSdkClient {
       return blockchainRpcUrl;
     }
 
-    try {
-      const uploaded = await this.uploadObjectWithWorker(input.bytes);
+    return this.withSerializedSignerResult(blockchainRpcUrl.value, async () => {
+      try {
+        const uploaded = await this.uploadObjectWithWorker(input.bytes);
 
-      if (!uploaded.ok) {
-        return uploaded;
+        if (!uploaded.ok) {
+          return uploaded;
+        }
+
+        return ok(uploaded.value);
+      } catch (error) {
+        return err(
+          error instanceof Error ? error : new Error("0G file upload failed."),
+        );
       }
-
-      return ok(uploaded.value);
-    } catch (error) {
-      return err(
-        error instanceof Error ? error : new Error("0G file upload failed."),
-      );
-    }
+    });
   }
 
   deriveStreamId(key: string) {
@@ -241,6 +247,67 @@ export class ZeroGSdkClient {
 
   private createSigner(blockchainRpcUrl: string) {
     return new Wallet(this.privateKey!, new JsonRpcProvider(blockchainRpcUrl));
+  }
+
+  private async withSerializedSignerResult<T>(
+    blockchainRpcUrl: string,
+    operation: () => Promise<Result<T, Error>>,
+  ): Promise<Result<T, Error>> {
+    const queueKey = this.getSignerQueueKey(blockchainRpcUrl);
+    const previous = signerWriteQueues.get(queueKey) ?? Promise.resolve();
+    let releaseQueue: () => void = () => undefined;
+    const current = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
+    });
+    const queued = previous.catch(() => undefined).then(() => current);
+
+    signerWriteQueues.set(queueKey, queued);
+    await previous.catch(() => undefined);
+
+    try {
+      const retryDelays: Array<number | null> = [
+        ...ZERO_G_WRITE_RETRY_DELAYS_MS,
+        null,
+      ];
+
+      for (const delayMs of retryDelays) {
+        const result = await operation();
+
+        if (result.ok || !this.isReplacementUnderpricedError(result.error) || delayMs === null) {
+          return result;
+        }
+
+        await this.delay(delayMs);
+      }
+
+      return operation();
+    } finally {
+      releaseQueue();
+
+      if (signerWriteQueues.get(queueKey) === queued) {
+        signerWriteQueues.delete(queueKey);
+      }
+    }
+  }
+
+  private getSignerQueueKey(blockchainRpcUrl: string) {
+    return keccak256(toUtf8Bytes(`${blockchainRpcUrl}:${this.privateKey ?? ""}`));
+  }
+
+  private isReplacementUnderpricedError(error: Error) {
+    const message = error.message.toLowerCase();
+
+    return (
+      message.includes("replacement_underpriced") ||
+      message.includes("replacement transaction underpriced") ||
+      message.includes("replacement fee too low")
+    );
+  }
+
+  private async delay(delayMs: number) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
   }
 
   private encodeKeyBytes(key: string) {
