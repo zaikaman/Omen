@@ -1,6 +1,7 @@
 export * from "./analyst-agent.js";
 export * from "./chart-vision-agent.js";
 export * from "./critic-agent.js";
+export * from "./intel-agent.js";
 export * from "./market-bias-agent.js";
 export * from "./memory-agent.js";
 export * from "./publisher-agent.js";

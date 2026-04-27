@@ -9,6 +9,7 @@ import {
   runtimeConfigSchema,
 } from "@omen/shared";
 import type { MarketBias } from "@omen/shared";
+import { intelCategorySchema } from "@omen/shared";
 
 export const candidateStateSchema = z.object({
   id: z.string().min(1),
@@ -64,6 +65,17 @@ export const criticReviewSchema = z.object({
   forcedOutcomeReason: z.string().min(1).nullable(),
 });
 
+export const intelReportSchema = z.object({
+  topic: z.string().min(1),
+  insight: z.string().min(1),
+  importanceScore: z.number().int().min(1).max(10),
+  category: intelCategorySchema,
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  confidence: z.number().int().min(0).max(100),
+  symbols: z.array(z.string().min(1)).default([]),
+});
+
 export const publisherDraftSchema = z.object({
   kind: z.enum(["signal_alert", "intel_summary", "intel_thread", "no_conviction"]),
   headline: z.string().min(1),
@@ -81,6 +93,7 @@ export const swarmStateSchema = z.object({
   chartVisionSummaries: z.array(z.string().min(1)),
   thesisDrafts: z.array(thesisDraftSchema),
   criticReviews: z.array(criticReviewSchema),
+  intelReports: z.array(intelReportSchema),
   publisherDrafts: z.array(publisherDraftSchema),
   events: z.array(agentEventSchema),
   axlMessages: z.array(axlEnvelopeSchema),
@@ -106,6 +119,7 @@ export const createInitialSwarmState = (input: {
     chartVisionSummaries: [],
     thesisDrafts: [],
     criticReviews: [],
+    intelReports: [],
     publisherDrafts: [],
     events: [],
     axlMessages: [],
@@ -125,6 +139,7 @@ export type CandidateState = z.infer<typeof candidateStateSchema>;
 export type EvidenceItem = z.infer<typeof evidenceItemSchema>;
 export type ThesisDraft = z.infer<typeof thesisDraftSchema>;
 export type CriticReview = z.infer<typeof criticReviewSchema>;
+export type IntelReport = z.infer<typeof intelReportSchema>;
 export type PublisherDraft = z.infer<typeof publisherDraftSchema>;
 export type SwarmState = z.infer<typeof swarmStateSchema>;
 export type SwarmStateUpdate = z.infer<typeof swarmStateUpdateSchema>;

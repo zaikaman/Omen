@@ -8,6 +8,7 @@ describe("model routing", () => {
     expect(resolveModelProfileForRole("scanner")).toBe("scanner");
     expect(resolveModelProfileForRole("research")).toBe("scanner");
     expect(resolveModelProfileForRole("chart_vision")).toBe("scanner");
+    expect(resolveModelProfileForRole("intel")).toBe("scanner");
   });
 
   it("routes thesis, review, and publishing roles to the reasoning profile", () => {

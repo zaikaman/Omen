@@ -6,6 +6,7 @@ import {
   createAnalystAgent,
   createChartVisionAgent,
   createCriticAgent,
+  createIntelAgent,
   createMarketBiasAgent,
   createMemoryAgent,
   createPublisherAgent,
@@ -13,7 +14,12 @@ import {
   createScannerAgent,
 } from "../definitions/index.js";
 import type { RuntimeNodeDefinition } from "./agent-runtime.js";
-import { mergeSwarmState, type CriticReview, type SwarmState, type ThesisDraft } from "./state.js";
+import {
+  mergeSwarmState,
+  type IntelReport,
+  type SwarmState,
+  type ThesisDraft,
+} from "./state.js";
 import type { SwarmGraphDefinition } from "./graph-factory.js";
 
 export const omenSwarmNodeKeySchema = z.enum([
@@ -23,6 +29,7 @@ export const omenSwarmNodeKeySchema = z.enum([
   "chart-vision-agent",
   "analyst-agent",
   "critic-agent",
+  "intel-agent",
   "memory-agent",
   "publisher-agent",
 ]);
@@ -38,6 +45,7 @@ const nodeKeyOrder = [
   "chart-vision-agent",
   "analyst-agent",
   "critic-agent",
+  "intel-agent",
   "memory-agent",
   "publisher-agent",
 ] as const satisfies readonly OmenSwarmNodeKey[];
@@ -104,6 +112,20 @@ const normalizeReview = (review: {
 }) => ({
   ...review,
   objections: review.objections ?? [],
+});
+
+const normalizeIntelReport = (report: {
+  topic: string;
+  insight: string;
+  importanceScore: number;
+  category: "market_update" | "narrative_shift" | "token_watch" | "macro" | "opportunity";
+  title: string;
+  summary: string;
+  confidence: number;
+  symbols?: string[];
+}) => ({
+  ...report,
+  symbols: report.symbols ?? [],
 });
 
 const normalizeDraft = (draft: {
@@ -175,37 +197,11 @@ const normalizePublisherOutput = (output: {
   };
 };
 
-const inferIntelSummary = (input: {
-  thesis: ThesisDraft | null;
-  review: CriticReview | null;
-}): {
-  title: string;
-  summary: string;
-  confidence: number;
-} | null => {
-  if (input.thesis === null) {
-    return null;
-  }
-
-  if (
-    input.review?.decision !== "watchlist_only" &&
-    input.thesis.direction !== "WATCHLIST" &&
-    input.thesis.direction !== "NONE"
-  ) {
-    return null;
-  }
-
-  return {
-    title: `${input.thesis.asset} market intel`,
-    summary: `${input.thesis.whyNow} ${input.thesis.uncertaintyNotes}`.trim(),
-    confidence: Math.min(100, Math.max(0, input.thesis.confidence)),
-  };
-};
-
 const buildRunOutcome = (input: {
   runId: string;
   publisher: NormalizedPublisherOutput;
   thesis: ThesisDraft | null;
+  intelReport: IntelReport | null;
 }): NonNullable<SwarmState["run"]["outcome"]> => {
   if (input.publisher.outcome === "approved" && input.thesis !== null) {
     return {
@@ -216,10 +212,10 @@ const buildRunOutcome = (input: {
     };
   }
 
-  if (input.publisher.outcome === "intel_ready" && input.thesis !== null) {
+  if (input.publisher.outcome === "intel_ready" && input.intelReport !== null) {
     return {
       outcomeType: "intel",
-      summary: `${input.thesis.asset} produced a publishable intel summary.`,
+      summary: `${input.intelReport.title} is ready for publication.`,
       signalId: null,
       intelId: `intel-${input.runId}`,
     };
@@ -245,6 +241,7 @@ export const createDefaultOmenSwarmNodes = (): readonly RuntimeNodeDefinition<un
   createChartVisionAgent(),
   createAnalystAgent(),
   createCriticAgent(),
+  createIntelAgent(),
   createMemoryAgent(),
   createPublisherAgent(),
 ];
@@ -269,7 +266,7 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "scanner-agent") {
-    return state.activeCandidates.length > 0 ? "research-agent" : "memory-agent";
+    return state.activeCandidates.length > 0 ? "research-agent" : "intel-agent";
   }
 
   if (current === "research-agent") {
@@ -285,6 +282,12 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "critic-agent") {
+    const review = state.criticReviews.at(-1);
+
+    return review?.decision === "approved" ? "memory-agent" : "intel-agent";
+  }
+
+  if (current === "intel-agent") {
     return "memory-agent";
   }
 
@@ -402,12 +405,35 @@ export const buildOmenNodeInput = (input: {
 
   if (input.nodeKey === "memory-agent") {
     const review = input.state.criticReviews.at(-1) ?? null;
+    const intelReport = input.state.intelReports.at(-1) ?? null;
 
     return {
       context,
-      checkpointLabel: review?.decision ?? "no-conviction",
+      checkpointLabel: intelReport !== null ? "intel-ready" : review?.decision ?? "no-conviction",
       notes: input.state.notes.slice(-5),
       proofArtifacts: input.state.proofArtifacts,
+    };
+  }
+
+  if (input.nodeKey === "intel-agent") {
+    const thesis = input.state.thesisDrafts.at(-1) ?? null;
+    const review = input.state.criticReviews.at(-1) ?? null;
+
+    return {
+      context,
+      bias:
+        input.state.marketBiasReasoning === null
+          ? null
+          : {
+              marketBias: input.state.run.marketBias,
+              reasoning: input.state.marketBiasReasoning,
+              confidence: 60,
+            },
+      candidates: input.state.activeCandidates,
+      evidence: input.state.evidenceItems,
+      chartVisionSummary: input.state.chartVisionSummaries.at(-1) ?? null,
+      thesis,
+      review,
     };
   }
 
@@ -418,7 +444,7 @@ export const buildOmenNodeInput = (input: {
     context,
     thesis,
     review,
-    intelSummary: inferIntelSummary({ thesis, review }),
+    intelSummary: input.state.intelReports.at(-1) ?? null,
   };
 };
 
@@ -567,6 +593,26 @@ export const applyOmenNodeOutput = (input: {
     };
   }
 
+  if (input.nodeKey === "intel-agent") {
+    const output = createIntelAgent().outputSchema.parse(input.output);
+    const latestIntel = output.report === null ? null : normalizeIntelReport(output.report);
+    const stateDelta = {
+      intelReports:
+        latestIntel === null
+          ? input.state.intelReports
+          : [...input.state.intelReports, latestIntel],
+      notes: [
+        ...input.state.notes,
+        latestIntel === null ? "intel-skip:not_enough_value" : `intel-ready:${latestIntel.title}`,
+      ],
+    };
+
+    return {
+      state: mergeSwarmState(input.state, stateDelta),
+      stateDelta,
+    };
+  }
+
   if (input.nodeKey === "memory-agent") {
     const output = createMemoryAgent().outputSchema.parse(input.output);
     const appendedProofRefs = output.appendedProofRefs ?? [];
@@ -596,10 +642,12 @@ export const applyOmenNodeOutput = (input: {
   );
   const drafts = output.drafts;
   const thesis = input.state.thesisDrafts.at(-1) ?? null;
+  const intelReport = input.state.intelReports.at(-1) ?? null;
   const outcome = buildRunOutcome({
     runId: input.state.run.id,
     publisher: output,
     thesis,
+    intelReport,
   });
   const nextRun = {
     ...input.state.run,

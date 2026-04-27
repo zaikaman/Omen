@@ -3,6 +3,7 @@ import { z } from "zod";
 import { criticDecisionSchema } from "@omen/shared";
 
 import {
+  intelReportSchema,
   orchestrationContextSchema,
   criticReviewSchema,
   publicationPacketSchema,
@@ -14,13 +15,7 @@ export const publisherInputSchema = z.object({
   context: orchestrationContextSchema,
   thesis: thesisDraftSchema.nullable(),
   review: criticReviewSchema.nullable(),
-  intelSummary: z
-    .object({
-      title: z.string().min(1),
-      summary: z.string().min(1),
-      confidence: z.number().int().min(0).max(100),
-    })
-    .nullable(),
+  intelSummary: intelReportSchema.nullable(),
 });
 
 export const publisherOutputSchema = z.object({

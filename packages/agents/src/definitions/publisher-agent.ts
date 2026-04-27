@@ -89,6 +89,9 @@ const buildSignalAlertDraft = (
 
 const buildIntelSummaryDraft = (
   input: {
+    topic: string;
+    insight: string;
+    category: string;
     title: string;
     summary: string;
     confidence: number;
@@ -97,6 +100,7 @@ const buildIntelSummaryDraft = (
 ): PublisherDraft => {
   const title = toFeedSentence(input.title);
   const summary = toFeedSentence(input.summary);
+  const insight = toFeedSentence(input.insight);
   const hook = title.toLowerCase();
   const hashtagLine = buildHashtagLine(
     title.match(/\$?[A-Z0-9]{2,}/g)?.map((token) => token.replace(/^\$/, "")) ?? ["crypto"],
@@ -110,9 +114,11 @@ const buildIntelSummaryDraft = (
       hook,
       "",
       `- ${summary.toLowerCase()}`,
+      `- edge: ${insight.toLowerCase()}`,
+      `- lane: ${input.category.replace(/_/g, " ")}`,
       `- confidence: ${input.confidence}%`,
       "",
-      `watch: ${title.toLowerCase()} if follow-through sticks`,
+      `watch: ${input.topic.toLowerCase()} if follow-through sticks`,
       hashtagLine,
     ].join("\n"),
     metadata: {
@@ -124,6 +130,9 @@ const buildIntelSummaryDraft = (
 
 const buildIntelThreadDraft = (
   input: {
+    topic: string;
+    insight: string;
+    category: string;
     title: string;
     summary: string;
     confidence: number;
@@ -144,6 +153,8 @@ const buildIntelThreadDraft = (
       title.toLowerCase(),
       "",
       `- key takeaway: ${summary.toLowerCase()}`,
+      `- insight: ${toFeedSentence(input.insight).toLowerCase()}`,
+      `- category: ${input.category.replace(/_/g, " ")}`,
       `- confidence: ${input.confidence}%`,
       "- context: this deserves extra detail only if the desk wants a full thread",
       "",

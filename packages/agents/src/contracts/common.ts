@@ -6,6 +6,7 @@ import {
   candidateStateSchema,
   criticReviewSchema,
   evidenceItemSchema,
+  intelReportSchema,
   publisherDraftSchema,
   thesisDraftSchema,
 } from "../framework/state.js";
@@ -60,6 +61,7 @@ export {
   candidateStateSchema,
   criticReviewSchema,
   evidenceItemSchema,
+  intelReportSchema,
   publisherDraftSchema,
   thesisDraftSchema,
 };
