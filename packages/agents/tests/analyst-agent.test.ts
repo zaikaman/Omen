@@ -142,7 +142,7 @@ describe("analyst agent", () => {
             expectedDuration: "6-12 hours",
             currentPrice: 65000,
             entryPrice: 64850,
-            targetPrice: 68400,
+            targetPrice: 69600,
             stopLoss: 62500,
             riskReward: 2.8,
             whyNow: "BTC held trend support while spot momentum stayed constructive.",
@@ -196,8 +196,6 @@ describe("analyst agent", () => {
     expect(result.thesis.asset).toBe("BTC");
     expect(result.thesis.orderType).toBe("limit");
     expect(result.thesis.entryPrice).toBe(64850);
-    expect((result.analystNotes ?? []).some((note) => note.includes("test-reasoner"))).toBe(
-      true,
-    );
+    expect((result.analystNotes ?? []).some((note) => note.includes("test-reasoner"))).toBe(true);
   });
 });

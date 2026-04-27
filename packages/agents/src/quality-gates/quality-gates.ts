@@ -26,13 +26,47 @@ export const evaluateThesisAgainstThresholds = (input: {
     );
   }
 
-  if (
-    actionable &&
-    (input.thesis.riskReward ?? 0) < input.config.qualityThresholds.minRiskReward
-  ) {
+  if (actionable && (input.thesis.riskReward ?? 0) < input.config.qualityThresholds.minRiskReward) {
     blockingReasons.push(
       `Risk/reward ${(input.thesis.riskReward ?? 0).toFixed(2)} is below the minimum threshold ${input.config.qualityThresholds.minRiskReward.toFixed(2)}.`,
     );
+  }
+
+  if (actionable) {
+    if (
+      input.thesis.direction === "LONG" &&
+      input.thesis.currentPrice !== null &&
+      input.thesis.entryPrice !== null &&
+      input.thesis.entryPrice > input.thesis.currentPrice
+    ) {
+      blockingReasons.push(
+        "LONG entry is above current price, which would require a forbidden buy-stop order.",
+      );
+    }
+
+    if (
+      input.thesis.direction === "SHORT" &&
+      input.thesis.currentPrice !== null &&
+      input.thesis.entryPrice !== null &&
+      input.thesis.entryPrice < input.thesis.currentPrice
+    ) {
+      blockingReasons.push(
+        "SHORT entry is below current price, which would require a forbidden sell-stop order.",
+      );
+    }
+
+    if (input.thesis.entryPrice === null || input.thesis.stopLoss === null) {
+      blockingReasons.push("Actionable thesis is missing entry or stop-loss levels.");
+    } else {
+      const stopDistance =
+        input.thesis.direction === "LONG"
+          ? (input.thesis.entryPrice - input.thesis.stopLoss) / input.thesis.entryPrice
+          : (input.thesis.stopLoss - input.thesis.entryPrice) / input.thesis.entryPrice;
+
+      if (stopDistance < 0.03) {
+        blockingReasons.push("Stop-loss distance is below the required 3% minimum.");
+      }
+    }
   }
 
   if (input.thesis.confluences.length < input.config.qualityThresholds.minConfluences) {
@@ -46,15 +80,21 @@ export const evaluateThesisAgainstThresholds = (input: {
   }
 
   if (input.thesis.direction === "WATCHLIST") {
-    warnings.push("Thesis remained in watchlist mode and should not be promoted to a trade signal.");
+    warnings.push(
+      "Thesis remained in watchlist mode and should not be promoted to a trade signal.",
+    );
   }
 
   if (input.thesis.direction === "NONE") {
-    blockingReasons.push("Thesis direction resolved to NONE, so there is no actionable outcome to approve.");
+    blockingReasons.push(
+      "Thesis direction resolved to NONE, so there is no actionable outcome to approve.",
+    );
   }
 
   if (/no additional missing-data flags/i.test(input.thesis.missingDataNotes)) {
-    warnings.push("Missing-data notes are minimal; reviewer should confirm that data coverage is truly complete.");
+    warnings.push(
+      "Missing-data notes are minimal; reviewer should confirm that data coverage is truly complete.",
+    );
   }
 
   return {
