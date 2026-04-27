@@ -15,9 +15,11 @@ import {
 export type GetSignalsOptions = {
   cursor?: string | null;
   limit?: number;
+  page?: number;
   status?: string;
   direction?: string;
   query?: string;
+  sort?: string;
 };
 
 export const getLiveSignals = async (
@@ -33,6 +35,10 @@ export const getLiveSignals = async (
     searchParams.set('limit', options.limit.toString());
   }
 
+  if (typeof options.page === 'number') {
+    searchParams.set('page', options.page.toString());
+  }
+
   if (options.status) {
     searchParams.set('status', options.status);
   }
@@ -43,6 +49,10 @@ export const getLiveSignals = async (
 
   if (options.query) {
     searchParams.set('query', options.query);
+  }
+
+  if (options.sort) {
+    searchParams.set('sort', options.sort);
   }
 
   const suffix = searchParams.size > 0 ? `?${searchParams.toString()}` : '';

@@ -253,6 +253,77 @@ export class SignalsRepository extends BaseRepository<
     return ok(listed.value.map((row) => toSignal(row)));
   }
 
+  async listSignalHistory(options: {
+    direction?: Signal["direction"] | null;
+    limit?: number;
+    offset?: number;
+    query?: string | null;
+    sortBy?:
+      | "newest"
+      | "oldest"
+      | "confidence-high"
+      | "confidence-low"
+      | "pnl-high"
+      | "pnl-low";
+    status?: Signal["signalStatus"] | null;
+  } = {}): Promise<Result<{ items: Signal[]; total: number }, RepositoryError>> {
+    const limit = options.limit ?? 20;
+    const offset = options.offset ?? 0;
+    const sortBy = options.sortBy ?? "newest";
+    const sortMap = {
+      newest: { column: "published_at", ascending: false },
+      oldest: { column: "published_at", ascending: true },
+      "confidence-high": { column: "confidence", ascending: false },
+      "confidence-low": { column: "confidence", ascending: true },
+      "pnl-high": { column: "pnl_percent", ascending: false },
+      "pnl-low": { column: "pnl_percent", ascending: true },
+    } as const;
+    const sort = sortMap[sortBy];
+    const sanitizedQuery = options.query?.replace(/[%,()]/g, " ").trim();
+
+    let query = this.table().select("*", { count: "exact" });
+
+    if (options.status) {
+      query = query.eq("signal_status", options.status);
+    }
+
+    if (options.direction) {
+      query = query.eq("direction", options.direction);
+    }
+
+    if (sanitizedQuery) {
+      const pattern = `%${sanitizedQuery}%`;
+      query = query.or(
+        [
+          `asset.ilike.${pattern}`,
+          `direction.ilike.${pattern}`,
+          `why_now.ilike.${pattern}`,
+          `uncertainty_notes.ilike.${pattern}`,
+          `missing_data_notes.ilike.${pattern}`,
+        ].join(","),
+      );
+    }
+
+    const { data, error, count } = await query
+      .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
+      .range(offset, offset + limit - 1)
+      .returns<SignalRow[]>();
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok({
+      items: (data ?? []).map((row) => toSignal(row)),
+      total: count ?? 0,
+    });
+  }
+
   async listTrackableSignals(limit = 50): Promise<Result<Signal[], RepositoryError>> {
     const { data, error } = await this.table()
       .select("*")

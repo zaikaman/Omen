@@ -29,6 +29,8 @@ interface SearchAndSortProps {
   filters?: FilterConfig[];
   activeFilters?: Record<string, string>;
   onFilterChange?: (key: string, value: string) => void;
+  resultCount?: number;
+  isLoading?: boolean;
   className?: string;
 }
 
@@ -42,6 +44,8 @@ export function SearchAndSort({
   filters,
   activeFilters,
   onFilterChange,
+  resultCount,
+  isLoading = false,
   className = '',
 }: SearchAndSortProps) {
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -98,7 +102,13 @@ export function SearchAndSort({
         </AnimatePresence>
       </div>
 
-      <div className="flex gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
+        {typeof resultCount === 'number' && (
+          <span className="hidden md:inline text-xs text-gray-500 tabular-nums">
+            {isLoading ? 'Loading...' : `${resultCount} result${resultCount === 1 ? '' : 's'}`}
+          </span>
+        )}
+
         {/* Filters Dropdown */}
         {filters && filters.length > 0 && onFilterChange && (
           <div className="relative" ref={filtersRef}>

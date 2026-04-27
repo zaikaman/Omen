@@ -1,7 +1,11 @@
 import type { Request, Response } from "express";
 
 import { SignalsRepository, createSupabaseServiceRoleClient } from "@omen/db";
-import type { Signal } from "@omen/shared";
+import {
+  SIGNAL_DIRECTION_VALUES,
+  SIGNAL_STATUS_VALUES,
+  type Signal,
+} from "@omen/shared";
 
 import type { BackendEnv } from "../bootstrap/env";
 import {
@@ -16,6 +20,50 @@ const parseLimit = (value: unknown, fallback: number) => {
 
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : fallback;
+};
+
+const SIGNAL_SORT_VALUES = [
+  "newest",
+  "oldest",
+  "confidence-high",
+  "confidence-low",
+  "pnl-high",
+  "pnl-low",
+] as const;
+
+type SignalSort = (typeof SIGNAL_SORT_VALUES)[number];
+
+const parsePage = (value: unknown) => {
+  if (typeof value !== "string") {
+    return 1;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+};
+
+const parseSort = (value: unknown): SignalSort =>
+  typeof value === "string" &&
+  SIGNAL_SORT_VALUES.includes(value as SignalSort)
+    ? (value as SignalSort)
+    : "newest";
+
+const parseStatus = (value: unknown): Signal["signalStatus"] | null =>
+  typeof value === "string" &&
+  value !== "all" &&
+  SIGNAL_STATUS_VALUES.includes(value as NonNullable<Signal["signalStatus"]>)
+    ? (value as Signal["signalStatus"])
+    : null;
+
+const parseDirection = (value: unknown): Signal["direction"] | null => {
+  if (typeof value !== "string" || value === "all") {
+    return null;
+  }
+
+  const direction = value.toUpperCase();
+  return SIGNAL_DIRECTION_VALUES.includes(direction as Signal["direction"])
+    ? (direction as Signal["direction"])
+    : null;
 };
 
 const createRepository = (env: BackendEnv) => {
@@ -33,22 +81,11 @@ const createRepository = (env: BackendEnv) => {
   return new SignalsRepository(client);
 };
 
-const matchesQuery = (signal: Signal, query: string) =>
-  [
-    signal.asset,
-    signal.direction,
-    signal.whyNow,
-    signal.uncertaintyNotes,
-    signal.missingDataNotes,
-    ...signal.confluences,
-  ]
-    .join(" ")
-    .toLowerCase()
-    .includes(query);
-
 export const createSignalFeedController =
   (env: BackendEnv) => async (req: Request, res: Response) => {
     const repository = createRepository(env);
+    const limit = parseLimit(req.query.limit, 20);
+    const page = parsePage(req.query.page);
 
     if (!repository) {
       res.json({
@@ -58,40 +95,30 @@ export const createSignalFeedController =
       return;
     }
 
-    const listed = await repository.listRecentSignals(parseLimit(req.query.limit, 20));
+    const listed = await repository.listSignalHistory({
+      direction: parseDirection(req.query.direction),
+      limit,
+      offset: (page - 1) * limit,
+      query: typeof req.query.query === "string" ? req.query.query : null,
+      sortBy: parseSort(req.query.sort),
+      status: parseStatus(req.query.status),
+    });
 
     if (!listed.ok) {
       res.status(500).json({ success: false, error: listed.error.message });
       return;
     }
 
-    const query =
-      typeof req.query.query === "string"
-        ? req.query.query.trim().toLowerCase()
-        : "";
-    const status =
-      typeof req.query.status === "string" ? req.query.status.trim() : "";
-    const direction =
-      typeof req.query.direction === "string" ? req.query.direction.trim() : "";
-    const items = listed.value.filter((signal) => {
-      if (query && !matchesQuery(signal, query)) {
-        return false;
-      }
-
-      if (status && signal.signalStatus !== status) {
-        return false;
-      }
-
-      if (direction && signal.direction !== direction) {
-        return false;
-      }
-
-      return true;
-    });
+    const nextCursor =
+      page * limit < listed.value.total ? String(page + 1) : null;
 
     res.json({
       success: true,
-      data: presentSignalFeed({ items, total: items.length, nextCursor: null }),
+      data: presentSignalFeed({
+        items: listed.value.items,
+        total: listed.value.total,
+        nextCursor,
+      }),
     });
   };
 

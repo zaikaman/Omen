@@ -46,13 +46,15 @@ export const useSignals = (options: UseSignalsOptions = {}): UseSignalsResult =>
     direction,
     enabled = true,
     limit,
+    page,
     query,
     refreshIntervalMs,
+    sort,
     status,
   } = options;
   const requestOptions = useMemo<GetSignalsOptions>(
-    () => ({ cursor, direction, limit, query, status }),
-    [cursor, direction, limit, query, status],
+    () => ({ cursor, direction, limit, page, query, sort, status }),
+    [cursor, direction, limit, page, query, sort, status],
   );
   const [response, setResponse] = useState<SignalFeedResponse | null>(null);
   const hasDataRef = useRef(false);

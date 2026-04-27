@@ -15,10 +15,22 @@ export const presentSignalListItem = (signal: Signal): SignalListItem =>
     asset: signal.asset,
     direction: signal.direction,
     confidence: signal.confidence,
+    currentPrice: signal.currentPrice,
+    entryPrice: signal.entryPrice,
+    targetPrice: signal.targetPrice,
+    stopLoss: signal.stopLoss,
+    signalStatus: signal.signalStatus,
+    pnlPercent: signal.pnlPercent,
     riskReward: signal.riskReward,
+    entryZone: signal.entryZone,
+    invalidation: signal.invalidation,
+    targets: signal.targets,
+    whyNow: signal.whyNow,
     criticDecision: signal.criticDecision,
     reportStatus: signal.reportStatus,
     publishedAt: signal.publishedAt,
+    createdAt: signal.createdAt,
+    updatedAt: signal.updatedAt,
   });
 
 export type SignalFeedPresenterInput = {

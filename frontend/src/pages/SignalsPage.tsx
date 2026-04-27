@@ -4,6 +4,8 @@ import { SearchAndSort } from '../components/ui/SearchAndSort';
 import type { SortOption, FilterConfig } from '../components/ui/SearchAndSort';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { GpsSignal01Icon, Loading03Icon, ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import type { SignalListItem } from '@omen/shared';
+import { useSignals } from '../hooks/useSignals';
 import type { SignalCardItem } from '../types/ui-models';
 
 const ITEMS_PER_PAGE = 10;
@@ -40,73 +42,32 @@ const FILTER_CONFIG: FilterConfig[] = [
     },
 ];
 
-const mockLatestSignal: SignalCardItem = {
-    id: 'latest',
-    created_at: new Date().toISOString(),
-    content: {
-        token: { symbol: 'OMEN', name: 'Omen Protocol' },
-        confidence: 88,
-        analysis: 'Strong momentum detected. Technical structure favors upside.',
-        entry_price: 1.25,
-        target_price: 1.50,
-        stop_loss: 1.15,
-        status: 'active',
-        pnl_percent: 5.2,
-        current_price: 1.28,
-        direction: 'LONG'
-    }
-};
+const REFRESH_INTERVAL_MS = 30_000;
 
-const mockHistorySignals: SignalCardItem[] = [
-    {
-        id: 'history-1',
-        created_at: new Date(Date.now() - 86400000).toISOString(),
+const toSignalCardItem = (signal: SignalListItem): SignalCardItem => {
+    const primaryTarget = signal.targetPrice ?? signal.targets[0]?.price;
+
+    return {
+        id: signal.id,
+        created_at: signal.publishedAt ?? signal.updatedAt ?? signal.createdAt,
         content: {
-            token: { symbol: 'ETH', name: 'Ethereum' },
-            confidence: 95,
-            analysis: 'ETH breaking resistance at $3,500. Expected to test $4k soon.',
-            entry_price: 3500,
-            target_price: 4000,
-            stop_loss: 3300,
-            status: 'tp_hit',
-            pnl_percent: 14.2,
-            current_price: 4020,
-            direction: 'LONG'
-        }
-    },
-    {
-        id: 'history-2',
-        created_at: new Date(Date.now() - 172800000).toISOString(),
-        content: {
-            token: { symbol: 'SOL', name: 'Solana' },
-            confidence: 72,
-            analysis: 'Solana showing weakness. MACD crossover indicated.',
-            entry_price: 150,
-            target_price: 120,
-            stop_loss: 165,
-            status: 'sl_hit',
-            pnl_percent: -10,
-            current_price: 165,
-            direction: 'SHORT'
-        }
-    },
-    {
-        id: 'history-3',
-        created_at: new Date(Date.now() - 259200000).toISOString(),
-        content: {
-            token: { symbol: 'BTC', name: 'Bitcoin' },
-            confidence: 80,
-            analysis: 'Bitcoin consolidating. Potential breakout above $68k.',
-            entry_price: 66000,
-            target_price: 70000,
-            stop_loss: 64000,
-            status: 'active',
-            pnl_percent: 1.5,
-            current_price: 67000,
-            direction: 'LONG'
-        }
-    }
-];
+            token: {
+                symbol: signal.asset,
+                name: signal.asset,
+            },
+            confidence: signal.confidence,
+            analysis: signal.whyNow,
+            entry_price: signal.entryPrice ?? signal.entryZone?.low,
+            target_price: primaryTarget,
+            stop_loss: signal.stopLoss ?? signal.invalidation?.low,
+            status: signal.signalStatus ?? 'pending',
+            pnl_percent: signal.pnlPercent ?? undefined,
+            current_price: signal.currentPrice ?? undefined,
+            direction: signal.direction,
+            asset: signal.asset,
+        },
+    };
+};
 
 export function SignalsPage() {
     const [page, setPage] = useState(1);
@@ -117,9 +78,6 @@ export function SignalsPage() {
         direction: 'all',
     });
 
-    const isStatusLoading = false;
-    const isHistoryLoading = false;
-
     useEffect(() => {
         setPage(1);
     }, [searchQuery, sortBy, filters]);
@@ -128,66 +86,32 @@ export function SignalsPage() {
         setFilters((prev) => ({ ...prev, [key]: value }));
     };
 
-    const latestSignal = mockLatestSignal;
-    const historySignals = mockHistorySignals;
+    const latestQuery = useSignals({
+        limit: 1,
+        sort: 'newest',
+        refreshIntervalMs: REFRESH_INTERVAL_MS,
+    });
+    const historyQuery = useSignals({
+        direction: filters.direction,
+        limit: ITEMS_PER_PAGE,
+        page,
+        query: searchQuery.trim(),
+        sort: sortBy,
+        status: filters.status,
+        refreshIntervalMs: REFRESH_INTERVAL_MS,
+    });
 
-    const { displaySignals, totalPages } = useMemo(() => {
-        let list: SignalCardItem[] = [...historySignals];
-
-        // Search filter
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
-            list = list.filter((s) => {
-                const symbol = s.content?.token?.symbol?.toLowerCase() || '';
-                const name = s.content?.token?.name?.toLowerCase() || '';
-                const analysis = s.content?.analysis?.toLowerCase() || '';
-                return symbol.includes(query) || name.includes(query) || analysis.includes(query);
-            });
-        }
-
-        // Status filter
-        if (filters.status !== 'all') {
-            list = list.filter((s) => s.content?.status === filters.status);
-        }
-
-        // Direction filter
-        if (filters.direction !== 'all') {
-            list = list.filter((s) => {
-                const entryPrice = s.content?.entry_price || 0;
-                const targetPrice = s.content?.target_price || 0;
-                const direction = s.content?.direction || (targetPrice > entryPrice ? 'LONG' : 'SHORT');
-                return direction.toLowerCase() === filters.direction;
-            });
-        }
-
-        // Sort
-        list = [...list].sort((a, b) => {
-            switch (sortBy) {
-                case 'oldest':
-                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-                case 'confidence-high':
-                    return (b.content?.confidence || 0) - (a.content?.confidence || 0);
-                case 'confidence-low':
-                    return (a.content?.confidence || 0) - (b.content?.confidence || 0);
-                case 'pnl-high':
-                    return (b.content?.pnl_percent || 0) - (a.content?.pnl_percent || 0);
-                case 'pnl-low':
-                    return (a.content?.pnl_percent || 0) - (b.content?.pnl_percent || 0);
-                case 'newest':
-                default:
-                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-            }
-        });
-
-        const totalPagesCount = Math.ceil(list.length / ITEMS_PER_PAGE) || 1;
-        const startIndex = (page - 1) * ITEMS_PER_PAGE;
-        const paginatedList = list.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-        return {
-            displaySignals: paginatedList,
-            totalPages: totalPagesCount,
-        };
-    }, [historySignals, searchQuery, sortBy, filters, page]);
+    const latestSignal = latestQuery.signals[0]
+        ? toSignalCardItem(latestQuery.signals[0])
+        : null;
+    const displaySignals = useMemo(
+        () => historyQuery.signals.map(toSignalCardItem),
+        [historyQuery.signals],
+    );
+    const totalPages = Math.max(1, Math.ceil(historyQuery.total / ITEMS_PER_PAGE));
+    const isStatusLoading = latestQuery.isLoading;
+    const isHistoryLoading = historyQuery.isLoading;
+    const isHistoryRefreshing = historyQuery.isRefreshing;
 
     const handlePrevPage = () => {
         if (page > 1) setPage((p) => p - 1);
@@ -207,7 +131,16 @@ export function SignalsPage() {
                     </h2>
                     <p className="text-gray-400 mt-1">Real-time alpha signals generated by the swarm.</p>
                 </div>
+                {(latestQuery.isRefreshing || isHistoryRefreshing) && (
+                    <span className="text-xs text-gray-500">Syncing live data...</span>
+                )}
             </div>
+
+            {(latestQuery.error || historyQuery.error) && (
+                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+                    Live signal history is unavailable. Seeded fallback data may be shown.
+                </div>
+            )}
 
             {/* Latest Signal - Always Visible */}
             <div className="space-y-4">
@@ -235,6 +168,8 @@ export function SignalsPage() {
                         filters={FILTER_CONFIG}
                         activeFilters={filters}
                         onFilterChange={handleFilterChange}
+                        resultCount={historyQuery.total}
+                        isLoading={isHistoryLoading || isHistoryRefreshing}
                     />
                 </div>
 
