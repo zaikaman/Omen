@@ -114,8 +114,8 @@
 
 ### Validation for User Story 2
 
-- [ ] T046 [P] [US2] Add contract tests for dashboard summary, intel, signals, analytics, and logs endpoints in `tests/integration/contracts/dashboard-mvp-api.contract.test.ts`
-- [ ] T047 [P] [US2] Add integration test for run-to-read-model projection into dashboard, intel, signal, and analytics responses in `tests/integration/runtime/dashboard-read-models.test.ts`
+- [x] T046 [P] [US2] Add contract tests for dashboard summary, intel, signals, analytics, and logs endpoints in `tests/integration/contracts/dashboard-mvp-api.contract.test.ts`
+- [x] T047 [P] [US2] Add integration test for run-to-read-model projection into dashboard, intel, signal, and analytics responses in `tests/integration/runtime/dashboard-read-models.test.ts`
 - [ ] T048 [P] [US2] Add Playwright smoke coverage for dashboard home, intel feed/detail, signals page, analytics tabs, and sponsor proof panels in `tests/e2e/dashboard-mvp-smoke.spec.ts`
 
 ### Implementation for User Story 2
