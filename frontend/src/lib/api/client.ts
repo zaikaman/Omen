@@ -73,5 +73,14 @@ export const apiRequest = async <TOutput>(
   }
 
   const payload = (await response.json()) as unknown;
-  return schema.parse(payload);
+  const maybeWrapped = payload as { success?: unknown; data?: unknown };
+
+  return schema.parse(
+    maybeWrapped &&
+      typeof maybeWrapped === 'object' &&
+      maybeWrapped.success === true &&
+      'data' in maybeWrapped
+      ? maybeWrapped.data
+      : payload,
+  );
 };

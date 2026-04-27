@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import type { ChartSignal } from '../../types/ui-models';
 
 interface Props {
-  signals: any[];
+  signals: ChartSignal[];
 }
 
 const COLORS = ['#06b6d4', '#0891b2', '#0e7490', '#155e75', '#164e63'];
@@ -20,7 +21,7 @@ export function TokenFrequencyChart({ signals }: Props) {
     }
 
     const counts: Record<string, number> = {};
-    signals.forEach(s => {
+    signals.forEach((s) => {
       const asset = s.content.trade_setup?.asset || s.content.asset;
       if (asset) {
         counts[asset] = (counts[asset] || 0) + 1;

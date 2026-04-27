@@ -6,11 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Calendar01Icon } from '@hugeicons/core-free-icons';
+import type { SignalCardItem } from '../types/ui-models';
 
 const AGENT_AVATAR = '/logo.png';
 
 interface SignalCardProps {
-  signal: any;
+  signal: SignalCardItem | null | undefined;
   isLoading?: boolean;
   isLatest?: boolean;
 }

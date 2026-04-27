@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import type { MindsharePoint } from '../types/ui-models';
 
 interface MindshareChartProps {
-  data: any[];
+  data: MindsharePoint[];
 }
 
 export function MindshareChart({ data }: MindshareChartProps) {

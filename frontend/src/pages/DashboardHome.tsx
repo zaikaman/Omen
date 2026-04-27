@@ -4,8 +4,10 @@ import { Home01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { SignalCard } from '../components/SignalCard';
 import { IntelCard } from '../components/IntelCard';
 import { TerminalLog } from '../components/TerminalLog';
+import type { IntelCardItem, LogEntry, SignalCardItem } from '../types/ui-models';
 
-const mockSignal = {
+const mockSignal: SignalCardItem = {
+    id: 'mock-signal-1',
     created_at: new Date().toISOString(),
     content: {
         token: { symbol: 'OMEN', name: 'Omen Protocol' },
@@ -21,7 +23,7 @@ const mockSignal = {
     }
 };
 
-const mockIntel = {
+const mockIntel: IntelCardItem = {
     id: 'mock-1',
     type: 'deep_dive',
     created_at: new Date().toISOString(),
@@ -31,7 +33,7 @@ const mockIntel = {
     }
 };
 
-const mockLogs: any[] = [
+const mockLogs: LogEntry[] = [
     { id: '1', type: 'intel', created_at: new Date().toISOString(), content: { log_message: 'Initializing OMEN OS...' } },
     { id: '2', type: 'signal', created_at: new Date().toISOString(), content: { log_message: 'Systems nominal.' } },
     { id: '3', type: 'skip', created_at: new Date().toISOString(), content: { log_message: 'Scan completed. Awaiting parameters.' } }

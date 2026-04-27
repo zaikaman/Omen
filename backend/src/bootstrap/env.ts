@@ -61,6 +61,13 @@ export type BackendEnv = {
     birdeyeApiKeys: string[];
     cmcApiKeys: string[];
   };
+  r2: {
+    accountId: string | null;
+    accessKeyId: string | null;
+    secretAccessKey: string | null;
+    bucketName: string;
+    publicUrl: string | null;
+  };
   twitterApi: {
     baseUrl: string;
     apiKey: string | null;
@@ -232,6 +239,13 @@ export const createBackendEnv = (
       coinGeckoApiKeys: parseApiKeyArray(env, "COINGECKO"),
       birdeyeApiKeys: parseApiKeyArray(env, "BIRDEYE"),
       cmcApiKeys: parseApiKeyArray(env, "CMC"),
+    },
+    r2: {
+      accountId: env.R2_ACCOUNT_ID ?? null,
+      accessKeyId: env.R2_ACCESS_KEY_ID ?? null,
+      secretAccessKey: env.R2_SECRET_ACCESS_KEY ?? null,
+      bucketName: env.R2_BUCKET_NAME ?? "omen",
+      publicUrl: env.R2_PUBLIC_URL ?? null,
     },
     twitterApi: {
       baseUrl: env.TWITTERAPI_BASE_URL ?? "https://api.twitterapi.io",

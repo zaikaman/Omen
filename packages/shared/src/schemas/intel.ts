@@ -32,6 +32,8 @@ export const intelSchema = z.object({
   status: intelStatusSchema,
   symbols: z.array(z.string().min(1)).default([]),
   confidence: z.number().min(0).max(100),
+  imagePrompt: z.string().min(1).nullable().default(null),
+  imageUrl: z.string().url().nullable().default(null),
   sources: z.array(intelSourceSchema).default([]),
   proofRefIds: z.array(z.string().min(1)).default([]),
   publishedAt: z.string().datetime().nullable(),
@@ -49,6 +51,7 @@ export const intelListItemSchema = intelSchema.pick({
   status: true,
   symbols: true,
   confidence: true,
+  imageUrl: true,
   publishedAt: true,
   createdAt: true,
 });

@@ -138,9 +138,11 @@ const normalizeIntelReport = (report: {
   summary: string;
   confidence: number;
   symbols?: string[];
+  imagePrompt?: string | null;
 }) => ({
   ...report,
   symbols: report.symbols ?? [],
+  imagePrompt: report.imagePrompt ?? null,
 });
 
 const normalizeDraft = (draft: {

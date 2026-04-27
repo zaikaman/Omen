@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import type { ChartSignal } from '../../types/ui-models';
 
 interface Props {
-  signals: any[];
+  signals: ChartSignal[];
 }
 
 export function SignalConfidenceChart({ signals }: Props) {
@@ -25,9 +26,9 @@ export function SignalConfidenceChart({ signals }: Props) {
       { name: '<60%', min: 0, max: 0.599, count: 0, color: '#ef4444' },
     ];
 
-    signals.forEach(s => {
-      const conf = s.content.confidence_score || 0;
-      const group = groups.find(g => conf >= g.min && conf <= g.max);
+    signals.forEach((s) => {
+      const conf = s.content.confidence_score ?? 0;
+      const group = groups.find((g) => conf >= g.min && conf <= g.max);
       if (group) group.count++;
     });
 

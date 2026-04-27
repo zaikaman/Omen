@@ -2,12 +2,31 @@ import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { IntelBlog } from '../components/IntelBlog';
 import { IntelCard } from '../components/IntelCard';
-import { SearchAndSort, SortOption, FilterConfig } from '../components/ui/SearchAndSort';
+import { SearchAndSort } from '../components/ui/SearchAndSort';
+import type { SortOption, FilterConfig } from '../components/ui/SearchAndSort';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { News01Icon, ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '../components/ui/button';
+import { getIntelDetail, getIntelFeed } from '../lib/api/intel';
+import type { Intel, IntelListItem } from '@omen/shared';
 
 const ITEMS_PER_PAGE = 9;
+
+type CardIntel = {
+    id: string;
+    type: 'deep_dive' | 'alpha_report';
+    created_at: string;
+    content: {
+        topic: string;
+        headline: string;
+        tweet_text: string;
+        long_form_content: string;
+        blog_post?: string;
+        formatted_thread?: string;
+        image_url?: string | null;
+        tldr?: string;
+    };
+};
 
 const SORT_OPTIONS: SortOption[] = [
     { value: 'newest', label: 'Newest First' },
@@ -26,7 +45,7 @@ const FILTER_CONFIG: FilterConfig[] = [
     },
 ];
 
-const mockIntelItems = [
+const mockIntelItems: CardIntel[] = [
     {
         id: 'mock-1',
         type: 'deep_dive',
@@ -62,6 +81,20 @@ const mockIntelItems = [
     }
 ];
 
+const toCardIntel = (intel: Intel | IntelListItem): CardIntel => ({
+    id: intel.id,
+    type: intel.category === 'opportunity' ? 'deep_dive' : 'alpha_report',
+    created_at: intel.publishedAt ?? intel.createdAt,
+    content: {
+        topic: intel.title,
+        headline: intel.title,
+        tweet_text: intel.summary,
+        long_form_content: 'body' in intel ? intel.body : intel.summary,
+        image_url: intel.imageUrl,
+        tldr: intel.summary,
+    },
+});
+
 export function IntelPage() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -71,27 +104,85 @@ export function IntelPage() {
     const [filters, setFilters] = useState<Record<string, string>>({
         type: 'all',
     });
+    const [intelItems, setIntelItems] = useState<CardIntel[]>(() => mockIntelItems);
+    const [selectedIntel, setSelectedIntel] = useState<CardIntel | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         setPage(1);
     }, [searchQuery, sortBy, filters]);
 
+    useEffect(() => {
+        let cancelled = false;
+        setIsLoading(true);
+        getIntelFeed({ limit: 50, query: searchQuery || undefined })
+            .then((feed) => {
+                if (!cancelled) {
+                    setIntelItems(feed.items.map(toCardIntel));
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setIntelItems(mockIntelItems);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [searchQuery]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!id) {
+            setSelectedIntel(null);
+            return;
+        }
+
+        const cached = intelItems.find((item) => item.id === id);
+
+        if (cached) {
+            setSelectedIntel(cached);
+        }
+
+        getIntelDetail(id)
+            .then((detail) => {
+                if (!cancelled) {
+                    setSelectedIntel(toCardIntel(detail.item));
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setSelectedIntel(cached ?? mockIntelItems.find(item => item.id === id) ?? null);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [id, intelItems]);
+
     const handleFilterChange = (key: string, value: string) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
     };
 
-    const intelItems = mockIntelItems;
     const latestIntel = page === 1 && intelItems.length > 0 ? intelItems[0] : null;
 
     const hasActiveFilters = searchQuery.trim() !== '' || sortBy !== 'newest' || filters.type !== 'all';
 
     const { displayItems, totalPages } = useMemo(() => {
         const latestId = latestIntel?.id;
-        let list = intelItems.filter((it: any) => it.id !== latestId);
+        let list = intelItems.filter((it) => it.id !== latestId);
 
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
-            list = list.filter((item: any) => {
+            list = list.filter((item) => {
                 const topic = item.content?.topic?.toLowerCase() || '';
                 const headline = item.content?.headline?.toLowerCase() || '';
                 const tweet = item.content?.tweet_text?.toLowerCase() || '';
@@ -102,7 +193,7 @@ export function IntelPage() {
         }
 
         if (filters.type !== 'all') {
-            list = list.filter((item: any) => {
+            list = list.filter((item) => {
                 if (filters.type === 'deep_dive') return item.type === 'deep_dive';
                 if (filters.type === 'alpha_report') return item.type !== 'deep_dive';
                 return true;
@@ -110,11 +201,11 @@ export function IntelPage() {
         }
 
         if (sortBy === 'oldest') {
-            list = [...list].sort((a: any, b: any) =>
+            list = [...list].sort((a, b) =>
                 new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
             );
         } else {
-            list = [...list].sort((a: any, b: any) =>
+            list = [...list].sort((a, b) =>
                 new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             );
         }
@@ -129,8 +220,6 @@ export function IntelPage() {
         };
     }, [intelItems, latestIntel, searchQuery, sortBy, filters, page]);
 
-    const selectedIntel = id ? mockIntelItems.find(item => item.id === id) : null;
-
     const handlePrevPage = () => {
         if (page > 1) setPage(p => p - 1);
     };
@@ -140,7 +229,7 @@ export function IntelPage() {
     };
 
     if (selectedIntel) {
-        const content = selectedIntel.content as any;
+        const content = selectedIntel.content;
         const articleContent = content.long_form_content || content.blog_post || content.formatted_thread || content.tweet_text || '';
         const headline = content.headline || content.topic;
 
@@ -159,7 +248,7 @@ export function IntelPage() {
                     title={headline}
                     content={articleContent}
                     date={new Date(selectedIntel.created_at).toLocaleDateString()}
-                    imageUrl={content.image_url}
+                    imageUrl={content.image_url ?? undefined}
                     tldr={content.tldr}
                 />
             </div>
@@ -176,6 +265,7 @@ export function IntelPage() {
                     </h2>
                     <p className="text-gray-400 mt-1">Deep dive analysis and raw intelligence streams.</p>
                 </div>
+                {isLoading && <span className="text-xs text-gray-500">Syncing intel...</span>}
             </div>
 
             {/* Latest Intel - Always Visible when not filtering */}
@@ -207,7 +297,7 @@ export function IntelPage() {
                 {displayItems.length > 0 ? (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {displayItems.map((intel: any) => (
+                            {displayItems.map((intel) => (
                                 <IntelCard
                                     key={intel.id}
                                     intel={intel}

@@ -100,6 +100,8 @@ CREATE TABLE public.intels (
   published_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  image_prompt text,
+  image_url text,
   CONSTRAINT intels_pkey PRIMARY KEY (id),
   CONSTRAINT intels_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.runs(id)
 );

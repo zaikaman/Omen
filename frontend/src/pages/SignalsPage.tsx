@@ -1,8 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { SignalCard } from '../components/SignalCard';
-import { SearchAndSort, SortOption, FilterConfig } from '../components/ui/SearchAndSort';
+import { SearchAndSort } from '../components/ui/SearchAndSort';
+import type { SortOption, FilterConfig } from '../components/ui/SearchAndSort';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { GpsSignal01Icon, Loading03Icon, ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import type { SignalCardItem } from '../types/ui-models';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -38,7 +40,7 @@ const FILTER_CONFIG: FilterConfig[] = [
     },
 ];
 
-const mockLatestSignal = {
+const mockLatestSignal: SignalCardItem = {
     id: 'latest',
     created_at: new Date().toISOString(),
     content: {
@@ -55,7 +57,7 @@ const mockLatestSignal = {
     }
 };
 
-const mockHistorySignals = [
+const mockHistorySignals: SignalCardItem[] = [
     {
         id: 'history-1',
         created_at: new Date(Date.now() - 86400000).toISOString(),
@@ -130,12 +132,12 @@ export function SignalsPage() {
     const historySignals = mockHistorySignals;
 
     const { displaySignals, totalPages } = useMemo(() => {
-        let list = [...historySignals];
+        let list: SignalCardItem[] = [...historySignals];
 
         // Search filter
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
-            list = list.filter((s: any) => {
+            list = list.filter((s) => {
                 const symbol = s.content?.token?.symbol?.toLowerCase() || '';
                 const name = s.content?.token?.name?.toLowerCase() || '';
                 const analysis = s.content?.analysis?.toLowerCase() || '';
@@ -145,12 +147,12 @@ export function SignalsPage() {
 
         // Status filter
         if (filters.status !== 'all') {
-            list = list.filter((s: any) => s.content?.status === filters.status);
+            list = list.filter((s) => s.content?.status === filters.status);
         }
 
         // Direction filter
         if (filters.direction !== 'all') {
-            list = list.filter((s: any) => {
+            list = list.filter((s) => {
                 const entryPrice = s.content?.entry_price || 0;
                 const targetPrice = s.content?.target_price || 0;
                 const direction = s.content?.direction || (targetPrice > entryPrice ? 'LONG' : 'SHORT');
@@ -159,7 +161,7 @@ export function SignalsPage() {
         }
 
         // Sort
-        list = [...list].sort((a: any, b: any) => {
+        list = [...list].sort((a, b) => {
             switch (sortBy) {
                 case 'oldest':
                     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -239,7 +241,7 @@ export function SignalsPage() {
                 {displaySignals.length > 0 ? (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {displaySignals.map((signal: any) => (
+                            {displaySignals.map((signal) => (
                                 <SignalCard key={signal.id} signal={signal} />
                             ))}
                         </div>

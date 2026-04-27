@@ -24,6 +24,8 @@ type IntelRow = {
   status: Intel["status"];
   symbols: string[];
   confidence: number;
+  image_prompt: string | null;
+  image_url: string | null;
   sources: Intel["sources"];
   proof_ref_ids: string[];
   published_at: string | null;
@@ -42,6 +44,8 @@ type IntelInsert = {
   status: Intel["status"];
   symbols?: string[];
   confidence: number;
+  image_prompt?: string | null;
+  image_url?: string | null;
   sources?: Intel["sources"];
   proof_ref_ids?: string[];
   published_at?: string | null;
@@ -63,6 +67,8 @@ const toIntel = (row: IntelRow): Intel =>
     status: row.status,
     symbols: row.symbols,
     confidence: row.confidence,
+    imagePrompt: row.image_prompt,
+    imageUrl: row.image_url,
     sources: row.sources,
     proofRefIds: row.proof_ref_ids,
     publishedAt: normalizeDatabaseTimestamp(row.published_at),
@@ -81,6 +87,8 @@ const toInsertRow = (intel: Intel): IntelInsert => ({
   status: intel.status,
   symbols: intel.symbols,
   confidence: intel.confidence,
+  image_prompt: intel.imagePrompt,
+  image_url: intel.imageUrl,
   sources: intel.sources,
   proof_ref_ids: intel.proofRefIds,
   published_at: intel.publishedAt,
@@ -98,6 +106,8 @@ const toUpdateRow = (patch: Partial<Intel>): IntelUpdate => ({
   status: patch.status,
   symbols: patch.symbols,
   confidence: patch.confidence,
+  image_prompt: patch.imagePrompt,
+  image_url: patch.imageUrl,
   sources: patch.sources,
   proof_ref_ids: patch.proofRefIds,
   published_at: patch.publishedAt,
@@ -145,6 +155,16 @@ export class IntelsRepository extends BaseRepository<IntelRow, IntelInsert, Inte
     }
 
     return ok(listed.value.map((row) => toIntel(row)));
+  }
+
+  async findIntelById(intelId: string): Promise<Result<Intel | null, RepositoryError>> {
+    const found = await this.findById(intelId);
+
+    if (!found.ok) {
+      return found;
+    }
+
+    return ok(found.value ? toIntel(found.value) : null);
   }
 
   async listByRunId(

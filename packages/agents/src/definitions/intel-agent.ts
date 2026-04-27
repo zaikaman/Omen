@@ -89,10 +89,14 @@ const isDuplicateIntelReport = (input: {
 };
 
 const toIntelReport = (
-  report: Omit<IntelReport, "symbols"> & { symbols?: string[] },
+  report: Omit<IntelReport, "symbols" | "imagePrompt"> & {
+    symbols?: string[];
+    imagePrompt?: string | null;
+  },
 ): IntelReport => ({
   ...report,
   symbols: report.symbols ?? [],
+  imagePrompt: report.imagePrompt ?? null,
 });
 
 const deriveFallbackIntelReport = (input: z.input<typeof intelInputSchema>): IntelReport | null => {
@@ -132,6 +136,12 @@ const deriveFallbackIntelReport = (input: z.input<typeof intelInputSchema>): Int
     summary,
     confidence: Math.min(95, Math.max(60, (parsed.thesis?.confidence ?? 65) - 5)),
     symbols,
+    imagePrompt: [
+      "Premium editorial crypto market intelligence cover art",
+      `focused on ${leadSymbol.toUpperCase()}`,
+      "cinematic cyberpunk trading desk, data streams, institutional research terminal",
+      "sharp composition, high contrast, no text, no logos, 16:9",
+    ].join(", "),
   };
 };
 

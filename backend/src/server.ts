@@ -10,7 +10,7 @@ import { createApiRouter } from "./api/routes";
 import type { SchedulerStatus } from "@omen/shared";
 
 export const createServer = (input: {
-  env: Pick<BackendEnv, "frontendOrigin" | "nodeEnv" | "runtimeMode">;
+  env: BackendEnv;
   logger: Logger;
   getSchedulerStatus?: () => SchedulerStatus;
 }) => {
@@ -37,6 +37,7 @@ export const createServer = (input: {
   app.use(
     "/api",
     createApiRouter({
+      env: input.env,
       runtimeMode: input.env.runtimeMode,
       getSchedulerStatus: input.getSchedulerStatus,
     }),

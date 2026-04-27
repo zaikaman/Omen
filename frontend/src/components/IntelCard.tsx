@@ -3,11 +3,12 @@ import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Calendar01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import type { IntelCardItem } from '../types/ui-models';
 
 const AGENT_AVATAR = '/logo.png';
 
 interface IntelCardProps {
-  intel: any;
+  intel: IntelCardItem;
   onClick?: () => void;
 }
 

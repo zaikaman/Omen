@@ -12,6 +12,7 @@ import {
   AgentEventsRepository,
   AgentNodesRepository,
   AxlMessagesRepository,
+  IntelsRepository,
   RunsRepository,
   ZeroGRefsRepository,
   createSupabaseServiceRoleClient,
@@ -30,10 +31,12 @@ import type {
   AgentRole,
   AxlEnvelope,
   EventStatus,
+  Intel,
   ProofArtifact,
 } from "@omen/shared";
 
 import type { BackendEnv } from "../bootstrap/env";
+import { createLogger, type Logger } from "../bootstrap/logger";
 import { AxlNodeManager } from "../nodes/axl-node-manager";
 import { AxlPeerRegistry } from "../nodes/axl-peer-registry";
 import { EventPublisher } from "../publishers/event-publisher";
@@ -43,6 +46,7 @@ import { RunManifestPublisher } from "../publishers/run-manifest-publisher";
 import { ZeroGPublisher } from "../publishers/zero-g-publisher";
 import { AxlMessageRecorder } from "../publishers/axl-message-recorder";
 import { ZeroGRefRecorder } from "../publishers/zero-g-ref-recorder";
+import { hasIntelImageConfig, IntelImageService } from "../services/intel-image-service";
 import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler";
 
 const DEFAULT_MARKET_UNIVERSE = TRADEABLE_SYMBOLS;
@@ -119,6 +123,26 @@ const toPersistableLinkedRecordIds = () => ({
   signalId: null as string | null,
   intelId: null as string | null,
 });
+
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+const buildIntelImagePrompt = (report: SwarmState["intelReports"][number]) =>
+  report.imagePrompt ??
+  [
+    "Premium editorial crypto market intelligence cover art",
+    `headline theme: ${report.title}`,
+    report.symbols.length > 0
+      ? `assets: ${report.symbols.join(", ")}`
+      : "broad crypto market",
+    `category: ${report.category.replace(/_/g, " ")}`,
+    "cinematic research terminal, market data streams, institutional analyst desk",
+    "sharp focus, high contrast, no text, no logos, 16:9",
+  ].join(", ");
 
 const buildZeroGAdapterConfig = (
   env: BackendEnv,
@@ -440,6 +464,8 @@ class LivePipelineExecutionContext {
 
   private readonly runsRepository: RunsRepository | null;
 
+  private readonly intelsRepository: IntelsRepository | null;
+
   private readonly agentEventsRepository: AgentEventsRepository | null;
 
   private readonly eventPublisher: EventPublisher | null;
@@ -472,6 +498,10 @@ class LivePipelineExecutionContext {
 
   private readonly artifacts: ProofArtifact[] = [];
 
+  private readonly logger: Logger;
+
+  private readonly intelImageService: IntelImageService | null;
+
   constructor(
     private readonly input: {
       env: BackendEnv;
@@ -480,16 +510,19 @@ class LivePipelineExecutionContext {
     },
   ) {
     this.environment = toRuntimeEnvironment(input.request.mode.mode);
+    this.logger = createLogger(input.env);
 
     const supabaseClient = hasSupabasePersistenceConfig(input.env)
       ? createServiceRoleClientFromEnv(input.env)
       : null;
     const runsRepository = supabaseClient ? new RunsRepository(supabaseClient) : null;
+    const intelsRepository = supabaseClient ? new IntelsRepository(supabaseClient) : null;
     const agentEventsRepository = supabaseClient
       ? new AgentEventsRepository(supabaseClient)
       : null;
 
     this.runsRepository = runsRepository;
+    this.intelsRepository = intelsRepository;
     this.agentEventsRepository = agentEventsRepository;
     this.eventPublisher = supabaseClient && agentEventsRepository
       ? new EventPublisher({
@@ -502,6 +535,9 @@ class LivePipelineExecutionContext {
       : null;
     this.zeroGRefRecorder = supabaseClient
       ? new ZeroGRefRecorder(new ZeroGRefsRepository(supabaseClient))
+      : null;
+    this.intelImageService = hasIntelImageConfig(input.env)
+      ? new IntelImageService({ env: input.env, logger: this.logger })
       : null;
 
     if (hasAxlTransportConfig(input.env)) {
@@ -797,7 +833,17 @@ class LivePipelineExecutionContext {
   }
 
   async finalizeRun(finalState: SwarmState) {
-    let persistedRun = this.toPersistableRun(finalState.run);
+    const persistedIntel = await this.safePersistFinalIntel(finalState);
+    let persistedRun = this.toPersistableRun({
+      ...finalState.run,
+      finalIntelId: persistedIntel?.id ?? finalState.run.finalIntelId,
+      outcome: finalState.run.outcome
+        ? {
+            ...finalState.run.outcome,
+            intelId: persistedIntel?.id ?? finalState.run.outcome.intelId,
+          }
+        : null,
+    });
     await this.safePersistRun(persistedRun);
 
     if (this.zeroGPublisher) {
@@ -879,6 +925,66 @@ class LivePipelineExecutionContext {
     if (!created.ok) {
       throw new Error(`Failed to create run ${run.id}: ${created.error.message}`);
     }
+  }
+
+  private async safePersistFinalIntel(finalState: SwarmState): Promise<Intel | null> {
+    if (
+      !this.intelsRepository ||
+      finalState.run.outcome?.outcomeType !== "intel"
+    ) {
+      return null;
+    }
+
+    const report = finalState.intelReports.at(-1);
+
+    if (!report) {
+      return null;
+    }
+
+    const intelId = finalState.run.finalIntelId ?? `intel-${finalState.run.id}`;
+    const existing = await this.intelsRepository.findIntelById(intelId);
+
+    if (!existing.ok) {
+      throw new Error(
+        `Failed to check intel ${intelId}: ${existing.error.message}`,
+      );
+    }
+
+    if (existing.value) {
+      return existing.value;
+    }
+
+    const imagePrompt = buildIntelImagePrompt(report);
+    const imageUrl = this.intelImageService
+      ? await this.intelImageService.generateAndStore(imagePrompt)
+      : null;
+    const timestamp = finalState.run.completedAt ?? new Date().toISOString();
+    const intel = {
+      id: intelId,
+      runId: finalState.run.id,
+      title: report.title,
+      slug: `${slugify(report.title) || "intel"}-${finalState.run.id.slice(0, 8)}`,
+      summary: report.summary,
+      body: report.insight,
+      category: report.category,
+      status: "published",
+      symbols: report.symbols,
+      confidence: report.confidence,
+      imagePrompt,
+      imageUrl,
+      sources: [],
+      proofRefIds: this.artifacts.map((artifact) => artifact.id),
+      publishedAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    } satisfies Intel;
+    const created = await this.intelsRepository.createIntel(intel);
+
+    if (!created.ok) {
+      throw new Error(`Failed to create intel ${intel.id}: ${created.error.message}`);
+    }
+
+    return created.value;
   }
 
   private async probeAxlTransport(runId: string, observedAt: string) {
@@ -1172,12 +1278,12 @@ class LivePipelineExecutionContext {
       ...run,
       currentCheckpointRefId: latestCheckpointArtifact?.id ?? null,
       finalSignalId: null,
-      finalIntelId: null,
+      finalIntelId: run.finalIntelId,
       outcome: run.outcome
         ? {
             ...run.outcome,
             signalId: null,
-            intelId: null,
+            intelId: run.outcome.intelId,
           }
         : null,
     };

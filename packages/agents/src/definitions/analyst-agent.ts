@@ -350,7 +350,6 @@ const enforceTemplateTradeRules = (thesis: z.infer<typeof thesisDraftSchema>) =>
 };
 
 const calculateCandleTechnicalSummary = (candles: MarketCandle[]) => {
-  const closes = candles.map((candle) => candle.close);
   const latest = candles[candles.length - 1];
   const previous = candles[Math.max(0, candles.length - 8)];
   const recent = candles.slice(-24);

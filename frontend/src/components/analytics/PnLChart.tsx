@@ -1,24 +1,31 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import type { ChartSignal } from '../../types/ui-models';
 
 interface Props {
-  signals: any[];
+  signals: ChartSignal[];
 }
+
+type PnLPoint = {
+  name: number;
+  pnl: number;
+  date: string;
+};
 
 export function PnLChart({ signals }: Props) {
   // Process signals to get cumulative PnL
   const data = signals
-    .filter(s => s.content.status === 'tp_hit' || s.content.status === 'sl_hit')
+    .filter((s) => s.content.status === 'tp_hit' || s.content.status === 'sl_hit')
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-    .reduce((acc, s, i) => {
+    .reduce<PnLPoint[]>((acc, s, i) => {
       const prevPnL = i > 0 ? acc[i - 1].pnl : 0;
-      const currentPnL = s.content.pnl_percent || 0;
+      const currentPnL = s.content.pnl_percent ?? 0;
       acc.push({
         name: i + 1,
         pnl: Number((prevPnL + currentPnL).toFixed(2)),
         date: new Date(s.created_at).toLocaleDateString()
       });
       return acc;
-    }, [] as any[]);
+    }, []);
 
   // Default mock if no data
   const chartData = data.length > 0 ? data : [

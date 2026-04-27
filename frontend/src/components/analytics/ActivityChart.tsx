@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import type { ChartSignal } from '../../types/ui-models';
 
 interface Props {
-  signals: any[];
+  signals: ChartSignal[];
 }
 
 export function ActivityChart({ signals }: Props) {
@@ -33,7 +34,7 @@ export function ActivityChart({ signals }: Props) {
     // Group by date (YYYY-MM-DD)
     const counts: Record<string, number> = {};
 
-    signals.forEach(s => {
+    signals.forEach((s) => {
       try {
         // Use created_at from the root object
         const timestamp = s.created_at;
@@ -41,7 +42,7 @@ export function ActivityChart({ signals }: Props) {
           const date = new Date(timestamp).toISOString().split('T')[0];
           counts[date] = (counts[date] || 0) + 1;
         }
-      } catch (e) {
+      } catch {
         // ignore invalid dates
       }
     });

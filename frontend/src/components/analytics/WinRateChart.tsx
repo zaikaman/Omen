@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import type { ChartSignal } from '../../types/ui-models';
 
 interface Props {
-  signals: any[];
+  signals: ChartSignal[];
 }
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#6b7280'];
@@ -17,15 +18,15 @@ export function WinRateChart({ signals }: Props) {
       ];
     }
 
-    const wins = signals.filter(s => s.content.status === 'tp_hit').length;
-    const losses = signals.filter(s => s.content.status === 'sl_hit').length;
-    const active = signals.filter(s => s.content.status === 'active' || s.content.status === 'entry_hit').length;
+    const wins = signals.filter((s) => s.content.status === 'tp_hit').length;
+    const losses = signals.filter((s) => s.content.status === 'sl_hit').length;
+    const active = signals.filter((s) => s.content.status === 'active' || s.content.status === 'entry_hit').length;
 
     return [
       { name: 'Wins', value: wins },
       { name: 'Losses', value: losses },
       { name: 'Active', value: active },
-    ].filter(d => d.value > 0);
+    ].filter((d) => d.value > 0);
   }, [signals]);
 
   return (

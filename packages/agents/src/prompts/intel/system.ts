@@ -31,6 +31,7 @@ export const buildIntelSystemPrompt = (
     "- topic: the most interesting thing happening right now",
     "- insight: a deep, non-obvious observation that connects market structure, social sentiment, and any on-chain or protocol evidence",
     "- importance score from 1-10",
+    "- imagePrompt: a detailed prompt for a premium 16:9 editorial AI cover image for this report; no embedded text, no logos",
     "Importance scoring:",
     "- 1-5: noise, routine market chop, generic news",
     "- 6-8: notable trend, useful context, actionable intel",

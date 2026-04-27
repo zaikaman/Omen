@@ -74,6 +74,7 @@ export const intelReportSchema = z.object({
   summary: z.string().min(1),
   confidence: z.number().int().min(0).max(100),
   symbols: z.array(z.string().min(1)).default([]),
+  imagePrompt: z.string().min(1).nullable().default(null),
 });
 
 export const recentIntelHistoryItemSchema = z.object({

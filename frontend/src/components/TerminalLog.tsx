@@ -2,14 +2,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
 import { Terminal, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
-
-interface LogEntry {
-  id: string;
-  type: 'signal' | 'intel' | 'skip';
-  created_at: string;
-  content: any;
-  confidence_score?: number;
-}
+import type { LogEntry } from '../types/ui-models';
 
 interface TerminalLogProps {
   logs: LogEntry[];
