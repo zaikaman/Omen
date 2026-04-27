@@ -34,6 +34,29 @@ const buildHashtagLine = (values: string[]) => {
   return unique.join(" ");
 };
 
+const trimToLength = (value: string, maxLength: number) => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+};
+
+const splitIntelSentences = (value: string) =>
+  value
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .map((part) => toFeedSentence(part).toLowerCase())
+    .filter((part) => part.length > 0);
+
+const stripGenericIntelTitle = (value: string) =>
+  toFeedSentence(value)
+    .toLowerCase()
+    .replace(/^omen intel:\s*/i, "")
+    .replace(/\bmarket market intel\b/i, "market intel")
+    .replace(/\bmarket intel\b$/i, "")
+    .trim();
+
 const buildSignalBodyLine = (label: string, value: string) => `${label}: ${value}`;
 
 const buildSignalAlertDraft = (thesis: ThesisDraft, review: CriticReview): PublisherDraft => {
@@ -87,26 +110,36 @@ const buildIntelSummaryDraft = (input: {
   const title = toFeedSentence(input.title);
   const summary = toFeedSentence(input.summary);
   const insight = toFeedSentence(input.insight);
-  const hook = title.toLowerCase();
+  const hook =
+    stripGenericIntelTitle(title) ||
+    splitIntelSentences(summary)[0]?.replace(/^fresh market intelligence scan found\s*/i, "") ||
+    "crypto narratives shifting";
+  const bullets = splitIntelSentences(summary)
+    .filter((sentence) => sentence !== hook)
+    .filter((sentence) => !sentence.includes("fresh market intelligence scan found"))
+    .filter((sentence) => !sentence.includes("not enough value"))
+    .slice(0, 3)
+    .map((sentence) => `- ${sentence}`);
   const hashtagLine = buildHashtagLine(
     title.match(/\$?[A-Z0-9]{2,}/g)?.map((token) => token.replace(/^\$/, "")) ?? ["crypto"],
   );
+  const watchLine = `watch ${input.topic.toLowerCase()} if follow-through sticks`;
 
   return {
     kind: "intel_summary",
     headline: title,
     summary,
-    text: [
-      hook,
-      "",
-      `- ${summary.toLowerCase()}`,
-      `- edge: ${insight.toLowerCase()}`,
-      `- lane: ${input.category.replace(/_/g, " ")}`,
-      `- confidence: ${input.confidence}%`,
-      "",
-      `watch: ${input.topic.toLowerCase()} if follow-through sticks`,
-      hashtagLine,
-    ].join("\n"),
+    text: trimToLength(
+      [
+        hook,
+        "",
+        ...(bullets.length > 0 ? bullets : [`- ${insight.toLowerCase()}`]),
+        "",
+        watchLine,
+        hashtagLine,
+      ].join("\n"),
+      280,
+    ),
     metadata: {
       confidence: input.confidence,
     },

@@ -66,8 +66,9 @@ describe("intel publication", () => {
     expect(draft.text.length).toBeLessThanOrEqual(280);
     expect(payload.text.length).toBeLessThanOrEqual(280);
     expect(payload.thread).toHaveLength(0);
-    expect(payload.text).toContain("omen intel:");
-    expect(payload.text).toContain("- watch:");
+    expect(payload.text).not.toContain("omen intel:");
+    expect(payload.text).toMatch(/\n- /);
+    expect(payload.text).toContain("watch ");
   });
 
   it("supports provider failure fallback metadata and retry transitions", () => {

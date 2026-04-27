@@ -92,4 +92,51 @@ describe("writer agent", () => {
     expect(result.article.content).toContain("### The Edge");
     expect(result.article.content).toContain("Mindshare rose");
   });
+
+  it("keeps broad-market intel articles from repeating the preview summary", async () => {
+    const agent = createWriterAgent({ llmClient: null });
+    const state = createInitialSwarmState({ run, config });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-writer-market",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "crypto market narratives",
+          insight:
+            "Markets BusinessInsider reported that Bitcoin price targets are moving higher while ETF flows keep macro risk on the desk. The useful read is a broad-market liquidity shift, not a token-specific trade.",
+          importanceScore: 7,
+          category: "market_update",
+          title: "market market intel",
+          summary:
+            "Fresh market intelligence scan found a context worth tracking. Markets BusinessInsider reported that Bitcoin price targets are moving higher while ETF flows keep macro risk on the desk.",
+          confidence: 62,
+          symbols: [],
+          imagePrompt: null,
+        },
+        evidence: [
+          {
+            category: "catalyst",
+            summary:
+              "Bitcoin price targets are moving higher while ETF flows keep macro risk active.",
+            sourceLabel: "Markets Insider",
+            sourceUrl: "https://markets.businessinsider.com/example",
+            structuredData: {},
+          },
+        ],
+      },
+      state,
+    );
+
+    expect(result.article.headline).not.toMatch(/market market/i);
+    expect(result.article.tldr.length).toBeLessThanOrEqual(320);
+    expect(result.article.tldr).not.toMatch(/Fresh market intelligence scan/i);
+    expect(result.article.content).toContain("### ON-CHAIN");
+    expect(result.article.content).not.toContain(`\n${result.article.tldr}\n`);
+    expect(result.article.content).not.toContain("### Executive Summary");
+  });
 });

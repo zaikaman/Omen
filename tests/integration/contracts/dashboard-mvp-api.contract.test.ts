@@ -15,6 +15,7 @@ import {
   demoDashboardSummary,
   demoRunBundles,
 } from "../../../packages/db/src/index";
+import { presentIntelFeed } from "../../../backend/src/presenters/intel.presenter";
 
 describe("dashboard mvp api contract", () => {
   it("accepts the dashboard summary response contract for GET /api/dashboard/summary", () => {
@@ -89,6 +90,23 @@ describe("dashboard mvp api contract", () => {
         symbols: ["TAO", "RNDR", "AKT"],
       },
     });
+  });
+
+  it("keeps intel image urls in the feed presenter", () => {
+    const intel = demoRunBundles.find((bundle) => bundle.intel !== null)?.intel;
+
+    expect(intel).not.toBeNull();
+    if (!intel) {
+      throw new Error("Missing seeded intel.");
+    }
+
+    const imageUrl = "https://cdn.example.com/intel/cover.webp";
+    const response = presentIntelFeed({
+      items: [{ ...intel, imageUrl }],
+      nextCursor: null,
+    });
+
+    expect(response.items[0]?.imageUrl).toBe(imageUrl);
   });
 
   it("accepts the signal feed response contract for GET /api/signals", () => {

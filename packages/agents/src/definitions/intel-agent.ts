@@ -26,6 +26,62 @@ const summarizeEvidence = (evidence: EvidenceItem[]) =>
     .map((item) => item.summary.replace(/\s+/g, " ").trim())
     .join(" ");
 
+const trimToLength = (value: string, maxLength: number) => {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  const trimmed = normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd();
+  const boundary = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf(";"));
+
+  if (boundary >= Math.floor(maxLength * 0.55)) {
+    return trimmed.slice(0, boundary + 1);
+  }
+
+  const wordBoundary = trimmed.lastIndexOf(" ");
+  return `${trimmed.slice(0, wordBoundary > 0 ? wordBoundary : trimmed.length).trimEnd()}...`;
+};
+
+const stripIntelBoilerplate = (value: string) =>
+  value
+    .replace(/fresh market intelligence scan found a context worth tracking\.?\s*/gi, "")
+    .replace(/no actionable trade cleared the threshold,\s*/gi, "")
+    .replace(/but the market context may still be worth tracking\.?\s*/gi, "")
+    .replace(/\bmarket market intel\b/gi, "crypto market intel")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const splitSentences = (value: string) =>
+  value
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+const buildFallbackTitle = (input: { leadSymbol: string; symbols: string[]; evidence: string }) => {
+  const isBroadMarket = input.leadSymbol.toLowerCase() === "market";
+
+  if (!isBroadMarket) {
+    return `${input.leadSymbol.toUpperCase()} market intel`;
+  }
+
+  const firstSentence = splitSentences(input.evidence)[0] ?? "";
+  const cleaned = stripIntelBoilerplate(firstSentence)
+    .replace(/^[^a-z0-9$]+/i, "")
+    .replace(/:\s.*$/, "")
+    .trim();
+
+  if (cleaned.length >= 16 && cleaned.length <= 70 && !/^crypto news$/i.test(cleaned)) {
+    return cleaned.replace(/\bcrypto market narratives reset\b/i, "Crypto Market Narratives Reset");
+  }
+
+  return input.symbols.length > 1
+    ? `${input.symbols.join(", ")} market watch`
+    : "Crypto Market Rotation Watch";
+};
+
 const hasNarrativeEvidence = (evidence: EvidenceItem[]) =>
   evidence.some(
     (item) =>
@@ -142,18 +198,28 @@ const deriveFallbackIntelReport = (
 
   const thesisContext =
     parsed.thesis === null
-      ? "Fresh market intelligence scan found a context worth tracking."
+      ? ""
       : parsed.thesis.direction === "NONE"
-        ? "No actionable trade cleared the threshold, but the market context may still be worth tracking."
+        ? "The trade setup did not clear, but the surrounding market signal is still worth tracking."
         : `${parsed.thesis.asset} remains on the desk as market intel, not a standalone trade call.`;
   const chartContext = parsed.chartVisionSummary?.trim().length
     ? `Chart context: ${parsed.chartVisionSummary.trim()}`
-    : "Chart context remains limited.";
+    : "";
+  const cleanedEvidenceSummary = stripIntelBoilerplate(evidenceSummary);
+
+  if (cleanedEvidenceSummary.length === 0) {
+    return null;
+  }
+
   const reviewContext =
     parsed.review?.forcedOutcomeReason ??
-    parsed.review?.objections.join("; ") ??
-    "No explicit critic objections were recorded.";
-  const summary = `${thesisContext} ${evidenceSummary} ${chartContext}`.replace(/\s+/g, " ").trim();
+    (parsed.review?.objections.length
+      ? parsed.review.objections.join("; ")
+      : "No explicit critic objections were recorded.");
+  const summary = trimToLength(
+    stripIntelBoilerplate(`${thesisContext} ${cleanedEvidenceSummary} ${chartContext}`),
+    360,
+  );
   const importanceScore =
     parsed.review?.decision === "watchlist_only" || hasNarrativeEvidence(parsed.evidence) ? 7 : 6;
 
@@ -161,22 +227,34 @@ const deriveFallbackIntelReport = (
     return null;
   }
 
+  const title = buildFallbackTitle({
+    leadSymbol,
+    symbols,
+    evidence: cleanedEvidenceSummary,
+  });
+  const isBroadMarket = leadSymbol.toLowerCase() === "market";
+  const imageFocus = isBroadMarket ? "broad crypto market rotation" : leadSymbol.toUpperCase();
+
   return {
-    topic: symbols.length > 1 ? `${symbols.join(", ")} market watch` : `${leadSymbol} market watch`,
-    insight: `${summary} Gate context: ${reviewContext}`.replace(/\s+/g, " ").trim(),
+    topic: isBroadMarket
+      ? "crypto market narratives"
+      : symbols.length > 1
+        ? `${symbols.join(", ")} market watch`
+        : `${leadSymbol} market watch`,
+    insight: trimToLength(`${summary} Gate context: ${reviewContext}`, 900),
     importanceScore,
     category: inferIntelCategory({
       thesis: parsed.thesis,
       symbols,
       evidence: parsed.evidence,
     }),
-    title: `${leadSymbol} market intel`,
+    title,
     summary,
     confidence: Math.min(95, Math.max(60, (parsed.thesis?.confidence ?? 65) - 5)),
     symbols,
     imagePrompt: [
       "Premium editorial crypto market intelligence cover art",
-      `focused on ${leadSymbol.toUpperCase()}`,
+      `focused on ${imageFocus}`,
       "cinematic cyberpunk trading desk, data streams, institutional research terminal",
       "sharp composition, high contrast, no text, no logos, 16:9",
     ].join(", "),

@@ -8,6 +8,10 @@ import {
   type XPostDraft,
 } from "@omen/shared";
 
+type IntelPostInput = Pick<Intel, "title" | "summary" | "symbols"> & {
+  topic?: string | null;
+};
+
 const trimToLength = (value: string, maxLength: number) => {
   if (value.length <= maxLength) {
     return value;
@@ -60,6 +64,53 @@ const calculateMovePercent = (
 
 const normalizeAnalysisLine = (value: string) =>
   value.replace(/\s+/g, " ").replace(/\.$/, "").toLowerCase().trim();
+
+const splitIntelSentences = (value: string) =>
+  value
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .map((part) => normalizeAnalysisLine(part))
+    .filter((part) => part.length > 0);
+
+const stripGenericIntelTitle = (value: string) =>
+  normalizeAnalysisLine(value)
+    .replace(/^omen intel:\s*/i, "")
+    .replace(/\bmarket market intel\b/i, "market intel")
+    .replace(/\bmarket intel\b$/i, "")
+    .trim();
+
+const buildIntelHook = (intel: Pick<Intel, "title" | "summary" | "symbols">) => {
+  const title = stripGenericIntelTitle(intel.title);
+
+  if (title.length > 0 && !/^market$/i.test(title)) {
+    return title;
+  }
+
+  const firstSentence = splitIntelSentences(intel.summary)[0] ?? "crypto narratives shifting";
+  return firstSentence.replace(/^fresh market intelligence scan found\s*/i, "").trim();
+};
+
+const buildIntelBullets = (summary: string, hook: string) =>
+  splitIntelSentences(summary)
+    .filter((sentence) => sentence !== hook)
+    .filter((sentence) => !sentence.includes("fresh market intelligence scan found"))
+    .filter((sentence) => !sentence.includes("not enough value"))
+    .slice(0, 3)
+    .map((sentence) => `- ${sentence}`);
+
+const buildIntelTake = (intel: IntelPostInput) => {
+  const tickers = intel.symbols
+    .slice(0, 3)
+    .map((symbol) => `$${symbol.replace(/^\$/, "").toUpperCase()}`)
+    .join(" / ");
+  const topic = normalizeAnalysisLine(intel.topic ?? intel.title ?? intel.summary ?? "");
+
+  if (tickers.length > 0) {
+    return `watch ${tickers} if ${topic || "this narrative"} gets follow-through`;
+  }
+
+  return `watch for rotation if ${topic || "this narrative"} gets follow-through`;
+};
 
 export const formatSignalPost = (
   signal: Pick<
@@ -132,26 +183,15 @@ export const formatSignalPost = (
     scheduleFor: null,
   });
 
-export const formatIntelPost = (
-  intel: Pick<Intel, "title" | "summary" | "confidence" | "symbols">,
-): XPostDraft =>
-  xPostDraftSchema.parse({
-    text: trimToLength(
-      [
-        `omen intel: ${intel.title.toLowerCase()}`,
-        "",
-        `- ${normalizeAnalysisLine(intel.summary)}`,
-        ...(intel.symbols.length > 0
-          ? [
-              `- watch: ${intel.symbols.map((symbol) => `$${symbol.replace(/^\$/, "")}`).join(" / ")}`,
-            ]
-          : []),
-        `- confidence: ${intel.confidence}%`,
-        "",
-        buildHashtagLine(intel.symbols.length > 0 ? intel.symbols : ["crypto"]),
-      ].join("\n"),
-      280,
-    ),
+export const formatIntelPost = (intel: IntelPostInput): XPostDraft => {
+  const hook = buildIntelHook(intel);
+  const bullets = buildIntelBullets(intel.summary, hook);
+  const text = [hook, "", ...bullets, "", buildIntelTake(intel)]
+    .filter((line, index, lines) => line.length > 0 || lines[index - 1]?.length)
+    .join("\n");
+
+  return xPostDraftSchema.parse({
+    text: trimToLength(text, 280),
     replyToTweetId: null,
     quoteTweetId: null,
     attachmentUrl: null,
@@ -160,6 +200,7 @@ export const formatIntelPost = (
     mediaIds: [],
     scheduleFor: null,
   });
+};
 
 export const formatThreadPosts = (parts: string[]): XPostDraft[] =>
   parts.map((part) =>
@@ -187,7 +228,7 @@ export const formatSignalPostPayload = (
   });
 
 export const formatIntelPostPayload = (
-  intel: Pick<Intel, "title" | "summary" | "body" | "confidence" | "symbols">,
+  intel: IntelPostInput & Pick<Intel, "body" | "confidence">,
 ): OutboundPostPayload => {
   const summary = formatIntelPost(intel);
 

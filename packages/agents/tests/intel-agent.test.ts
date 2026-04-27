@@ -378,5 +378,7 @@ describe("intel agent", () => {
     expect(result.action).toBe("ready");
     expect(result.report?.summary).toMatch(/Crypto market narratives reset/i);
     expect(result.report?.summary).not.toMatch(/trade cleared|trade setup|ETC spot/i);
+    expect(result.report?.title).not.toMatch(/market market/i);
+    expect(result.report?.summary).not.toMatch(/fresh market intelligence scan/i);
   });
 });

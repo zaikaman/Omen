@@ -19,6 +19,7 @@ export const presentIntelListItem = (intel: Intel): IntelListItem =>
     status: intel.status,
     symbols: intel.symbols,
     confidence: intel.confidence,
+    imageUrl: intel.imageUrl,
     publishedAt: intel.publishedAt,
     createdAt: intel.createdAt,
   });
@@ -28,9 +29,7 @@ export type IntelFeedPresenterInput = {
   nextCursor?: string | null;
 };
 
-export const presentIntelFeed = (
-  input: IntelFeedPresenterInput,
-): IntelFeedResponse =>
+export const presentIntelFeed = (input: IntelFeedPresenterInput): IntelFeedResponse =>
   intelFeedResponseSchema.parse({
     items: input.items.map((intel) => presentIntelListItem(intel)),
     nextCursor: input.nextCursor ?? null,

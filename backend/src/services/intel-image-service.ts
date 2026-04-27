@@ -19,14 +19,11 @@ type GalleryItem = {
 
 const DEFAULT_SPACE = "Tongyi-MAI/Z-Image-Turbo";
 const DEFAULT_RESOLUTION = "2048x1152 ( 16:9 )";
+const TARGET_IMAGE_WIDTH = 2048;
+const TARGET_IMAGE_HEIGHT = 1152;
 
 export const hasIntelImageConfig = (env: BackendEnv) =>
-  Boolean(
-    env.r2.accountId &&
-      env.r2.accessKeyId &&
-      env.r2.secretAccessKey &&
-      env.r2.publicUrl,
-  );
+  Boolean(env.r2.accountId && env.r2.accessKeyId && env.r2.secretAccessKey && env.r2.publicUrl);
 
 export class IntelImageService {
   private static nextTokenIndex = 0;
@@ -78,11 +75,8 @@ export class IntelImageService {
           gallery_images: [],
         });
         const data = result.data as unknown;
-        const gallery = Array.isArray(data)
-          ? (data[0] as GalleryItem[] | undefined)
-          : undefined;
-        const temporaryUrl =
-          gallery?.[0]?.image?.url ?? gallery?.[0]?.image?.path ?? null;
+        const gallery = Array.isArray(data) ? (data[0] as GalleryItem[] | undefined) : undefined;
+        const temporaryUrl = gallery?.[0]?.image?.url ?? gallery?.[0]?.image?.path ?? null;
 
         if (!temporaryUrl) {
           throw new Error("HuggingFace image response did not include an image URL.");
@@ -151,14 +145,15 @@ export class IntelImageService {
     const response = await fetch(temporaryUrl);
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to download generated image: ${response.status.toString()}`,
-      );
+      throw new Error(`Failed to download generated image: ${response.status.toString()}`);
     }
 
     const sourceBuffer = Buffer.from(await response.arrayBuffer());
     const webpBuffer = await sharp(sourceBuffer)
-      .resize(2048, 1152, { fit: "cover" })
+      .resize(TARGET_IMAGE_WIDTH, TARGET_IMAGE_HEIGHT, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 1 },
+      })
       .webp({ quality: 86 })
       .toBuffer();
     const datePath = new Date().toISOString().slice(0, 10).replace(/-/g, "");
