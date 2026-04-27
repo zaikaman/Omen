@@ -6,7 +6,7 @@
   "main": "dist/backend/src/index.js",
   "scripts": {
     "start": "node dist/backend/src/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "mcp:host": "tsx src/scripts/omen-mcp-host.ts",
     "run:scheduled": "tsx src/scripts/run-scheduled-cycle.ts",
