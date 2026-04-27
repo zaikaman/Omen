@@ -149,7 +149,7 @@
 
 ### Validation for User Story 3
 
-- [ ] T061 [P] [US3] Add contract tests for outbound-post status endpoints and dashboard posting fields in `tests/integration/contracts/outbound-posts-api.contract.test.ts`
+- [x] T061 [P] [US3] Add contract tests for outbound-post status endpoints and dashboard posting fields in `tests/integration/contracts/outbound-posts-api.contract.test.ts`
 - [ ] T062 [P] [US3] Add integration test for signal publication from run completion to outbound post completion in `tests/integration/runtime/signal-publication.test.ts`
 - [ ] T063 [P] [US3] Add integration test for intel publication, retry handling, and provider failure fallbacks in `tests/integration/runtime/intel-publication.test.ts`
 
