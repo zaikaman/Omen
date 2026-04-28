@@ -33,6 +33,17 @@ export type OpenAiCompatibleClientConfig = z.infer<
 
 const ensureTrailingSlashRemoved = (value: string) => value.replace(/\/+$/, "");
 
+export const buildTemperaturePayload = (
+  model: string,
+  temperature: number | undefined,
+) => {
+  if (model.toLowerCase().startsWith("gpt-5")) {
+    return {};
+  }
+
+  return { temperature: temperature ?? 0.2 };
+};
+
 const extractMessageText = (
   content: z.infer<typeof openAiCompatibleResponseSchema>["choices"][number]["message"]["content"],
 ) => {
@@ -120,7 +131,7 @@ export class OpenAiCompatibleJsonClient {
           },
           body: JSON.stringify({
             model: this.config.model,
-            temperature: input.temperature ?? 0.2,
+            ...buildTemperaturePayload(this.config.model, input.temperature),
             messages: [
               {
                 role: "system",

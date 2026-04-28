@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  buildTemperaturePayload,
   openAiCompatibleClientConfigSchema,
   type OpenAiCompatibleClientConfig,
 } from "./openai-compatible-client.js";
@@ -78,9 +79,9 @@ export class OpenAiCompatibleVisionClient {
   }
 
   static fromEnv(env: NodeJS.ProcessEnv = process.env) {
-    const apiKey = env.SCANNER_API_KEY ?? env.OPENAI_API_KEY;
-    const baseUrl = env.SCANNER_BASE_URL ?? env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
-    const model = env.SCANNER_MODEL ?? env.OPENAI_MODEL;
+    const apiKey = env.OPENAI_API_KEY;
+    const baseUrl = env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
+    const model = env.OPENAI_MODEL;
 
     if (!apiKey || !model) {
       return null;
@@ -111,7 +112,7 @@ export class OpenAiCompatibleVisionClient {
           },
           body: JSON.stringify({
             model: this.config.model,
-            temperature: input.temperature ?? 0.2,
+            ...buildTemperaturePayload(this.config.model, input.temperature),
             messages: [
               {
                 role: "system",

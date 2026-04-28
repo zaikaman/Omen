@@ -1,7 +1,10 @@
 import type { BinanceMarketService, MarketCandle } from "@omen/market-data";
 import { describe, expect, it } from "vitest";
 
-import type { OpenAiCompatibleVisionClient } from "../src/llm/openai-compatible-vision-client.js";
+import {
+  OpenAiCompatibleVisionClient,
+  type OpenAiCompatibleVisionClient as OpenAiCompatibleVisionClientType,
+} from "../src/llm/openai-compatible-vision-client.js";
 import { createChartVisionAgent, createInitialSwarmState } from "../src/index.js";
 
 const buildCandles = (intervalMinutes: number): MarketCandle[] =>
@@ -117,7 +120,7 @@ describe("chart vision agent", () => {
           summary:
             "The chart stack broadly confirms the candidate, with 1h and 4h trend support and 15m continuation.",
         }),
-      } as unknown as OpenAiCompatibleVisionClient,
+      } as unknown as OpenAiCompatibleVisionClientType,
     });
 
     const result = await agent.invoke(
@@ -207,5 +210,20 @@ describe("chart vision agent", () => {
     expect(result.frames[0]?.analysis).toContain("SOL");
     expect(result.chartSummary).toContain("15m:");
     expect(result.evidence[0]?.summary).toContain("SOL");
+  });
+
+  it("uses OpenAI reasoning env instead of scanner env for the vision client", () => {
+    const client = OpenAiCompatibleVisionClient.fromEnv({
+      SCANNER_API_KEY: "scanner-key",
+      SCANNER_BASE_URL: "https://scanner.example/v1",
+      SCANNER_MODEL: "scanner-model",
+      OPENAI_API_KEY: "openai-key",
+      OPENAI_BASE_URL: "https://openai.example/v1",
+      OPENAI_MODEL: "openai-reasoning-model",
+    } as NodeJS.ProcessEnv);
+
+    expect(client?.config.apiKey).toBe("openai-key");
+    expect(client?.config.baseUrl).toBe("https://openai.example/v1");
+    expect(client?.config.model).toBe("openai-reasoning-model");
   });
 });

@@ -23,7 +23,7 @@ const ROUTING_TABLE: Record<AgentModelRoutingRole, ModelProfile> = {
   market_bias: "scanner",
   scanner: "scanner",
   research: "scanner",
-  chart_vision: "scanner",
+  chart_vision: "reasoning",
   analyst: "reasoning",
   critic: "reasoning",
   intel: "scanner",
