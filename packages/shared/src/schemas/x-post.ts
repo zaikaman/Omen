@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const xPostDraftSchema = z.object({
-  text: z.string().min(1).max(25_000),
+  text: z.string().min(1).max(280),
   replyToTweetId: z.string().min(1).nullable(),
   quoteTweetId: z.string().min(1).nullable(),
   attachmentUrl: z.string().url().nullable(),
@@ -14,7 +14,7 @@ export const xPostDraftSchema = z.object({
 export const twitterApiCreateTweetRequestSchema = z
   .object({
     login_cookies: z.string().min(1),
-    tweet_text: z.string().min(1).max(25_000),
+    tweet_text: z.string().min(1).max(280),
     proxy: z.string().min(1),
     reply_to_tweet_id: z.string().min(1).optional(),
     attachment_url: z.string().url().optional(),
