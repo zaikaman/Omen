@@ -4,6 +4,7 @@ import { z as zod } from "zod";
 import {
   BinanceMarketService,
   CoinGeckoMarketService,
+  DefiLlamaMarketService,
   TavilyMarketResearchService,
 } from "@omen/market-data";
 import { intelInputSchema, intelOutputSchema } from "../contracts/intel.js";
@@ -22,6 +23,7 @@ const intelAgentOptionsSchema = zod.object({
   llmClient: zod.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
   binance: zod.custom<BinanceMarketService>().optional(),
   coinGecko: zod.custom<CoinGeckoMarketService>().optional(),
+  defiLlama: zod.custom<DefiLlamaMarketService>().optional(),
   marketResearch: zod.custom<TavilyMarketResearchService>().optional(),
 });
 
@@ -30,6 +32,32 @@ const templateIntelSchema = zod.object({
   insight: zod.string().min(1),
   importance_score: zod.number().int().min(1).max(10),
 });
+
+const templateDefiProtocols = [
+  "aave",
+  "lido",
+  "ethena",
+  "pendle",
+  "jito",
+  "kamino",
+  "hyperliquid",
+  "uniswap",
+  "curve-dex",
+  "morpho-blue",
+];
+
+const lowSignalNarrativePatterns = [
+  /\bcrypto news\b/i,
+  /\bprice prediction\b/i,
+  /\bbest crypto to buy\b/i,
+  /\bpresale\b/i,
+  /\bico\b/i,
+  /\bannounces investment growth\b/i,
+  /\bmassive accumulation pepeto\b/i,
+  /\bpepeto\b/i,
+  /\bsponsored\b/i,
+  /\bpress release\b/i,
+];
 
 const templateEvidenceRank = (item: EvidenceItem) => {
   if (item.category === "sentiment" || item.category === "catalyst") {
@@ -78,6 +106,52 @@ const stripIntelBoilerplate = (value: string) =>
     .replace(/\bmarket market intel\b/gi, "crypto market intel")
     .replace(/\s+/g, " ")
     .trim();
+
+const isLowSignalNarrativeText = (value: string) =>
+  lowSignalNarrativePatterns.some((pattern) => pattern.test(value));
+
+const isGenericIntelTopic = (topic: string) => {
+  const normalized = topic.trim().toLowerCase();
+
+  return (
+    normalized === "crypto news" ||
+    normalized === "market update" ||
+    normalized === "crypto market update" ||
+    normalized === "crypto market intel" ||
+    normalized.length < 8
+  );
+};
+
+const isLowSignalSourceUrl = (sourceUrl: string | null) => {
+  if (!sourceUrl) {
+    return false;
+  }
+
+  try {
+    const host = new URL(sourceUrl).hostname.toLowerCase();
+
+    return (
+      host.includes("markets.businessinsider.com") ||
+      host.includes("coinpedia.org") ||
+      host.includes("cryptonews.com") ||
+      host.includes("analyticsinsight.net")
+    );
+  } catch {
+    return false;
+  }
+};
+
+const isHighSignalNarrativeEvidence = (item: EvidenceItem) => {
+  const text = `${item.summary} ${item.sourceLabel}`;
+
+  if (isLowSignalNarrativeText(text) || isLowSignalSourceUrl(item.sourceUrl)) {
+    return false;
+  }
+
+  return /\b(tvl|volume|liquid\w*|funding|open interest|wallet|flow|inflow|outflow|revenue|fees|users|addresses|staking|perp|dex|stablecoin|etf|treasury|protocol|chain)\b/i.test(
+    text,
+  );
+};
 
 const isIntelOwnedEvidence = (item: EvidenceItem) =>
   item.structuredData.source === "intel-market-data" ||
@@ -168,6 +242,8 @@ const templateIntelToReport = (input: {
 
   if (
     /^skip$/i.test(topic) ||
+    isGenericIntelTopic(topic) ||
+    isLowSignalNarrativeText(`${topic} ${insight}`) ||
     /not enough value/i.test(insight) ||
     input.template.importance_score < 7
   ) {
@@ -228,6 +304,8 @@ export class IntelAgentFactory {
 
   private readonly coinGecko: CoinGeckoMarketService;
 
+  private readonly defiLlama: DefiLlamaMarketService;
+
   private readonly marketResearch: TavilyMarketResearchService;
 
   constructor(input: zod.input<typeof intelAgentOptionsSchema> = {}) {
@@ -236,6 +314,7 @@ export class IntelAgentFactory {
       parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("intel"));
     this.binance = parsed.binance ?? new BinanceMarketService();
     this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
+    this.defiLlama = parsed.defiLlama ?? new DefiLlamaMarketService();
     this.marketResearch = parsed.marketResearch ?? new TavilyMarketResearchService();
   }
 
@@ -416,7 +495,10 @@ export class IntelAgentFactory {
     });
 
     if (!narratives.ok) {
-      return parsed;
+      return intelInputSchema.parse({
+        ...parsed,
+        evidence: existingEvidence,
+      });
     }
 
     const narrativeEvidence = [...narratives.value.narratives, ...narratives.value.macroContext]
@@ -436,6 +518,7 @@ export class IntelAgentFactory {
             },
           }) satisfies EvidenceItem,
       )
+      .filter(isHighSignalNarrativeEvidence)
       .filter((item) => {
         const key = item.summary.toLowerCase();
 
@@ -448,7 +531,10 @@ export class IntelAgentFactory {
       });
 
     if (narrativeEvidence.length === 0) {
-      return parsed;
+      return intelInputSchema.parse({
+        ...parsed,
+        evidence: existingEvidence,
+      });
     }
 
     return intelInputSchema.parse({
@@ -461,9 +547,10 @@ export class IntelAgentFactory {
     const symbols = state.config.marketUniverse.slice(0, 6);
     const evidence: EvidenceItem[] = [];
 
-    const [binanceSnapshots, coinGeckoMovers] = await Promise.all([
+    const [binanceSnapshots, coinGeckoMovers, defiProtocols] = await Promise.all([
       this.binance.getSnapshots(symbols).catch(() => null),
       this.coinGecko.getTopMovers(symbols).catch(() => null),
+      this.defiLlama.getProtocolLeaderboard(templateDefiProtocols).catch(() => null),
     ]);
 
     if (binanceSnapshots?.ok) {
@@ -508,6 +595,37 @@ export class IntelAgentFactory {
           structuredData: {
             source: "intel-market-data",
             symbols: movers.map((snapshot) => snapshot.symbol),
+            capturedAt: new Date().toISOString(),
+          },
+        });
+      }
+    }
+
+    if (defiProtocols?.ok) {
+      const growingProtocols = defiProtocols.value
+        .filter((snapshot) => snapshot.tvlChange1dPercent !== null || snapshot.tvlChange7dPercent !== null)
+        .sort(
+          (left, right) =>
+            (right.tvlChange7dPercent ?? right.tvlChange1dPercent ?? -Infinity) -
+            (left.tvlChange7dPercent ?? left.tvlChange1dPercent ?? -Infinity),
+        )
+        .slice(0, 5);
+
+      if (growingProtocols.length > 0) {
+        evidence.push({
+          category: "fundamental",
+          summary: `DeFi TVL rotation: ${growingProtocols
+            .map(
+              (snapshot) =>
+                `${snapshot.protocol} on ${snapshot.chain} has $${snapshot.tvlUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })} TVL, ${snapshot.tvlChange1dPercent?.toFixed(2) ?? "n/a"}% 1d and ${snapshot.tvlChange7dPercent?.toFixed(2) ?? "n/a"}% 7d`,
+            )
+            .join("; ")}.`,
+          sourceLabel: "DeFiLlama",
+          sourceUrl: null,
+          structuredData: {
+            source: "intel-market-data",
+            protocols: growingProtocols.map((snapshot) => snapshot.protocol),
+            chains: growingProtocols.map((snapshot) => snapshot.chain),
             capturedAt: new Date().toISOString(),
           },
         });

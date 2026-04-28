@@ -83,4 +83,51 @@ describe("generator agent", () => {
     expect(result.content.blogPost).toContain("## Executive Summary");
     expect(result.content.imagePrompt).toContain("$SUI");
   });
+
+  it("falls back when model tweet output is generic headline spam", async () => {
+    const agent = createGeneratorAgent({
+      llmClient: {
+        completeJson: async () => ({
+          topic: "SUI TVL Surge",
+          tweetText:
+            "crypto news: pepeto announces investment growth while the bitcoin price prediction bulls targets $150,000",
+          blogPost: "# SUI TVL Surge\n\n## Executive Summary\nSUI is rotating.",
+          imagePrompt: "Cyberpunk SUI liquidity rotation cover art.",
+          formattedContent:
+            "crypto news: pepeto announces investment growth while the bitcoin price prediction bulls targets $150,000",
+          logMessage: "INTEL LOCKED: SUI rotation.",
+        }),
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generator-low-signal",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "SUI TVL Surge",
+          insight:
+            "SUI TVL is accelerating while active wallets rise and liquidity rotates from ETH pools.",
+          importanceScore: 8,
+          category: "narrative_shift",
+          title: "SUI TVL Surge",
+          summary:
+            "SUI TVL blasts higher as lending yields attract new liquidity. Active wallets are rising and ETH pool flows are rotating.",
+          confidence: 80,
+          symbols: ["SUI", "ETH"],
+          imagePrompt: null,
+        },
+        evidence: [],
+      },
+      createInitialSwarmState({ run, config }),
+    );
+
+    expect(result.content.tweetText).toContain("- ");
+    expect(result.content.tweetText).toContain("$SUI");
+    expect(result.content.tweetText).not.toMatch(/pepeto|price prediction/i);
+  });
 });

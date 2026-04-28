@@ -44,6 +44,15 @@ const lowerProseKeepTickers = (value: string) =>
     .map((part) => (part.startsWith("$") ? part.toUpperCase() : part.toLowerCase()))
     .join("");
 
+const lowSignalTweetPatterns = [
+  /\bcrypto news\b/i,
+  /\bprice prediction\b/i,
+  /\bbest crypto to buy\b/i,
+  /\bpresale\b/i,
+  /\bpepeto\b/i,
+  /\bpress release\b/i,
+];
+
 const enforceTweetLimit = (value: string) => {
   const normalized = value.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 
@@ -60,6 +69,18 @@ const enforceTweetLimit = (value: string) => {
 
   const wordBoundary = trimmed.lastIndexOf(" ");
   return trimmed.slice(0, wordBoundary > 0 ? wordBoundary : trimmed.length).trimEnd();
+};
+
+const isTemplateStyleTweet = (value: string) => {
+  const normalized = value.trim();
+
+  return (
+    normalized.length > 0 &&
+    normalized.length <= 280 &&
+    normalized.includes("\n") &&
+    /^-\s+/m.test(normalized) &&
+    !lowSignalTweetPatterns.some((pattern) => pattern.test(normalized))
+  );
 };
 
 const buildFallbackTweet = (report: IntelReport) => {
@@ -104,7 +125,9 @@ const normalizeGeneratorContent = (
   input: z.infer<typeof rawGeneratorContentSchema>,
   report: IntelReport,
 ): GeneratedIntelContent => {
-  const tweetText = enforceTweetLimit(input.tweetText ?? input.tweet_text ?? buildFallbackTweet(report));
+  const candidateTweet = enforceTweetLimit(input.tweetText ?? input.tweet_text ?? "");
+  const fallbackTweet = buildFallbackTweet(report);
+  const tweetText = isTemplateStyleTweet(candidateTweet) ? candidateTweet : fallbackTweet;
 
   return {
     topic: input.topic ?? report.title,

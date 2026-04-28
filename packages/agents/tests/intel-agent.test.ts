@@ -98,6 +98,43 @@ describe("intel agent", () => {
       }),
     }) as never;
 
+  const createDefiLlamaStub = () =>
+    ({
+      getProtocolLeaderboard: async () => ({
+        ok: true as const,
+        provider: "defillama",
+        value: [
+          {
+            protocol: "Kamino",
+            chain: "Solana",
+            tvlUsd: 1850000000,
+            tvlChange1dPercent: 4.2,
+            tvlChange7dPercent: 18.4,
+            category: "Lending",
+            sourceUrl: null,
+            capturedAt,
+          },
+          {
+            protocol: "Ethena",
+            chain: "Ethereum",
+            tvlUsd: 7200000000,
+            tvlChange1dPercent: 1.1,
+            tvlChange7dPercent: 9.6,
+            category: "CDP",
+            sourceUrl: null,
+            capturedAt,
+          },
+        ],
+        health: {
+          provider: "defillama",
+          available: true,
+          degraded: false,
+          checkedAt: capturedAt,
+          notes: [],
+        },
+      }),
+    }) as never;
+
   it("builds a publishable intel report when a signal is rejected", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createIntelAgent({ llmClient: null });
@@ -239,6 +276,7 @@ describe("intel agent", () => {
       llmClient: null,
       binance: createBinanceStub(),
       coinGecko: createCoinGeckoStub(),
+      defiLlama: createDefiLlamaStub(),
       marketResearch: {
         getSymbolResearchBundle: async () => ({
           ok: true as const,
@@ -355,6 +393,7 @@ describe("intel agent", () => {
       llmClient: null,
       binance: createBinanceStub(),
       coinGecko: createCoinGeckoStub(),
+      defiLlama: createDefiLlamaStub(),
       marketResearch: {
         getSymbolResearchBundle: async (input: { symbol: string; query: string }) => {
           calls.push(input);
@@ -423,5 +462,51 @@ describe("intel agent", () => {
     expect(result.report?.summary).not.toMatch(/trade cleared|trade setup|ETC spot/i);
     expect(result.report?.title).not.toMatch(/market market/i);
     expect(result.report?.summary).not.toMatch(/fresh market intelligence scan/i);
+  });
+
+  it("rejects generic low-signal news even when the model scores it highly", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createIntelAgent({
+      llmClient: {
+        completeJson: async () => ({
+          topic: "Crypto News",
+          insight:
+            "Crypto News: Pepeto Announces Investment Growth While the Bitcoin Price Prediction Bulls Targets $150,000.",
+          importance_score: 8,
+        }),
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-intel-low-signal",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        bias: null,
+        candidates: [],
+        evidence: [
+          {
+            category: "sentiment",
+            summary:
+              "Crypto News: Pepeto Announces Investment Growth While the Bitcoin Price Prediction Bulls Targets $150,000.",
+            sourceLabel: "markets.businessinsider.com",
+            sourceUrl: "https://markets.businessinsider.com/news/currencies/example",
+            structuredData: {},
+          },
+        ],
+        chartVisionSummary: null,
+        thesis: null,
+        review: null,
+        recentIntelHistory: [],
+      },
+      state,
+    );
+
+    expect(result.action).toBe("skip");
+    expect(result.report).toBeNull();
+    expect(result.skipReason).toBe("not_enough_value");
   });
 });
