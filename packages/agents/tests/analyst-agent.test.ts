@@ -1,5 +1,12 @@
 import type { OpenAiCompatibleJsonClient } from "../src/llm/openai-compatible-client.js";
 import { describe, expect, it } from "vitest";
+import {
+  createProviderSuccess,
+  type BinanceMarketService,
+  type CoinGeckoMarketService,
+  type CoinMarketCapMarketService,
+  type MarketCandle,
+} from "@omen/market-data";
 
 import { createAnalystAgent, createInitialSwarmState } from "../src/index.js";
 
@@ -253,5 +260,138 @@ describe("analyst agent", () => {
     expect(result.thesis.targetPrice).not.toBeNull();
     expect(result.thesis.stopLoss).not.toBeNull();
     expect(result.thesis.whyNow).toMatch(/actionable/i);
+  });
+
+  it("uses the template-style analyzer tools during live enrichment", async () => {
+    const liveRun = { ...run, mode: "live" as const };
+    const state = createInitialSwarmState({ run: liveRun, config: { ...config, mode: "live" } });
+    const calls: string[] = [];
+    const candles = Array.from({ length: 120 }, (_, index): MarketCandle => {
+      const close = 100 + index * 0.1;
+
+      return {
+        timestamp: new Date(Date.UTC(2026, 3, 25, index)).toISOString(),
+        open: close - 0.2,
+        high: close + 0.8,
+        low: close - 0.8,
+        close,
+        volume: 1_000 + index,
+      };
+    });
+    const agent = createAnalystAgent({
+      llmClient: null,
+      marketData: {
+        getSnapshot: async () => {
+          calls.push("get_token_price/binance_snapshot");
+
+          return createProviderSuccess({
+            provider: "binance",
+            value: {
+              symbol: "SOL",
+              provider: "binance",
+              price: 112,
+              change24hPercent: 2.1,
+              volume24h: 10_000_000,
+              fundingRate: 0.0001,
+              openInterest: 500_000_000,
+              candles: [],
+              capturedAt: "2026-04-28T00:00:00.000Z",
+            },
+          });
+        },
+        getCandles: async (input: { interval?: "15m" | "1h" | "4h" | "1d" }) => {
+          const interval = input.interval ?? "1h";
+          calls.push(`get_market_chart/${interval}`);
+
+          return createProviderSuccess({
+            provider: "binance",
+            value: candles,
+          });
+        },
+      } as unknown as BinanceMarketService,
+      coinMarketCap: {
+        getPriceWithChange: async () => {
+          calls.push("get_token_price/coinmarketcap_quote");
+
+          return createProviderSuccess({
+            provider: "coinmarketcap",
+            value: {
+              symbol: "SOL",
+              price: 112.2,
+              change24hPercent: 2.3,
+              capturedAt: "2026-04-28T00:00:00.000Z",
+            },
+          });
+        },
+      } as unknown as CoinMarketCapMarketService,
+      coinGecko: {
+        getAssetSnapshot: async () => {
+          calls.push("get_fundamental_analysis/coingecko_snapshot");
+
+          return createProviderSuccess({
+            provider: "coingecko",
+            value: {
+              symbol: "SOL",
+              provider: "coingecko",
+              price: 112.1,
+              change24hPercent: 2.2,
+              volume24h: 9_000_000,
+              fundingRate: null,
+              openInterest: null,
+              candles: [],
+              capturedAt: "2026-04-28T00:00:00.000Z",
+            },
+          });
+        },
+      } as unknown as CoinGeckoMarketService,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: liveRun.id,
+          threadId: "thread-live",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        research: {
+          candidate: {
+            id: "candidate-sol-live",
+            symbol: "SOL",
+            reason: "Testing live analyzer enrichment.",
+            directionHint: "LONG",
+            status: "researched",
+            sourceUniverse: "SOL",
+            dedupeKey: "SOL",
+            missingDataNotes: [],
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "SOL scanner context requires analyst confirmation.",
+              sourceLabel: "Scanner",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+          narrativeSummary: "Initial scanner context.",
+          missingDataNotes: [],
+        },
+      },
+      state,
+    );
+
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        "get_token_price/binance_snapshot",
+        "get_token_price/coinmarketcap_quote",
+        "get_market_chart/15m",
+        "get_market_chart/1h",
+        "get_market_chart/4h",
+        "get_fundamental_analysis/coingecko_snapshot",
+      ]),
+    );
+    expect(result.analystNotes?.join(" ")).toContain("technical");
+    expect(result.thesis.whyNow).toMatch(/analyzer TA|market chart|1H structure/i);
   });
 });

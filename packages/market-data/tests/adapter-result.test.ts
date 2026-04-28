@@ -8,7 +8,6 @@ import {
   CoinMarketCapMarketService,
   DefiLlamaMarketService,
   ApiKeyRotator,
-  TavilyMarketResearchService,
   createProviderFailure,
   createProviderSuccess,
 } from "../src/index.js";
@@ -284,7 +283,7 @@ describe("market-data provider results", () => {
     expect(requestedHeaders.some((headers) => headers["X-CMC_PRO_API_KEY"] === "cmc-1")).toBe(true);
   });
 
-  it("builds normalized protocol and research service views", async () => {
+  it("builds normalized protocol service views", async () => {
     vi.stubGlobal(
       "fetch",
       async (input: string | URL) =>
@@ -305,39 +304,18 @@ describe("market-data provider results", () => {
               };
             }
 
-            return {
-              results: [
-                {
-                  title: "AI infrastructure rotation strengthens",
-                  content: "Investors remain bullish on AI infrastructure leaders.",
-                  url: "https://example.com/story",
-                },
-              ],
-            };
+            return {};
           },
         }) as Response,
     );
-    process.env.TAVILY_API_KEY = "test-key";
 
     const defiLlama = new DefiLlamaMarketService();
-    const research = new TavilyMarketResearchService();
 
     const protocols = await defiLlama.getProtocolLeaderboard(["aave", "uniswap"]);
-    const bundle = await research.getSymbolResearchBundle({
-      symbol: "TAO",
-      query: "ai infrastructure rotation",
-    });
 
     expect(protocols.ok).toBe(true);
     if (protocols.ok) {
       expect(protocols.value).toHaveLength(2);
-    }
-
-    expect(bundle.ok).toBe(true);
-    if (bundle.ok) {
-      expect(bundle.value.symbol).toBe("TAO");
-      expect(bundle.value.narratives.length).toBeGreaterThan(0);
-      expect(bundle.value.macroContext.length).toBeGreaterThan(0);
     }
   });
 });

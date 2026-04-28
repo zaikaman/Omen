@@ -232,6 +232,9 @@ importers:
       '@omen/axl':
         specifier: workspace:*
         version: link:../axl
+      '@omen/indicators':
+        specifier: workspace:*
+        version: link:../indicators
       '@omen/market-data':
         specifier: workspace:*
         version: link:../market-data

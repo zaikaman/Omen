@@ -8,7 +8,6 @@ import {
 import {
   BinanceMarketService,
   CoinGeckoMarketService,
-  TavilyMarketResearchService,
 } from "@omen/market-data";
 import { axlMcpRequestSchema, type AxlMcpResponse } from "@omen/shared";
 
@@ -27,7 +26,6 @@ export const analystMcpContract = defineAxlMcpServiceContract({
     "get_token_price",
     "get_technical_analysis",
     "get_fundamental_analysis",
-    "search_tavily",
   ],
   tools: [
     {
@@ -63,14 +61,6 @@ export const analystMcpContract = defineAxlMcpServiceContract({
         symbol: "string",
       },
     },
-    {
-      name: "search_tavily",
-      description:
-        "Analyst-stage news and sentiment enrichment backed by the Tavily market research adapter when thesis.generate runs in live modes.",
-      inputSchema: {
-        query: "string",
-      },
-    },
   ],
   tags: ["runtime", "mvp", "analyst"],
 });
@@ -79,8 +69,6 @@ export class AnalystMcpService {
   private readonly marketData = new BinanceMarketService();
 
   private readonly coinGecko = new CoinGeckoMarketService();
-
-  private readonly marketResearch = new TavilyMarketResearchService();
 
   private readonly agent = createAnalystAgent();
 
@@ -134,20 +122,6 @@ export class AnalystMcpService {
         return createAxlMcpSuccessResponse({
           id: parsed.id,
           result: snapshot,
-        });
-      }
-
-      if (parsed.method === "search_tavily") {
-        const query = String(parsed.params.query ?? "");
-        const symbol = String(parsed.params.symbol ?? "MARKET").toUpperCase();
-        const narratives = await this.marketResearch.getSymbolResearchBundle({
-          symbol,
-          query,
-        });
-
-        return createAxlMcpSuccessResponse({
-          id: parsed.id,
-          result: narratives,
         });
       }
 

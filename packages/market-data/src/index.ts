@@ -8,7 +8,5 @@ export * from "./coinmarketcap/coinmarketcap-adapter.js";
 export * from "./coinmarketcap/coinmarketcap-market-service.js";
 export * from "./defillama/defillama-adapter.js";
 export * from "./defillama/defillama-market-service.js";
-export * from "./research/news-adapter.js";
-export * from "./research/tavily-market-research-service.js";
 export * from "./types.js";
 export * from "./utils/api-key-rotator.js";

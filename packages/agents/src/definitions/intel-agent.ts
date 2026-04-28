@@ -7,7 +7,6 @@ import {
   CoinGeckoMarketService,
   CoinMarketCapMarketService,
   DefiLlamaMarketService,
-  TavilyMarketResearchService,
 } from "@omen/market-data";
 import { intelInputSchema, intelOutputSchema } from "../contracts/intel.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
@@ -28,7 +27,6 @@ const intelAgentOptionsSchema = zod.object({
   coinGecko: zod.custom<CoinGeckoMarketService>().optional(),
   coinMarketCap: zod.custom<CoinMarketCapMarketService>().optional(),
   defiLlama: zod.custom<DefiLlamaMarketService>().optional(),
-  marketResearch: zod.custom<TavilyMarketResearchService>().optional(),
 });
 
 const templateIntelSchema = zod.object({
@@ -123,37 +121,6 @@ const isGenericIntelTopic = (topic: string) => {
     normalized === "crypto market update" ||
     normalized === "crypto market intel" ||
     normalized.length < 8
-  );
-};
-
-const isLowSignalSourceUrl = (sourceUrl: string | null) => {
-  if (!sourceUrl) {
-    return false;
-  }
-
-  try {
-    const host = new URL(sourceUrl).hostname.toLowerCase();
-
-    return (
-      host.includes("markets.businessinsider.com") ||
-      host.includes("coinpedia.org") ||
-      host.includes("cryptonews.com") ||
-      host.includes("analyticsinsight.net")
-    );
-  } catch {
-    return false;
-  }
-};
-
-const isHighSignalNarrativeEvidence = (item: EvidenceItem) => {
-  const text = `${item.summary} ${item.sourceLabel}`;
-
-  if (isLowSignalNarrativeText(text) || isLowSignalSourceUrl(item.sourceUrl)) {
-    return false;
-  }
-
-  return /\b(tvl|volume|liquid\w*|funding|open interest|wallet|flow|inflow|outflow|revenue|fees|users|addresses|staking|perp|dex|stablecoin|etf|treasury|protocol|chain)\b/i.test(
-    text,
   );
 };
 
@@ -314,8 +281,6 @@ export class IntelAgentFactory {
 
   private readonly defiLlama: DefiLlamaMarketService;
 
-  private readonly marketResearch: TavilyMarketResearchService;
-
   constructor(input: zod.input<typeof intelAgentOptionsSchema> = {}) {
     const parsed = intelAgentOptionsSchema.parse(input);
     this.llmClient =
@@ -325,7 +290,6 @@ export class IntelAgentFactory {
     this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
     this.coinMarketCap = parsed.coinMarketCap ?? new CoinMarketCapMarketService();
     this.defiLlama = parsed.defiLlama ?? new DefiLlamaMarketService();
-    this.marketResearch = parsed.marketResearch ?? new TavilyMarketResearchService();
   }
 
   createDefinition(): RuntimeNodeDefinition<
@@ -480,7 +444,7 @@ export class IntelAgentFactory {
   ): Promise<z.infer<typeof intelInputSchema>> {
     const parsed = intelInputSchema.parse(input);
 
-    if (parsed.context.mode === "mocked" || !state.config.providers.news.enabled) {
+    if (parsed.context.mode === "mocked") {
       return parsed;
     }
 
@@ -488,68 +452,10 @@ export class IntelAgentFactory {
       ...parsed.evidence,
       ...(await this.collectTemplateMarketEvidence(state)),
     ];
-    const existingNarrativeKeys = new Set(
-      existingEvidence
-        .filter((item) => item.category === "sentiment" || item.category === "catalyst")
-        .map((item) => item.summary.toLowerCase()),
-    );
-    const symbols = extractSymbols(existingEvidence).slice(0, 3);
-    const focus =
-      symbols.length > 0
-        ? `${symbols.join(" ")} crypto market news catalyst sentiment high signal accounts`
-        : "crypto market narratives today high signal accounts WatcherGuru Pentosh1 Cointelegraph";
-
-    const narratives = await this.marketResearch.getSymbolResearchBundle({
-      symbol: symbols[0] ?? "MARKET",
-      query: focus,
-    });
-
-    if (!narratives.ok) {
-      return intelInputSchema.parse({
-        ...parsed,
-        evidence: existingEvidence,
-      });
-    }
-
-    const narrativeEvidence = [...narratives.value.narratives, ...narratives.value.macroContext]
-      .slice(0, 8)
-      .map(
-        (narrative) =>
-          ({
-            category: narrative.sentiment === "neutral" ? "catalyst" : "sentiment",
-            summary: `${narrative.title}: ${narrative.summary}`,
-            sourceLabel: narrative.source,
-            sourceUrl: narrative.sourceUrl,
-            structuredData: {
-              symbol: narrative.symbol,
-              sentiment: narrative.sentiment,
-              capturedAt: narrative.capturedAt,
-              source: "intel-research",
-            },
-          }) satisfies EvidenceItem,
-      )
-      .filter(isHighSignalNarrativeEvidence)
-      .filter((item) => {
-        const key = item.summary.toLowerCase();
-
-        if (existingNarrativeKeys.has(key)) {
-          return false;
-        }
-
-        existingNarrativeKeys.add(key);
-        return true;
-      });
-
-    if (narrativeEvidence.length === 0) {
-      return intelInputSchema.parse({
-        ...parsed,
-        evidence: existingEvidence,
-      });
-    }
 
     return intelInputSchema.parse({
       ...parsed,
-      evidence: [...existingEvidence, ...narrativeEvidence],
+      evidence: existingEvidence,
     });
   }
 

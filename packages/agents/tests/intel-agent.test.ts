@@ -262,7 +262,7 @@ describe("intel agent", () => {
     expect(result.skipReason).toBe("recent_duplicate");
   });
 
-  it("uses fresh market research for live intel instead of only failed trade evidence", async () => {
+  it("uses fresh market data for live intel instead of failed trade evidence", async () => {
     const liveRun = {
       ...run,
       mode: "live" as const,
@@ -277,35 +277,6 @@ describe("intel agent", () => {
       binance: createBinanceStub(),
       coinGecko: createCoinGeckoStub(),
       defiLlama: createDefiLlamaStub(),
-      marketResearch: {
-        getSymbolResearchBundle: async () => ({
-          ok: true as const,
-          provider: "news",
-          value: {
-            symbol: "SOL",
-            narratives: [
-              {
-                symbol: "SOL",
-                title: "Solana market narrative shifts",
-                summary:
-                  "High-signal market accounts are discussing Solana weakness as liquidity rotates out of beta L1 trades.",
-                sentiment: "bearish" as const,
-                source: "Tavily",
-                sourceUrl: null,
-                capturedAt: new Date().toISOString(),
-              },
-            ],
-            macroContext: [],
-          },
-          health: {
-            provider: "news",
-            available: true,
-            degraded: false,
-            checkedAt: new Date().toISOString(),
-            notes: [],
-          },
-        }),
-      } as never,
     });
 
     const result = await agent.invoke(
@@ -374,7 +345,7 @@ describe("intel agent", () => {
 
     expect(result.action).toBe("ready");
     expect(result.report?.importanceScore).toBeGreaterThanOrEqual(7);
-    expect(result.report?.summary).toMatch(/Solana market narrative shifts/i);
+    expect(result.report?.summary).toMatch(/SOL|DeFi TVL rotation|Top watched movers/i);
   });
 
   it("can start a live intel scan from a clean market brief", async () => {
@@ -388,44 +359,11 @@ describe("intel agent", () => {
       mode: "live" as const,
     };
     const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
-    const calls: Array<{ symbol: string; query: string }> = [];
     const agent = createIntelAgent({
       llmClient: null,
       binance: createBinanceStub(),
       coinGecko: createCoinGeckoStub(),
       defiLlama: createDefiLlamaStub(),
-      marketResearch: {
-        getSymbolResearchBundle: async (input: { symbol: string; query: string }) => {
-          calls.push(input);
-          return {
-            ok: true as const,
-            provider: "news",
-            value: {
-              symbol: input.symbol,
-              narratives: [
-                {
-                  symbol: input.symbol,
-                  title: "Crypto market narratives reset",
-                  summary:
-                    "High-signal accounts are focused on broad liquidity conditions and fresh narrative rotation.",
-                  sentiment: "neutral" as const,
-                  source: "Tavily",
-                  sourceUrl: null,
-                  capturedAt: new Date().toISOString(),
-                },
-              ],
-              macroContext: [],
-            },
-            health: {
-              provider: "news",
-              available: true,
-              degraded: false,
-              checkedAt: new Date().toISOString(),
-              notes: [],
-            },
-          };
-        },
-      } as never,
     });
 
     const result = await agent.invoke(
@@ -451,14 +389,8 @@ describe("intel agent", () => {
       state,
     );
 
-    expect(calls).toEqual([
-      {
-        symbol: "BTC",
-        query: "BTC ETH SOL crypto market news catalyst sentiment high signal accounts",
-      },
-    ]);
     expect(result.action).toBe("ready");
-    expect(result.report?.summary).toMatch(/Crypto market narratives reset/i);
+    expect(result.report?.summary).toMatch(/BTC|ETH|SOL|DeFi TVL rotation|Top watched movers/i);
     expect(result.report?.summary).not.toMatch(/trade cleared|trade setup|ETC spot/i);
     expect(result.report?.title).not.toMatch(/market market/i);
     expect(result.report?.summary).not.toMatch(/fresh market intelligence scan/i);

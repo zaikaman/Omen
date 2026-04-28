@@ -44,7 +44,6 @@ export type BackendEnv = {
     openaiApiKey: string | null;
     openaiBaseUrl: string;
     openaiModel: string;
-    tavilyApiKey: string | null;
     scannerApiKey: string | null;
     scannerBaseUrl: string | null;
     scannerModel: string | null;
@@ -250,7 +249,6 @@ export const createBackendEnv = (
       openaiApiKey: env.OPENAI_API_KEY ?? null,
       openaiBaseUrl: env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
       openaiModel: env.OPENAI_MODEL ?? "gpt-5-mini",
-      tavilyApiKey: env.TAVILY_API_KEY ?? null,
       scannerApiKey: env.SCANNER_API_KEY ?? null,
       scannerBaseUrl: env.SCANNER_BASE_URL ?? null,
       scannerModel: env.SCANNER_MODEL ?? null,

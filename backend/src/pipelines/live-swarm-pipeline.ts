@@ -203,10 +203,7 @@ const createLiveRuntimeConfig = (input: {
       binance: { enabled: externalReadsEnabled, required: false },
       coinGecko: { enabled: externalReadsEnabled, required: false },
       defiLlama: { enabled: externalReadsEnabled, required: false },
-      news: {
-        enabled: externalReadsEnabled && Boolean(input.env.providers.tavilyApiKey),
-        required: false,
-      },
+      news: { enabled: false, required: false },
       twitterapi: {
         enabled: postToXEnabled,
         required: false,

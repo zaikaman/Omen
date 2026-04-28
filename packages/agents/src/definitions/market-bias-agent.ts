@@ -1,7 +1,6 @@
 import {
   BinanceMarketService,
   CoinGeckoMarketService,
-  TavilyMarketResearchService,
   assetNarrativeSchema,
   marketSnapshotSchema,
   type AssetNarrative,
@@ -27,7 +26,6 @@ export const marketBiasAgentOutputSchema = biasDecisionSchema;
 const marketBiasServiceOptionsSchema = z.object({
   binance: z.custom<BinanceMarketService>().optional(),
   coinGecko: z.custom<CoinGeckoMarketService>().optional(),
-  narratives: z.custom<TavilyMarketResearchService>().optional(),
   llmClient: z.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
 });
 
@@ -94,15 +92,12 @@ export class MarketBiasAgentFactory {
 
   private readonly coinGecko: CoinGeckoMarketService;
 
-  private readonly narratives: TavilyMarketResearchService;
-
   private readonly llmClient: OpenAiCompatibleJsonClient | null;
 
   constructor(input: z.input<typeof marketBiasServiceOptionsSchema> = {}) {
     const parsed = marketBiasServiceOptionsSchema.parse(input);
     this.binance = parsed.binance ?? new BinanceMarketService();
     this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
-    this.narratives = parsed.narratives ?? new TavilyMarketResearchService();
     this.llmClient =
       parsed.llmClient ??
       OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("market_bias"));
@@ -131,10 +126,8 @@ export class MarketBiasAgentFactory {
       return deriveMarketBias(parsed);
     }
 
-    const [snapshots, narratives] = await Promise.all([
-      this.collectSnapshots(state.config.marketUniverse),
-      this.collectNarratives(state.config.marketUniverse),
-    ]);
+    const snapshots = await this.collectSnapshots(state.config.marketUniverse);
+    const narratives: AssetNarrative[] = [];
 
     const llmResult = await this.analyzeWithModel({
       snapshots,
@@ -228,15 +221,6 @@ export class MarketBiasAgentFactory {
     }
   }
 
-  private async collectNarratives(universe: string[]): Promise<AssetNarrative[]> {
-    const focus = universe.slice(0, 3).join(" ");
-    const result = await this.narratives.getNarratives({
-      symbol: "MARKET",
-      query: `${focus} crypto market sentiment today`,
-    });
-
-    return result.ok ? result.value : [];
-  }
 }
 
 export const createMarketBiasAgent = (

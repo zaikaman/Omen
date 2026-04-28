@@ -1,9 +1,16 @@
 import {
   BinanceMarketService,
   CoinGeckoMarketService,
-  TavilyMarketResearchService,
+  CoinMarketCapMarketService,
   type MarketCandle,
 } from "@omen/market-data";
+import {
+  assessMultiTimeframeAlignment,
+  calculateMacd,
+  calculateRsi,
+  detectSupportResistance,
+} from "@omen/indicators";
+import { getTradeableToken } from "@omen/shared";
 import type { z } from "zod";
 import { z as zod } from "zod";
 
@@ -22,7 +29,7 @@ import { buildAnalystSystemPrompt } from "../prompts/analyst/system.js";
 const analystAgentOptionsSchema = zod.object({
   marketData: zod.custom<BinanceMarketService>().optional(),
   coinGecko: zod.custom<CoinGeckoMarketService>().optional(),
-  marketResearch: zod.custom<TavilyMarketResearchService>().optional(),
+  coinMarketCap: zod.custom<CoinMarketCapMarketService>().optional(),
   llmClient: zod.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
 });
 
@@ -218,6 +225,8 @@ const estimateConfidence = (input: {
 
 const summarizeWhyNow = (symbol: string, evidence: EvidenceItem[], narrativeSummary: string) => {
   const leadEvidence = evidence
+    .filter((item) => item.category === "technical" || item.category === "chart")
+    .concat(evidence.filter((item) => item.category !== "technical" && item.category !== "chart"))
     .slice(0, 2)
     .map((item) => item.summary)
     .join(" ");
@@ -232,6 +241,8 @@ const summarizeNoTrade = (
   narrativeSummary: string,
 ) => {
   const leadEvidence = evidence
+    .filter((item) => item.category === "technical" || item.category === "chart")
+    .concat(evidence.filter((item) => item.category !== "technical" && item.category !== "chart"))
     .slice(0, 2)
     .map((item) => item.summary)
     .join(" ");
@@ -398,6 +409,195 @@ const calculateCandleTechnicalSummary = (candles: MarketCandle[]) => {
   };
 };
 
+const calculateAtr = (candles: MarketCandle[], period = 14) => {
+  if (candles.length < period + 1) {
+    return null;
+  }
+
+  const trueRanges = candles.slice(1).map((candle, index) => {
+    const previousClose = candles[index]?.close ?? candle.close;
+
+    return Math.max(
+      candle.high - candle.low,
+      Math.abs(candle.high - previousClose),
+      Math.abs(candle.low - previousClose),
+    );
+  });
+  const recentRanges = trueRanges.slice(-period);
+  const atr =
+    recentRanges.reduce((sum, trueRange) => sum + trueRange, 0) /
+    Math.max(recentRanges.length, 1);
+  const latest = candles[candles.length - 1];
+
+  if (!latest || latest.close <= 0) {
+    return null;
+  }
+
+  return {
+    value: atr,
+    percent: (atr / latest.close) * 100,
+  };
+};
+
+const safeRsi = (closes: number[]) => {
+  try {
+    return calculateRsi({ values: closes, period: 14 });
+  } catch {
+    return null;
+  }
+};
+
+const safeMacd = (closes: number[]) => {
+  try {
+    return calculateMacd({ values: closes });
+  } catch {
+    return null;
+  }
+};
+
+const trendFromCandles = (candles: MarketCandle[]) => {
+  if (candles.length < 8) {
+    return { trend: "neutral" as const, confidence: 40 };
+  }
+
+  const latest = candles[candles.length - 1];
+  const previous = candles[Math.max(0, candles.length - 8)];
+
+  if (!latest || !previous || previous.close <= 0) {
+    return { trend: "neutral" as const, confidence: 40 };
+  }
+
+  const changePercent = ((latest.close - previous.close) / previous.close) * 100;
+  const magnitude = Math.min(95, Math.max(45, 45 + Math.abs(changePercent) * 10));
+
+  if (changePercent > 0.25) {
+    return { trend: "bullish" as const, confidence: magnitude };
+  }
+
+  if (changePercent < -0.25) {
+    return { trend: "bearish" as const, confidence: magnitude };
+  }
+
+  return { trend: "neutral" as const, confidence: 50 };
+};
+
+const buildMarketChartEvidence = (
+  symbol: string,
+  candles: MarketCandle[],
+  timeframe: string,
+): EvidenceItem | null => {
+  if (candles.length < 8) {
+    return null;
+  }
+
+  const latest = candles[candles.length - 1];
+  const first = candles[0];
+  const highs = candles.map((candle) => candle.high);
+  const lows = candles.map((candle) => candle.low);
+
+  if (!latest || !first || first.close <= 0) {
+    return null;
+  }
+
+  const changePercent = ((latest.close - first.close) / first.close) * 100;
+  const rangeHigh = Math.max(...highs);
+  const rangeLow = Math.min(...lows);
+  const rangePosition =
+    rangeHigh === rangeLow ? 0.5 : (latest.close - rangeLow) / (rangeHigh - rangeLow);
+
+  return evidenceItemSchema.parse({
+    category: "chart",
+    summary: `${symbol} ${timeframe} market chart shows ${changePercent.toFixed(2)}% move across ${candles.length.toString()} candles; price sits ${rangePosition < 0.35 ? "near range support" : rangePosition > 0.65 ? "near range resistance" : "mid-range"}.`,
+    sourceLabel: "Analyzer Market Chart",
+    sourceUrl: null,
+    structuredData: {
+      symbol,
+      timeframe,
+      currentPrice: latest.close,
+      price: latest.close,
+      rangeHigh,
+      rangeLow,
+      rangePosition,
+      changePercent,
+      candles: candles.length,
+    },
+  });
+};
+
+const buildAdvancedTechnicalEvidence = (
+  symbol: string,
+  candlesByTimeframe: Partial<Record<"15m" | "1h" | "4h", MarketCandle[]>>,
+): EvidenceItem | null => {
+  const primaryCandles = candlesByTimeframe["1h"] ?? candlesByTimeframe["4h"] ?? candlesByTimeframe["15m"];
+
+  if (!primaryCandles || primaryCandles.length < 30) {
+    return null;
+  }
+
+  const closes = primaryCandles.map((candle) => candle.close);
+  const latest = primaryCandles[primaryCandles.length - 1];
+  const rsi = safeRsi(closes);
+  const macd = safeMacd(closes);
+  const atr = calculateAtr(primaryCandles);
+  const levels = detectSupportResistance({ candles: primaryCandles.slice(-80), levels: 3 });
+  const timeframeInputs = (Object.entries(candlesByTimeframe) as Array<
+    ["15m" | "1h" | "4h", MarketCandle[] | undefined]
+  >)
+    .filter((entry): entry is ["15m" | "1h" | "4h", MarketCandle[]] => !!entry[1]?.length)
+    .map(([timeframe, candles]) => ({
+      timeframe,
+      ...trendFromCandles(candles),
+    }));
+  const mtf =
+    timeframeInputs.length >= 2
+      ? assessMultiTimeframeAlignment({ timeframes: timeframeInputs })
+      : null;
+  const nearestSupport = levels.supports
+    .filter((level) => !latest || level.price <= latest.close)
+    .sort((left, right) => right.price - left.price)[0] ?? levels.supports[0] ?? null;
+  const nearestResistance = levels.resistances
+    .filter((level) => !latest || level.price >= latest.close)
+    .sort((left, right) => left.price - right.price)[0] ?? levels.resistances[0] ?? null;
+  const confluences = [
+    rsi?.state === "oversold" || rsi?.state === "overbought" ? "rsi_extreme" : null,
+    macd?.bias && macd.bias !== "neutral" ? "macd_bias" : null,
+    mtf && mtf.dominantTrend !== "neutral" && mtf.confidence >= 50 ? "mtf_alignment" : null,
+    nearestSupport ? "support_level" : null,
+    nearestResistance ? "resistance_level" : null,
+    atr && atr.percent >= 1 ? "tradable_atr" : null,
+  ].filter((entry): entry is string => entry !== null);
+  const dominantTrend = mtf?.dominantTrend ?? macd?.bias ?? "neutral";
+
+  return evidenceItemSchema.parse({
+    category: "technical",
+    summary: `${symbol} analyzer TA is ${dominantTrend}; RSI ${rsi?.latest.toFixed(1) ?? "n/a"} (${rsi?.state ?? "n/a"}), MACD ${macd?.bias ?? "n/a"}, MTF alignment ${mtf ? `${mtf.confidence.toFixed(0)}% ${mtf.dominantTrend}` : "n/a"}, with ${confluences.length.toString()} confluences and ATR ${atr?.percent.toFixed(2) ?? "n/a"}%.`,
+    sourceLabel: "Analyzer Technical Stack",
+    sourceUrl: null,
+    structuredData: {
+      symbol,
+      currentPrice: latest?.close ?? null,
+      price: latest?.close ?? null,
+      support: nearestSupport?.price ?? null,
+      supportTouches: nearestSupport?.touches ?? null,
+      resistance: nearestResistance?.price ?? null,
+      resistanceTouches: nearestResistance?.touches ?? null,
+      rsi14: rsi?.latest ?? null,
+      rsiState: rsi?.state ?? null,
+      macdBias: macd?.bias ?? null,
+      macdHistogram: macd?.histogram ?? null,
+      atr: atr?.value ?? null,
+      atrPercent: atr?.percent ?? null,
+      mtfAlignmentScore: mtf?.confidence ?? null,
+      mtfDominantTrend: mtf?.dominantTrend ?? null,
+      alignedTimeframes: mtf?.alignedTimeframes ?? [],
+      conflictingTimeframes: mtf?.conflictingTimeframes ?? [],
+      confluenceCount: confluences.length,
+      confluences,
+      dataSource: "binance",
+    },
+  });
+};
+
 const buildTechnicalEvidence = (symbol: string, candles: MarketCandle[]): EvidenceItem | null => {
   if (candles.length < 20) {
     return null;
@@ -548,7 +748,7 @@ export class AnalystAgentFactory {
 
   private readonly coinGecko: CoinGeckoMarketService;
 
-  private readonly marketResearch: TavilyMarketResearchService;
+  private readonly coinMarketCap: CoinMarketCapMarketService;
 
   private readonly llmClient: OpenAiCompatibleJsonClient | null;
 
@@ -556,7 +756,7 @@ export class AnalystAgentFactory {
     const parsed = analystAgentOptionsSchema.parse(input);
     this.marketData = parsed.marketData ?? new BinanceMarketService();
     this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
-    this.marketResearch = parsed.marketResearch ?? new TavilyMarketResearchService();
+    this.coinMarketCap = parsed.coinMarketCap ?? new CoinMarketCapMarketService();
     this.llmClient =
       parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("analyst"));
   }
@@ -641,12 +841,19 @@ export class AnalystAgentFactory {
     }
 
     const symbol = parsed.research.candidate.symbol.toUpperCase();
+    const tradeableToken = getTradeableToken(symbol);
+    const coingeckoId = tradeableToken?.coingeckoId ?? symbol.toLowerCase();
     const evidence = [...parsed.research.evidence];
     const missingDataNotes = [...parsed.research.missingDataNotes];
-    const categories = new Set(evidence.map((item) => item.category));
     const toolNotes: string[] = [];
 
-    if (!categories.has("market") && state.config.providers.binance.enabled) {
+    toolNotes.push(
+      tradeableToken
+        ? `get_coingecko_id/${coingeckoId}`
+        : `get_coingecko_id/${coingeckoId}/unverified`,
+    );
+
+    if (state.config.providers.binance.enabled) {
       const snapshot = await this.marketData.getSnapshot(symbol);
 
       if (snapshot.ok) {
@@ -675,26 +882,91 @@ export class AnalystAgentFactory {
       }
     }
 
-    if (!categories.has("technical") && state.config.providers.binance.enabled) {
-      const candles = await this.marketData.getCandles({
-        symbol,
-        interval: "1h",
-        limit: 96,
-      });
+    if (state.config.providers.coinGecko.enabled) {
+      const cmcQuote =
+        typeof this.coinMarketCap.getPriceWithChange === "function"
+          ? await this.coinMarketCap.getPriceWithChange(symbol)
+          : null;
 
-      if (candles.ok) {
-        const technicalEvidence = buildTechnicalEvidence(symbol, candles.value);
-
-        if (technicalEvidence !== null) {
-          appendUniqueEvidence(evidence, technicalEvidence);
-          toolNotes.push("get_technical_analysis/binance_ohlcv");
-        }
-      } else {
-        missingDataNotes.push(`Analyst technical candles missing: ${candles.error.message}`);
+      if (cmcQuote?.ok) {
+        appendUniqueEvidence(
+          evidence,
+          evidenceItemSchema.parse({
+            category: "market",
+            summary: `${symbol} CoinMarketCap live quote recorded ${cmcQuote.value.price.toFixed(4)} with 24h change ${cmcQuote.value.change24hPercent?.toFixed(2) ?? "n/a"}%.`,
+            sourceLabel: "CoinMarketCap",
+            sourceUrl: null,
+            structuredData: {
+              symbol,
+              coingeckoId,
+              price: cmcQuote.value.price,
+              currentPrice: cmcQuote.value.price,
+              change24hPercent: cmcQuote.value.change24hPercent,
+              capturedAt: cmcQuote.value.capturedAt,
+            },
+          }),
+        );
+        toolNotes.push("get_token_price/coinmarketcap_quote");
+      } else if (cmcQuote && !cmcQuote.ok) {
+        missingDataNotes.push(`Analyst CMC quote missing: ${cmcQuote.error.message}`);
       }
     }
 
-    if (!categories.has("fundamental") && state.config.providers.coinGecko.enabled) {
+    if (state.config.providers.binance.enabled) {
+      const [candles15m, candles1h, candles4h] = await Promise.all([
+        this.marketData.getCandles({ symbol, interval: "15m", limit: 96 }),
+        this.marketData.getCandles({ symbol, interval: "1h", limit: 120 }),
+        this.marketData.getCandles({ symbol, interval: "4h", limit: 120 }),
+      ]);
+      const candlesByTimeframe: Partial<Record<"15m" | "1h" | "4h", MarketCandle[]>> = {};
+
+      if (candles15m.ok) {
+        candlesByTimeframe["15m"] = candles15m.value;
+      } else {
+        missingDataNotes.push(`Analyst 15m candles missing: ${candles15m.error.message}`);
+      }
+
+      if (candles1h.ok) {
+        candlesByTimeframe["1h"] = candles1h.value;
+      } else {
+        missingDataNotes.push(`Analyst 1h candles missing: ${candles1h.error.message}`);
+      }
+
+      if (candles4h.ok) {
+        candlesByTimeframe["4h"] = candles4h.value;
+      } else {
+        missingDataNotes.push(`Analyst 4h candles missing: ${candles4h.error.message}`);
+      }
+
+      const primaryCandles = candlesByTimeframe["1h"] ?? candlesByTimeframe["4h"] ?? candlesByTimeframe["15m"];
+
+      if (primaryCandles) {
+        const technicalEvidence = buildTechnicalEvidence(symbol, primaryCandles);
+        const advancedTechnicalEvidence = buildAdvancedTechnicalEvidence(symbol, candlesByTimeframe);
+        const chartEvidence = buildMarketChartEvidence(
+          symbol,
+          primaryCandles,
+          candlesByTimeframe["1h"] ? "1h" : candlesByTimeframe["4h"] ? "4h" : "15m",
+        );
+
+        if (technicalEvidence !== null) {
+          appendUniqueEvidence(evidence, technicalEvidence);
+        }
+
+        if (advancedTechnicalEvidence !== null) {
+          appendUniqueEvidence(evidence, advancedTechnicalEvidence);
+        }
+
+        if (chartEvidence !== null) {
+          appendUniqueEvidence(evidence, chartEvidence);
+        }
+
+        toolNotes.push("get_market_chart/binance_ohlcv");
+        toolNotes.push("get_technical_analysis/analyzer_stack");
+      }
+    }
+
+    if (state.config.providers.coinGecko.enabled) {
       const asset = await this.coinGecko.getAssetSnapshot(symbol);
 
       if (asset.ok) {
@@ -707,6 +979,7 @@ export class AnalystAgentFactory {
             sourceUrl: null,
             structuredData: {
               symbol,
+              coingeckoId,
               price: asset.value.price,
               currentPrice: asset.value.price,
               change24hPercent: asset.value.change24hPercent,
@@ -718,39 +991,6 @@ export class AnalystAgentFactory {
         toolNotes.push("get_fundamental_analysis/coingecko_snapshot");
       } else {
         missingDataNotes.push(`Analyst CoinGecko snapshot missing: ${asset.error.message}`);
-      }
-    }
-
-    if (
-      !categories.has("sentiment") &&
-      !categories.has("catalyst") &&
-      state.config.providers.news.enabled
-    ) {
-      const narratives = await this.marketResearch.getSymbolResearchBundle({
-        symbol,
-        query: `${symbol} crypto news catalyst sentiment futures`,
-      });
-
-      if (narratives.ok) {
-        for (const narrative of narratives.value.narratives.slice(0, 2)) {
-          appendUniqueEvidence(
-            evidence,
-            evidenceItemSchema.parse({
-              category: narrative.sentiment === "neutral" ? "catalyst" : "sentiment",
-              summary: `${narrative.title}: ${narrative.summary}`,
-              sourceLabel: narrative.source,
-              sourceUrl: narrative.sourceUrl,
-              structuredData: {
-                symbol,
-                sentiment: narrative.sentiment,
-                capturedAt: narrative.capturedAt,
-              },
-            }),
-          );
-        }
-        toolNotes.push("search_tavily/news_sentiment");
-      } else {
-        missingDataNotes.push(`Analyst news search missing: ${narratives.error.message}`);
       }
     }
 
