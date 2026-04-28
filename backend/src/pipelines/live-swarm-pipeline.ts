@@ -67,6 +67,7 @@ const managedStepRoleMap = {
   "chart-vision-agent": "chart_vision",
   "analyst-agent": "analyst",
   "intel-agent": "intel",
+  "generator-agent": "generator",
   "writer-agent": "writer",
   "memory-agent": "memory",
   "publisher-agent": "publisher",
@@ -79,6 +80,7 @@ const stepEventTypeMap = {
   "chart-vision-agent": "chart_generated",
   "analyst-agent": "thesis_generated",
   "intel-agent": "intel_ready",
+  "generator-agent": "intel_ready",
   "writer-agent": "intel_ready",
   "memory-agent": "zero_g_kv_write",
   "publisher-agent": "report_published",
@@ -1008,24 +1010,30 @@ class LivePipelineExecutionContext {
     }
 
     const imagePrompt = buildIntelImagePrompt(report);
+    const generatedContent = finalState.generatedIntelContents.at(-1) ?? null;
+    const finalImagePrompt = generatedContent?.imagePrompt ?? imagePrompt;
     const imageUrl = this.intelImageService
-      ? await this.intelImageService.generateAndStore(imagePrompt)
+      ? await this.intelImageService.generateAndStore(finalImagePrompt)
       : null;
     const timestamp = finalState.run.completedAt ?? new Date().toISOString();
     const article = finalState.intelArticles.at(-1) ?? null;
     const intel = {
       id: intelId,
       runId: finalState.run.id,
-      title: article?.headline ?? report.title,
-      slug: `${slugify(article?.headline ?? report.title) || "intel"}-${finalState.run.id.slice(0, 8)}`,
+      title: article?.headline ?? generatedContent?.topic ?? report.title,
+      slug: `${slugify(article?.headline ?? generatedContent?.topic ?? report.title) || "intel"}-${finalState.run.id.slice(0, 8)}`,
       summary: article?.tldr ?? report.summary,
-      body: article?.content ?? report.insight,
+      body: article?.content ?? generatedContent?.blogPost ?? report.insight,
       category: report.category,
       status: "published",
       symbols: report.symbols,
       confidence: report.confidence,
-      imagePrompt,
+      imagePrompt: finalImagePrompt,
       imageUrl,
+      generatedTweetText: generatedContent?.tweetText ?? null,
+      generatedBlogPost: generatedContent?.blogPost ?? null,
+      generatorLogMessage: generatedContent?.logMessage ?? null,
+      generatorPayload: generatedContent ?? {},
       sources: [],
       proofRefIds: this.artifacts.map((artifact) => artifact.id),
       publishedAt: timestamp,

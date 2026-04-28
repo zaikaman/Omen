@@ -96,8 +96,18 @@ const buildPreviewSummary = (parsed: z.infer<typeof writerInputSchema>) => {
 
 const buildFallbackArticle = (input: z.input<typeof writerInputSchema>): IntelArticle => {
   const parsed = writerInputSchema.parse(input);
+  const generatedBlogPost = parsed.generatedContent?.blogPost?.trim();
   const headline = buildCleanHeadline(parsed);
   const tldr = buildPreviewSummary(parsed);
+
+  if (generatedBlogPost && generatedBlogPost.length > 0) {
+    return {
+      headline: parsed.generatedContent?.topic ?? headline,
+      content: generatedBlogPost,
+      tldr,
+    };
+  }
+
   const cleanedInsight = stripArticleBoilerplate(parsed.report.insight);
   const cleanedSummary = stripArticleBoilerplate(parsed.report.summary);
   const lead =
@@ -107,14 +117,26 @@ const buildFallbackArticle = (input: z.input<typeof writerInputSchema>): IntelAr
   const evidenceLines = parsed.evidence
     .slice(0, 6)
     .map((item) => `- ${normalizeParagraph(item.summary)} (${item.sourceLabel})`);
+  const insightSentences = splitSentences(cleanedInsight || cleanedSummary);
+  const signalMap =
+    insightSentences.length > 0
+      ? insightSentences
+          .slice(0, 6)
+          .map((sentence) => `- ${sentence}`)
+          .join("\n")
+      : "- The report did not include enough supporting detail to build a full signal map.";
   const symbols = parsed.report.symbols.length
     ? parsed.report.symbols.map((symbol) => `$${symbol.toUpperCase()}`).join(", ")
     : "the tracked market";
   const evidenceSection =
     evidenceLines.length > 0
       ? evidenceLines.join("\n")
-      : "- Source coverage was thin, so this should be treated as preliminary desk context.";
+      : signalMap;
   const category = parsed.report.category.replace(/_/g, " ");
+  const confirmation =
+    parsed.report.symbols.length > 0
+      ? `Confirmation is simple: ${symbols} need to keep showing up in both liquidity and attention data while majors fail to absorb the bid. If the flow rotates back into BTC or ETH quickly, this stays a watchlist note rather than a tradeable regime change.`
+      : "Confirmation is simple: the same narrative needs to keep appearing across liquidity, social attention, and price action. If it disappears after one scan, it is background noise.";
 
   return {
     headline,
@@ -130,17 +152,21 @@ const buildFallbackArticle = (input: z.input<typeof writerInputSchema>): IntelAr
         ? cleanedInsight
         : `${headline} has enough signal to track, but not enough confirmation to treat as a standalone trade call.`,
       "",
-      "### Evidence On The Wire",
+      "### Signal Map",
       "",
       evidenceSection,
       "",
       "### Market Impact",
       "",
-      `The read is not an automatic long or short. It is a ${category} note: useful because it shows where attention, liquidity, or risk is starting to cluster. If the narrative keeps showing up across price action, news flow, and volume, it can become a cleaner setup later. If it fades after one scan, it stays as background noise.`,
+      `The read is not an automatic long or short. It is a ${category} note: useful because it shows where attention, liquidity, or risk is starting to cluster before the cleaner setups become obvious. The practical question is whether this is early rotation or just a one-cycle attention spike.`,
+      "",
+      "### What Confirms It",
+      "",
+      confirmation,
       "",
       "### The Edge",
       "",
-      `${symbols} deserves attention while this ${category} remains active. The practical edge is to track confirmation, liquidity follow-through, and whether the narrative survives the next market-wide volatility check.`,
+      `${symbols} deserves attention while this ${category} remains active. The edge is not to chase the first headline; it is to track whether liquidity follows attention, whether the same tickers keep leading on down days, and whether the narrative survives the next market-wide volatility check.`,
       "",
       "### Verdict",
       "",
@@ -192,8 +218,15 @@ export class WriterAgentFactory {
           {
             report: parsed.report,
             evidence: parsed.evidence,
-            instruction:
-              "Write the long-form website article. Keep factual claims anchored to the report and evidence.",
+            generatedContent: parsed.generatedContent,
+            instruction: [
+              "Write the long-form website article for this INTEL REPORT, following the template Rogue Journalist flow.",
+              "Treat the report as the raw market-intelligence object: topic, insight, and importance score are the source of truth.",
+              "If generatedContent.blogPost is present, use it as the template generator draft and improve it without changing factual claims.",
+              "Do not produce a short recap. Build a deep-dive article with a strong lead, context, analysis, strategic implications, watchpoints, and verdict.",
+              "Avoid repeating the preview summary as the first paragraph.",
+              "Keep factual claims anchored to the report and evidence.",
+            ].join(" "),
           },
           null,
           2,

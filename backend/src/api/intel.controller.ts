@@ -1,10 +1,7 @@
 import type { Request, Response } from "express";
 
 import { IntelsRepository, createSupabaseServiceRoleClient } from "@omen/db";
-import {
-  intelDetailResponseSchema,
-  intelFeedResponseSchema,
-} from "@omen/shared";
+import { intelFeedResponseSchema } from "@omen/shared";
 
 import type { BackendEnv } from "../bootstrap/env.js";
 import { presentIntelDetail, presentIntelFeed } from "../presenters/intel.presenter.js";

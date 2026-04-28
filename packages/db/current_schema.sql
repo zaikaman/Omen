@@ -5,7 +5,7 @@ CREATE TABLE public.agent_events (
   id text NOT NULL DEFAULT (gen_random_uuid())::text,
   run_id text NOT NULL,
   agent_id text NOT NULL,
-  agent_role text NOT NULL CHECK (agent_role = ANY (ARRAY['orchestrator'::text, 'market_bias'::text, 'scanner'::text, 'research'::text, 'chart_vision'::text, 'analyst'::text, 'critic'::text, 'intel'::text, 'writer'::text, 'publisher'::text, 'memory'::text, 'monitor'::text])),
+  agent_role text NOT NULL CHECK (agent_role = ANY (ARRAY['orchestrator'::text, 'market_bias'::text, 'scanner'::text, 'research'::text, 'chart_vision'::text, 'analyst'::text, 'critic'::text, 'intel'::text, 'generator'::text, 'writer'::text, 'publisher'::text, 'memory'::text, 'monitor'::text])),
   event_type text NOT NULL CHECK (event_type = ANY (ARRAY['run_created'::text, 'market_bias_generated'::text, 'candidate_found'::text, 'axl_message_sent'::text, 'axl_message_received'::text, 'zero_g_kv_write'::text, 'zero_g_log_append'::text, 'zero_g_file_published'::text, 'research_completed'::text, 'chart_generated'::text, 'thesis_generated'::text, 'critic_decision'::text, 'report_published'::text, 'intel_ready'::text, 'post_queued'::text, 'warning'::text, 'error'::text])),
   status text NOT NULL CHECK (status = ANY (ARRAY['info'::text, 'success'::text, 'warning'::text, 'error'::text, 'pending'::text])),
   summary text NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE public.agent_events (
 );
 CREATE TABLE public.agent_nodes (
   id text NOT NULL DEFAULT (gen_random_uuid())::text,
-  role text NOT NULL CHECK (role = ANY (ARRAY['orchestrator'::text, 'market_bias'::text, 'scanner'::text, 'research'::text, 'chart_vision'::text, 'analyst'::text, 'critic'::text, 'intel'::text, 'writer'::text, 'publisher'::text, 'memory'::text, 'monitor'::text])),
+  role text NOT NULL CHECK (role = ANY (ARRAY['orchestrator'::text, 'market_bias'::text, 'scanner'::text, 'research'::text, 'chart_vision'::text, 'analyst'::text, 'critic'::text, 'intel'::text, 'generator'::text, 'writer'::text, 'publisher'::text, 'memory'::text, 'monitor'::text])),
   transport text NOT NULL CHECK (transport = ANY (ARRAY['axl'::text, 'local'::text])),
   status text NOT NULL CHECK (status = ANY (ARRAY['starting'::text, 'online'::text, 'degraded'::text, 'offline'::text])),
   peer_id text,
@@ -68,9 +68,9 @@ CREATE TABLE public.axl_messages (
   run_id text NOT NULL,
   correlation_id text NOT NULL,
   from_agent_id text NOT NULL,
-  from_role text NOT NULL CHECK (from_role = ANY (ARRAY['orchestrator'::text, 'market_bias'::text, 'scanner'::text, 'research'::text, 'chart_vision'::text, 'analyst'::text, 'critic'::text, 'intel'::text, 'writer'::text, 'publisher'::text, 'memory'::text, 'monitor'::text])),
+  from_role text NOT NULL CHECK (from_role = ANY (ARRAY['orchestrator'::text, 'market_bias'::text, 'scanner'::text, 'research'::text, 'chart_vision'::text, 'analyst'::text, 'critic'::text, 'intel'::text, 'generator'::text, 'writer'::text, 'publisher'::text, 'memory'::text, 'monitor'::text])),
   to_agent_id text,
-  to_role text CHECK (to_role = ANY (ARRAY['orchestrator'::text, 'market_bias'::text, 'scanner'::text, 'research'::text, 'chart_vision'::text, 'analyst'::text, 'critic'::text, 'intel'::text, 'writer'::text, 'publisher'::text, 'memory'::text, 'monitor'::text])),
+  to_role text CHECK (to_role = ANY (ARRAY['orchestrator'::text, 'market_bias'::text, 'scanner'::text, 'research'::text, 'chart_vision'::text, 'analyst'::text, 'critic'::text, 'intel'::text, 'generator'::text, 'writer'::text, 'publisher'::text, 'memory'::text, 'monitor'::text])),
   topic text,
   message_type text NOT NULL,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -102,6 +102,10 @@ CREATE TABLE public.intels (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   image_prompt text,
   image_url text,
+  generated_tweet_text text,
+  generated_blog_post text,
+  generator_log_message text,
+  generator_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   CONSTRAINT intels_pkey PRIMARY KEY (id),
   CONSTRAINT intels_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.runs(id)
 );

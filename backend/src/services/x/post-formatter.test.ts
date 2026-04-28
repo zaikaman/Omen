@@ -42,4 +42,24 @@ describe("post formatter", () => {
     expect(post.text).toContain("watch invalidation if structure fails; $BTC");
     expect(post.text).not.toContain("#");
   });
+
+  it("uses generated intel tweet text when present", () => {
+    const generatedTweetText = [
+      "sui tvl blasts higher while eth liquidity rotates",
+      "",
+      "- lending yields pull fresh deposits",
+      "- active wallets keep rising",
+      "",
+      "watch $SUI if flow sustains",
+    ].join("\n");
+    const post = formatIntelPost({
+      title: "SUI TVL Surge",
+      summary: "Fallback summary should not be used.",
+      symbols: ["SUI"],
+      generatedTweetText,
+    });
+
+    expect(post.text).toBe(generatedTweetText);
+    expect(post.text.length).toBeLessThanOrEqual(280);
+  });
 });

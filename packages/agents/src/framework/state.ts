@@ -83,6 +83,15 @@ export const intelArticleSchema = z.object({
   tldr: z.string().min(1),
 });
 
+export const generatedIntelContentSchema = z.object({
+  topic: z.string().min(1).nullable().default(null),
+  tweetText: z.string().min(1).max(280).nullable().default(null),
+  blogPost: z.string().min(1).nullable().default(null),
+  imagePrompt: z.string().min(1).nullable().default(null),
+  formattedContent: z.string().min(1).nullable().default(null),
+  logMessage: z.string().min(1).nullable().default(null),
+});
+
 export const recentIntelHistoryItemSchema = z.object({
   title: z.string().min(1),
   topic: z.string().min(1),
@@ -109,6 +118,7 @@ export const swarmStateSchema = z.object({
   thesisDrafts: z.array(thesisDraftSchema),
   criticReviews: z.array(criticReviewSchema),
   intelReports: z.array(intelReportSchema),
+  generatedIntelContents: z.array(generatedIntelContentSchema),
   intelArticles: z.array(intelArticleSchema),
   recentIntelHistory: z.array(recentIntelHistoryItemSchema),
   publisherDrafts: z.array(publisherDraftSchema),
@@ -137,6 +147,7 @@ export const createInitialSwarmState = (input: {
     thesisDrafts: [],
     criticReviews: [],
     intelReports: [],
+    generatedIntelContents: [],
     intelArticles: [],
     recentIntelHistory: [],
     publisherDrafts: [],
@@ -159,6 +170,7 @@ export type EvidenceItem = z.infer<typeof evidenceItemSchema>;
 export type ThesisDraft = z.infer<typeof thesisDraftSchema>;
 export type CriticReview = z.infer<typeof criticReviewSchema>;
 export type IntelReport = z.infer<typeof intelReportSchema>;
+export type GeneratedIntelContent = z.infer<typeof generatedIntelContentSchema>;
 export type IntelArticle = z.infer<typeof intelArticleSchema>;
 export type RecentIntelHistoryItem = z.infer<typeof recentIntelHistoryItemSchema>;
 export type PublisherDraft = z.infer<typeof publisherDraftSchema>;

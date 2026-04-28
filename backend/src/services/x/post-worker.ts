@@ -3,7 +3,7 @@ import type { OutboundPostsRepository } from "@omen/db";
 
 import type { Logger } from "../../bootstrap/logger.js";
 import { transitionPost } from "./post-state-machine.js";
-import { TwitterApiClient } from "./twitterapi-client.js";
+import type { TwitterApiClient } from "./twitterapi-client.js";
 import { TwitterApiProviderError } from "./twitterapi-errors.js";
 
 export type PostWorkerResult = {

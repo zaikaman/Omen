@@ -2,6 +2,7 @@ export * from "./analyst.js";
 export * from "./chart-vision.js";
 export * from "./common.js";
 export * from "./critic.js";
+export * from "./generator.js";
 export * from "./intel.js";
 export * from "./memory.js";
 export * from "./orchestrator.js";

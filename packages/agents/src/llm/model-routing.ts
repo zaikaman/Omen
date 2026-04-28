@@ -12,6 +12,7 @@ export const agentModelRoutingSchema = z.enum([
   "analyst",
   "critic",
   "intel",
+  "generator",
   "publisher",
   "writer",
 ]);
@@ -26,6 +27,7 @@ const ROUTING_TABLE: Record<AgentModelRoutingRole, ModelProfile> = {
   analyst: "reasoning",
   critic: "reasoning",
   intel: "scanner",
+  generator: "reasoning",
   publisher: "reasoning",
   writer: "reasoning",
 };

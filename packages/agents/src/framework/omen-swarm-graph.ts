@@ -5,6 +5,7 @@ import type { ChartVisionOutput } from "../contracts/chart-vision.js";
 import {
   createAnalystAgent,
   createChartVisionAgent,
+  createGeneratorAgent,
   createIntelAgent,
   createMarketBiasAgent,
   createMemoryAgent,
@@ -15,7 +16,13 @@ import {
 } from "../definitions/index.js";
 import { runCriticGate } from "../quality-gates/critic-gate.js";
 import type { RuntimeNodeDefinition } from "./agent-runtime.js";
-import { mergeSwarmState, type IntelReport, type SwarmState, type ThesisDraft } from "./state.js";
+import {
+  generatedIntelContentSchema,
+  mergeSwarmState,
+  type IntelReport,
+  type SwarmState,
+  type ThesisDraft,
+} from "./state.js";
 import type { SwarmGraphDefinition } from "./graph-factory.js";
 
 export const omenSwarmNodeKeySchema = z.enum([
@@ -25,6 +32,7 @@ export const omenSwarmNodeKeySchema = z.enum([
   "chart-vision-agent",
   "analyst-agent",
   "intel-agent",
+  "generator-agent",
   "writer-agent",
   "memory-agent",
   "publisher-agent",
@@ -41,6 +49,7 @@ const nodeKeyOrder = [
   "chart-vision-agent",
   "analyst-agent",
   "intel-agent",
+  "generator-agent",
   "writer-agent",
   "memory-agent",
   "publisher-agent",
@@ -261,6 +270,7 @@ export const createDefaultOmenSwarmNodes = (): readonly RuntimeNodeDefinition<
   createChartVisionAgent(),
   createAnalystAgent(),
   createIntelAgent(),
+  createGeneratorAgent(),
   createWriterAgent(),
   createMemoryAgent(),
   createPublisherAgent(),
@@ -304,7 +314,11 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "intel-agent") {
-    return state.intelReports.length > 0 ? "writer-agent" : "memory-agent";
+    return state.intelReports.length > 0 ? "generator-agent" : "memory-agent";
+  }
+
+  if (current === "generator-agent") {
+    return "writer-agent";
   }
 
   if (current === "writer-agent") {
@@ -447,7 +461,22 @@ export const buildOmenNodeInput = (input: {
     return {
       context,
       report,
-      evidence: input.state.evidenceItems,
+      evidence: [],
+      generatedContent: input.state.generatedIntelContents.at(-1) ?? null,
+    };
+  }
+
+  if (input.nodeKey === "generator-agent") {
+    const report = input.state.intelReports.at(-1);
+
+    if (!report) {
+      throw new Error("Generator node requires an intel report.");
+    }
+
+    return {
+      context,
+      report,
+      evidence: [],
     };
   }
 
@@ -459,6 +488,7 @@ export const buildOmenNodeInput = (input: {
     thesis,
     review,
     intelSummary: input.state.intelReports.at(-1) ?? null,
+    generatedContent: input.state.generatedIntelContents.at(-1) ?? null,
   };
 };
 
@@ -617,6 +647,37 @@ export const applyOmenNodeOutput = (input: {
         latestIntel === null
           ? `intel-skip:${output.skipReason ?? "not_enough_value"}`
           : `intel-ready:${latestIntel.title}`,
+      ],
+    };
+
+    return {
+      state: mergeSwarmState(input.state, stateDelta),
+      stateDelta,
+    };
+  }
+
+  if (input.nodeKey === "generator-agent") {
+    const output = createGeneratorAgent().outputSchema.parse(input.output);
+    const content = generatedIntelContentSchema.parse(output.content);
+    const latestReport = input.state.intelReports.at(-1) ?? null;
+    const nextReports =
+      latestReport === null
+        ? input.state.intelReports
+        : [
+            ...input.state.intelReports.slice(0, -1),
+            normalizeIntelReport({
+              ...latestReport,
+              title: content.topic ?? latestReport.title,
+              topic: content.topic ?? latestReport.topic,
+              imagePrompt: content.imagePrompt ?? latestReport.imagePrompt,
+            }),
+          ];
+    const stateDelta = {
+      intelReports: nextReports,
+      generatedIntelContents: [...input.state.generatedIntelContents, content],
+      notes: [
+        ...input.state.notes,
+        `generator-ready:${content.topic ?? latestReport?.title ?? "intel"}`,
       ],
     };
 

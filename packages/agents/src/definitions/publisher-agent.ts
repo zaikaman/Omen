@@ -106,7 +106,21 @@ const buildIntelSummaryDraft = (input: {
   title: string;
   summary: string;
   confidence: number;
+  generatedTweetText?: string | null;
 }): PublisherDraft => {
+  if (input.generatedTweetText) {
+    return {
+      kind: "intel_summary",
+      headline: toFeedSentence(input.title),
+      summary: toFeedSentence(input.summary),
+      text: trimToLength(input.generatedTweetText, 280),
+      metadata: {
+        confidence: input.confidence,
+        source: "generator-agent",
+      },
+    };
+  }
+
   const title = toFeedSentence(input.title);
   const summary = toFeedSentence(input.summary);
   const insight = toFeedSentence(input.insight);
@@ -188,7 +202,12 @@ export const derivePublisherPacket = (input: z.input<typeof publisherInputSchema
     const drafts: PublisherDraft[] = [buildSignalAlertDraft(parsed.thesis, parsed.review)];
 
     if (parsed.intelSummary !== null) {
-      drafts.push(buildIntelSummaryDraft(parsed.intelSummary));
+      drafts.push(
+        buildIntelSummaryDraft({
+          ...parsed.intelSummary,
+          generatedTweetText: parsed.generatedContent?.tweetText ?? null,
+        }),
+      );
     }
 
     return publisherOutputSchema.parse({
@@ -202,7 +221,12 @@ export const derivePublisherPacket = (input: z.input<typeof publisherInputSchema
   }
 
   if (parsed.intelSummary !== null) {
-    const drafts: PublisherDraft[] = [buildIntelSummaryDraft(parsed.intelSummary)];
+    const drafts: PublisherDraft[] = [
+      buildIntelSummaryDraft({
+        ...parsed.intelSummary,
+        generatedTweetText: parsed.generatedContent?.tweetText ?? null,
+      }),
+    ];
 
     return publisherOutputSchema.parse({
       outcome: "intel_ready",

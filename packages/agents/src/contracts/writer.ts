@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   evidenceItemSchema,
+  generatedIntelContentSchema,
   intelArticleSchema,
   intelReportSchema,
   orchestrationContextSchema,
@@ -11,6 +12,7 @@ export const writerInputSchema = z.object({
   context: orchestrationContextSchema,
   report: intelReportSchema,
   evidence: z.array(evidenceItemSchema).default([]),
+  generatedContent: generatedIntelContentSchema.nullable().default(null),
 });
 
 export const writerOutputSchema = z.object({

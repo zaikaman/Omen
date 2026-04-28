@@ -49,9 +49,58 @@ describe("intel agent", () => {
     updatedAt: "2026-04-25T08:00:00.000Z",
   };
 
+  const capturedAt = "2026-04-25T08:00:00.000Z";
+
+  const createBinanceStub = () =>
+    ({
+      getSnapshots: async (symbols: string[]) => ({
+        ok: true as const,
+        provider: "binance",
+        value: symbols.map((symbol, index) => ({
+          symbol,
+          price: [76944.83, 1832.41, 83.83][index] ?? 1,
+          change24hPercent: [-0.42, 0.21, -3.11][index] ?? 0,
+          volume24h: [26100000000, 13300000000, 2100000000][index] ?? 1000000,
+          fundingRate: [0.0001, 0.00008, -0.00012][index] ?? null,
+          openInterest: [13200000000, 7800000000, 1900000000][index] ?? null,
+          candles: [],
+          capturedAt,
+        })),
+        health: {
+          provider: "binance",
+          available: true,
+          degraded: false,
+          checkedAt: capturedAt,
+          notes: [],
+        },
+      }),
+    }) as never;
+
+  const createCoinGeckoStub = () =>
+    ({
+      getTopMovers: async (symbols: string[]) => ({
+        ok: true as const,
+        provider: "coingecko",
+        value: symbols.map((symbol, index) => ({
+          symbol,
+          price: [76944.83, 1832.41, 83.83][index] ?? 1,
+          change24hPercent: [-0.42, 0.21, -3.11][index] ?? 0,
+          volume24h: [26100000000, 13300000000, 2100000000][index] ?? 1000000,
+          capturedAt,
+        })),
+        health: {
+          provider: "coingecko",
+          available: true,
+          degraded: false,
+          checkedAt: capturedAt,
+          notes: [],
+        },
+      }),
+    }) as never;
+
   it("builds a publishable intel report when a signal is rejected", async () => {
     const state = createInitialSwarmState({ run, config });
-    const agent = createIntelAgent();
+    const agent = createIntelAgent({ llmClient: null });
 
     const result = await agent.invoke(
       {
@@ -137,18 +186,9 @@ describe("intel agent", () => {
     const agent = createIntelAgent({
       llmClient: {
         completeJson: async () => ({
-          action: "ready" as const,
-          report: {
-            topic: "AVAX market setup fallback",
-            insight: "Layer-1 rotation kept AVAX on the watchlist despite the signal reject.",
-            importanceScore: 8,
-            category: "token_watch" as const,
-            title: "AVAX market intel",
-            summary: "AVAX rotation remains worth tracking.",
-            confidence: 71,
-            symbols: ["AVAX"],
-          },
-          skipReason: null,
+          topic: "AVAX market intel",
+          insight: "Layer-1 rotation kept AVAX on the watchlist despite the signal reject.",
+          importance_score: 8,
         }),
       } as never,
     });
@@ -170,7 +210,7 @@ describe("intel agent", () => {
         recentIntelHistory: [
           {
             title: "AVAX market intel",
-            topic: "AVAX market setup fallback",
+            topic: "AVAX market intel",
             category: "token_watch",
             symbols: ["AVAX"],
             timestamp: new Date().toISOString(),
@@ -197,6 +237,8 @@ describe("intel agent", () => {
     const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
     const agent = createIntelAgent({
       llmClient: null,
+      binance: createBinanceStub(),
+      coinGecko: createCoinGeckoStub(),
       marketResearch: {
         getSymbolResearchBundle: async () => ({
           ok: true as const,
@@ -311,6 +353,8 @@ describe("intel agent", () => {
     const calls: Array<{ symbol: string; query: string }> = [];
     const agent = createIntelAgent({
       llmClient: null,
+      binance: createBinanceStub(),
+      coinGecko: createCoinGeckoStub(),
       marketResearch: {
         getSymbolResearchBundle: async (input: { symbol: string; query: string }) => {
           calls.push(input);
@@ -370,9 +414,8 @@ describe("intel agent", () => {
 
     expect(calls).toEqual([
       {
-        symbol: "MARKET",
-        query:
-          "crypto market narratives today high signal accounts WatcherGuru Pentosh1 Cointelegraph",
+        symbol: "BTC",
+        query: "BTC ETH SOL crypto market news catalyst sentiment high signal accounts",
       },
     ]);
     expect(result.action).toBe("ready");

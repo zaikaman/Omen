@@ -482,12 +482,6 @@ export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) =
     confluences,
     evidence: parsed.research.evidence,
   });
-  const prompt = buildAnalystSystemPrompt({
-    symbol: parsed.research.candidate.symbol,
-    directionHint: parsed.research.candidate.directionHint,
-    evidenceCount: parsed.research.evidence.length,
-  });
-
   const thesis = enforceTemplateTradeRules(
     thesisDraftSchema.parse({
       candidateId: parsed.research.candidate.id,

@@ -91,6 +91,7 @@ describe("omen graph factory", () => {
       "chart-vision-agent",
       "analyst-agent",
       "intel-agent",
+      "generator-agent",
       "writer-agent",
       "memory-agent",
       "publisher-agent",

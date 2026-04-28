@@ -26,6 +26,10 @@ type IntelRow = {
   confidence: number;
   image_prompt: string | null;
   image_url: string | null;
+  generated_tweet_text: string | null;
+  generated_blog_post: string | null;
+  generator_log_message: string | null;
+  generator_payload: Record<string, unknown>;
   sources: Intel["sources"];
   proof_ref_ids: string[];
   published_at: string | null;
@@ -46,6 +50,10 @@ type IntelInsert = {
   confidence: number;
   image_prompt?: string | null;
   image_url?: string | null;
+  generated_tweet_text?: string | null;
+  generated_blog_post?: string | null;
+  generator_log_message?: string | null;
+  generator_payload?: Record<string, unknown>;
   sources?: Intel["sources"];
   proof_ref_ids?: string[];
   published_at?: string | null;
@@ -69,6 +77,10 @@ const toIntel = (row: IntelRow): Intel =>
     confidence: row.confidence,
     imagePrompt: row.image_prompt,
     imageUrl: row.image_url,
+    generatedTweetText: row.generated_tweet_text,
+    generatedBlogPost: row.generated_blog_post,
+    generatorLogMessage: row.generator_log_message,
+    generatorPayload: row.generator_payload,
     sources: row.sources,
     proofRefIds: row.proof_ref_ids,
     publishedAt: normalizeDatabaseTimestamp(row.published_at),
@@ -89,6 +101,10 @@ const toInsertRow = (intel: Intel): IntelInsert => ({
   confidence: intel.confidence,
   image_prompt: intel.imagePrompt,
   image_url: intel.imageUrl,
+  generated_tweet_text: intel.generatedTweetText,
+  generated_blog_post: intel.generatedBlogPost,
+  generator_log_message: intel.generatorLogMessage,
+  generator_payload: intel.generatorPayload,
   sources: intel.sources,
   proof_ref_ids: intel.proofRefIds,
   published_at: intel.publishedAt,
@@ -108,6 +124,10 @@ const toUpdateRow = (patch: Partial<Intel>): IntelUpdate => ({
   confidence: patch.confidence,
   image_prompt: patch.imagePrompt,
   image_url: patch.imageUrl,
+  generated_tweet_text: patch.generatedTweetText,
+  generated_blog_post: patch.generatedBlogPost,
+  generator_log_message: patch.generatorLogMessage,
+  generator_payload: patch.generatorPayload,
   sources: patch.sources,
   proof_ref_ids: patch.proofRefIds,
   published_at: patch.publishedAt,

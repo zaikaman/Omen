@@ -4,6 +4,7 @@ import { criticDecisionSchema } from "@omen/shared";
 
 import {
   intelReportSchema,
+  generatedIntelContentSchema,
   orchestrationContextSchema,
   criticReviewSchema,
   publicationPacketSchema,
@@ -16,6 +17,7 @@ export const publisherInputSchema = z.object({
   thesis: thesisDraftSchema.nullable(),
   review: criticReviewSchema.nullable(),
   intelSummary: intelReportSchema.nullable(),
+  generatedContent: generatedIntelContentSchema.nullable().default(null),
 });
 
 export const publisherOutputSchema = z.object({

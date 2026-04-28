@@ -9,6 +9,8 @@ import {
 } from "@omen/shared";
 
 type IntelPostInput = Pick<Intel, "title" | "summary" | "symbols"> & {
+  body?: string | null;
+  generatedTweetText?: string | null;
   topic?: string | null;
 };
 
@@ -97,6 +99,15 @@ const removeSourceNoise = (value: string) =>
 const normalizeAnalysisLine = (value: string) =>
   removeSourceNoise(value).replace(/\.$/, "").toLowerCase().trim();
 
+const stripMarkdownForTweet = (value: string) =>
+  value
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^>\s+/gm, "")
+    .replace(/\*\*/g, "")
+    .replace(/\[[^\]]+\]\([^)]+\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const splitIntelSentences = (value: string) =>
   value
     .replace(/\s+/g, " ")
@@ -127,10 +138,12 @@ const buildIntelHook = (intel: Pick<Intel, "title" | "summary" | "symbols">) => 
 };
 
 const buildIntelBullets = (summary: string, hook: string) =>
-  splitIntelSentences(summary)
+  splitIntelSentences(stripMarkdownForTweet(summary))
     .filter((sentence) => sentence !== normalizeAnalysisLine(hook))
     .filter((sentence) => !sentence.includes("fresh market intelligence scan found"))
     .filter((sentence) => !sentence.includes("not enough value"))
+    .filter((sentence) => !sentence.includes("source coverage was thin"))
+    .filter((sentence) => !sentence.includes("treat it as market intelligence first"))
     .filter((sentence) => sentence.length > 0)
     .slice(0, 3)
     .map((sentence) => `- ${trimLineToLength(sentence, MAX_BULLET_LENGTH - 2)}`);
@@ -255,8 +268,24 @@ export const formatSignalPost = (
   });
 
 export const formatIntelPost = (intel: IntelPostInput): XPostDraft => {
+  if (intel.generatedTweetText) {
+    return xPostDraftSchema.parse({
+      text: trimToLength(intel.generatedTweetText.trim(), 280),
+      replyToTweetId: null,
+      quoteTweetId: null,
+      attachmentUrl: null,
+      communityId: null,
+      isNoteTweet: false,
+      mediaIds: [],
+      scheduleFor: null,
+    });
+  }
+
   const hook = buildIntelHook(intel);
-  const bullets = buildIntelBullets(intel.summary, hook);
+  const sourceText = intel.body && intel.body.trim().length > intel.summary.length
+    ? `${intel.summary}. ${intel.body}`
+    : intel.summary;
+  const bullets = buildIntelBullets(sourceText, hook);
   const fallbackBullet =
     bullets.length > 0
       ? []
@@ -308,7 +337,7 @@ export const formatIntelPostPayload = (
     text: summary.text,
     thread: [],
     metadata: {
-      formatter: "intel_summary:v1",
+      formatter: intel.generatedTweetText ? "generator:intel_tweet:v1" : "intel_summary:v1",
       threadPartCount: 0,
     },
   });
