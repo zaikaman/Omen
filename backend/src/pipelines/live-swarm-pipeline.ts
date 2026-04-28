@@ -182,14 +182,15 @@ const buildZeroGAdapterConfig = (env: BackendEnv): ZeroGAdapterConfig | null => 
           requestTimeoutMs: 60_000,
         }
       : undefined,
-    chain: env.zeroG.rpcUrl && env.zeroG.privateKey
-      ? {
-          rpcUrl: env.zeroG.rpcUrl,
-          chainId: env.zeroG.chainId,
-          privateKey: env.zeroG.privateKey,
-          explorerBaseUrl: env.zeroG.chainExplorerBaseUrl ?? undefined,
-        }
-      : undefined,
+    chain:
+      env.zeroG.rpcUrl && env.zeroG.privateKey
+        ? {
+            rpcUrl: env.zeroG.rpcUrl,
+            chainId: env.zeroG.chainId,
+            privateKey: env.zeroG.privateKey,
+            explorerBaseUrl: env.zeroG.chainExplorerBaseUrl ?? undefined,
+          }
+        : undefined,
   };
 };
 
@@ -714,6 +715,20 @@ class LivePipelineExecutionContext {
     }
 
     return context;
+  }
+
+  async loadActiveTradeSymbols(): Promise<SwarmState["activeTradeSymbols"]> {
+    if (!this.signalsRepository) {
+      return [];
+    }
+
+    const activeTradeSymbols = await this.signalsRepository.listActiveTradeSymbols();
+
+    if (!activeTradeSymbols.ok) {
+      throw new Error(`Failed to load active trade symbols: ${activeTradeSymbols.error.message}`);
+    }
+
+    return activeTradeSymbols.value;
   }
 
   async prepareRun(run: SwarmState["run"]) {
@@ -1677,6 +1692,7 @@ export class DefaultLiveSwarmRunPipeline implements LiveSwarmPipeline {
     });
     initialState.recentIntelHistory = await executionContext.loadRecentIntelHistory();
     initialState.recentPostContext = await executionContext.loadRecentPostContext();
+    initialState.activeTradeSymbols = await executionContext.loadActiveTradeSymbols();
 
     await executionContext.prepareRun(initialState.run);
 

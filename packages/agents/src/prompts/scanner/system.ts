@@ -5,11 +5,10 @@ export const scannerPromptContextSchema = z.object({
   universe: z.array(z.string().min(1)).min(1),
   marketBias: z.enum(["LONG", "SHORT", "NEUTRAL", "UNKNOWN"]),
   snapshotCount: z.number().int().min(0),
+  blockedSymbols: z.array(z.string().min(1)).default([]),
 });
 
-export const buildScannerSystemPrompt = (
-  input: z.input<typeof scannerPromptContextSchema>,
-) => {
+export const buildScannerSystemPrompt = (input: z.input<typeof scannerPromptContextSchema>) => {
   const parsed = scannerPromptContextSchema.parse(input);
 
   return [
@@ -22,6 +21,9 @@ export const buildScannerSystemPrompt = (
     `Market bias: ${parsed.marketBias}.`,
     `Universe: ${parsed.universe.map((symbol) => symbol.toUpperCase()).join(", ")}.`,
     `Snapshot count: ${parsed.snapshotCount.toString()}.`,
+    parsed.blockedSymbols.length > 0
+      ? `Do not select these symbols because they already have active or pending trades: ${parsed.blockedSymbols.map((symbol) => symbol.toUpperCase()).join(", ")}.`
+      : "There are no active or pending trade symbols to exclude.",
     "Return valid JSON only.",
   ].join("\n");
 };

@@ -6,6 +6,7 @@ export const scannerInputSchema = z.object({
   context: orchestrationContextSchema,
   bias: biasDecisionSchema,
   universe: z.array(z.string().min(1)).min(1),
+  activeTradeSymbols: z.array(z.string().min(1)).default([]),
 });
 
 export const scannerOutputSchema = z.object({

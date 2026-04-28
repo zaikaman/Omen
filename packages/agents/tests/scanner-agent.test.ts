@@ -102,8 +102,7 @@ describe("scanner definitions", () => {
       llmClient: {
         completeJson: async () => ({
           marketBias: "SHORT" as const,
-          reasoning:
-            "Majors weakened together and the supplied narrative set leaned risk-off.",
+          reasoning: "Majors weakened together and the supplied narrative set leaned risk-off.",
           confidence: 77,
         }),
       } as unknown as OpenAiCompatibleJsonClient,
@@ -150,10 +149,36 @@ describe("scanner definitions", () => {
 
     expect(result.marketBias).toBe("LONG");
     expect(result.candidates.length).toBeLessThanOrEqual(3);
-    expect(result.candidates.every((candidate) => candidate.directionHint === "LONG")).toBe(
-      true,
-    );
+    expect(result.candidates.every((candidate) => candidate.directionHint === "LONG")).toBe(true);
     expect((result.rejectedSymbols ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("does not select symbols with active or pending trades", async () => {
+    const agent = createScannerAgent();
+    const state = createInitialSwarmState({ run, config });
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        bias: {
+          marketBias: "LONG",
+          reasoning: "Broad majors are breaking higher.",
+          confidence: 82,
+        },
+        universe: ["BTC", "ETH", "SOL", "ARB", "LINK"],
+        activeTradeSymbols: ["BTC", "ETH", "SOL"],
+      },
+      state,
+    );
+
+    expect(result.candidates.map((candidate) => candidate.symbol)).not.toContain("BTC");
+    expect(result.candidates.map((candidate) => candidate.symbol)).not.toContain("ETH");
+    expect(result.candidates.map((candidate) => candidate.symbol)).not.toContain("SOL");
+    expect(result.rejectedSymbols).toEqual(expect.arrayContaining(["BTC", "ETH", "SOL"]));
   });
 
   it("uses the scanner model path when a client is provided", async () => {
@@ -193,5 +218,48 @@ describe("scanner definitions", () => {
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0]?.symbol).toBe("SOL");
     expect(result.candidates[0]?.reason).toContain("strongest relative");
+  });
+
+  it("filters model-selected symbols that already have active or pending trades", async () => {
+    const agent = createScannerAgent({
+      llmClient: {
+        completeJson: async () => ({
+          candidates: [
+            {
+              symbol: "SOL",
+              reason: "SOL kept the strongest relative 24h change with supportive momentum.",
+              directionHint: "LONG" as const,
+            },
+            {
+              symbol: "ETH",
+              reason: "ETH had cleaner continuation after the breakout.",
+              directionHint: "LONG" as const,
+            },
+          ],
+          rejectedSymbols: ["BTC"],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+    const state = createInitialSwarmState({ run, config });
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        bias: {
+          marketBias: "LONG",
+          reasoning: "Broad majors are breaking higher.",
+          confidence: 82,
+        },
+        universe: ["BTC", "ETH", "SOL"],
+        activeTradeSymbols: ["SOL"],
+      },
+      state,
+    );
+
+    expect(result.candidates.map((candidate) => candidate.symbol)).toEqual(["ETH"]);
   });
 });

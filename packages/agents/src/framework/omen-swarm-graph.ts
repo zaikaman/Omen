@@ -363,6 +363,7 @@ export const buildOmenNodeInput = (input: {
         confidence: input.state.marketBiasReasoning ? 60 : 40,
       },
       universe: input.state.config.marketUniverse,
+      activeTradeSymbols: input.state.activeTradeSymbols,
     };
   }
 

@@ -91,8 +91,7 @@ export class ScannerAgentFactory {
     this.binance = parsed.binance ?? new BinanceMarketService();
     this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
     this.llmClient =
-      parsed.llmClient ??
-      OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("scanner"));
+      parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("scanner"));
   }
 
   createDefinition(): RuntimeNodeDefinition<
@@ -109,18 +108,22 @@ export class ScannerAgentFactory {
   }
 
   private async scan(
-    input: z.infer<typeof scannerInputSchema>,
+    input: z.input<typeof scannerInputSchema>,
     state: SwarmState,
   ): Promise<z.infer<typeof scannerOutputSchema>> {
     const parsed = scannerInputSchema.parse(input);
     const snapshots = await this.collectSnapshots(parsed.universe);
-    const existingDedupeKeys = new Set(state.activeCandidates.map((candidate) => candidate.dedupeKey));
+    const existingDedupeKeys = new Set(
+      state.activeCandidates.map((candidate) => candidate.dedupeKey),
+    );
+    const blockedSymbols = new Set(parsed.activeTradeSymbols.map((symbol) => symbol.toUpperCase()));
 
     if (this.llmClient !== null) {
       const llmResult = await this.scanWithModel({
         parsed,
         snapshots,
         existingDedupeKeys,
+        blockedSymbols,
         state,
       });
 
@@ -135,9 +138,7 @@ export class ScannerAgentFactory {
         score: resolveSnapshotScore(snapshot),
       }))
       .sort((left, right) =>
-        parsed.bias.marketBias === "SHORT"
-          ? left.score - right.score
-          : right.score - left.score,
+        parsed.bias.marketBias === "SHORT" ? left.score - right.score : right.score - left.score,
       );
 
     const candidates: CandidateState[] = [];
@@ -147,7 +148,7 @@ export class ScannerAgentFactory {
       const symbol = rankedSnapshot.snapshot.symbol.toUpperCase();
       const directionHint = toDirectionHint(rankedSnapshot.score, parsed.bias.marketBias);
 
-      if (!directionHint || existingDedupeKeys.has(symbol)) {
+      if (!directionHint || existingDedupeKeys.has(symbol) || blockedSymbols.has(symbol)) {
         rejectedSymbols.push(symbol);
         continue;
       }
@@ -185,6 +186,7 @@ export class ScannerAgentFactory {
     parsed: z.infer<typeof scannerInputSchema>;
     snapshots: MarketSnapshot[];
     existingDedupeKeys: Set<string>;
+    blockedSymbols: Set<string>;
     state: SwarmState;
   }) {
     if (
@@ -202,12 +204,14 @@ export class ScannerAgentFactory {
           universe: input.parsed.universe,
           marketBias: input.parsed.bias.marketBias,
           snapshotCount: input.snapshots.length,
+          blockedSymbols: Array.from(input.blockedSymbols),
         }),
         userPrompt: JSON.stringify(
           {
             marketBias: input.parsed.bias,
             universe: input.parsed.universe,
             existingDedupeKeys: Array.from(input.existingDedupeKeys),
+            activeTradeSymbols: Array.from(input.blockedSymbols),
             snapshots: input.snapshots.map((snapshot) => ({
               symbol: snapshot.symbol,
               price: snapshot.price,
@@ -218,7 +222,7 @@ export class ScannerAgentFactory {
               capturedAt: snapshot.capturedAt,
             })),
             instruction:
-              "Return at most three candidates. Use only symbols from the provided universe. Keep rejectedSymbols limited to the symbols you explicitly ruled out.",
+              "Return at most three candidates. Use only symbols from the provided universe. Do not select activeTradeSymbols because those symbols already have active or pending trades. Keep rejectedSymbols limited to the symbols you explicitly ruled out.",
           },
           null,
           2,
@@ -233,7 +237,11 @@ export class ScannerAgentFactory {
         .filter(({ candidate }) => {
           const symbol = candidate.symbol.toUpperCase();
 
-          return universe.has(symbol) && !input.existingDedupeKeys.has(symbol);
+          return (
+            universe.has(symbol) &&
+            !input.existingDedupeKeys.has(symbol) &&
+            !input.blockedSymbols.has(symbol)
+          );
         })
         .slice(0, 3)
         .map(({ candidate, index }) =>
@@ -312,6 +320,5 @@ export class ScannerAgentFactory {
   }
 }
 
-export const createScannerAgent = (
-  input: z.input<typeof scannerServiceOptionsSchema> = {},
-) => new ScannerAgentFactory(input).createDefinition();
+export const createScannerAgent = (input: z.input<typeof scannerServiceOptionsSchema> = {}) =>
+  new ScannerAgentFactory(input).createDefinition();

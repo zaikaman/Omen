@@ -1,15 +1,6 @@
-import {
-  err,
-  ok,
-  signalSchema,
-  type Signal,
-  type Result,
-} from "@omen/shared";
+import { err, ok, signalSchema, type Signal, type Result } from "@omen/shared";
 
-import {
-  BaseRepository,
-  type RepositoryError,
-} from "./base-repository.js";
+import { BaseRepository, type RepositoryError } from "./base-repository.js";
 import type { OmenSupabaseClient } from "../client/supabase.js";
 import { normalizeDatabaseTimestamp } from "./timestamp.js";
 
@@ -195,11 +186,7 @@ const toUpdateRow = (patch: Partial<Signal>): SignalUpdate => ({
   updated_at: patch.updatedAt,
 });
 
-export class SignalsRepository extends BaseRepository<
-  SignalRow,
-  SignalInsert,
-  SignalUpdate
-> {
+export class SignalsRepository extends BaseRepository<SignalRow, SignalInsert, SignalUpdate> {
   constructor(client: OmenSupabaseClient) {
     super(client, "signals");
   }
@@ -227,9 +214,7 @@ export class SignalsRepository extends BaseRepository<
     return ok(toSignal(updated.value));
   }
 
-  async findSignalById(
-    signalId: string,
-  ): Promise<Result<Signal | null, RepositoryError>> {
+  async findSignalById(signalId: string): Promise<Result<Signal | null, RepositoryError>> {
     const found = await this.findById(signalId);
 
     if (!found.ok) {
@@ -253,20 +238,16 @@ export class SignalsRepository extends BaseRepository<
     return ok(listed.value.map((row) => toSignal(row)));
   }
 
-  async listSignalHistory(options: {
-    direction?: Signal["direction"] | null;
-    limit?: number;
-    offset?: number;
-    query?: string | null;
-    sortBy?:
-      | "newest"
-      | "oldest"
-      | "confidence-high"
-      | "confidence-low"
-      | "pnl-high"
-      | "pnl-low";
-    status?: Signal["signalStatus"] | null;
-  } = {}): Promise<Result<{ items: Signal[]; total: number }, RepositoryError>> {
+  async listSignalHistory(
+    options: {
+      direction?: Signal["direction"] | null;
+      limit?: number;
+      offset?: number;
+      query?: string | null;
+      sortBy?: "newest" | "oldest" | "confidence-high" | "confidence-low" | "pnl-high" | "pnl-low";
+      status?: Signal["signalStatus"] | null;
+    } = {},
+  ): Promise<Result<{ items: Signal[]; total: number }, RepositoryError>> {
     const limit = options.limit ?? 20;
     const offset = options.offset ?? 0;
     const sortBy = options.sortBy ?? "newest";
@@ -349,10 +330,28 @@ export class SignalsRepository extends BaseRepository<
     return ok((data ?? []).map((row) => toSignal(row)));
   }
 
-  async listByRunId(
-    runId: string,
-    limit = 20,
-  ): Promise<Result<Signal[], RepositoryError>> {
+  async listActiveTradeSymbols(limit = 100): Promise<Result<string[], RepositoryError>> {
+    const { data, error } = await this.table()
+      .select("asset")
+      .eq("report_status", "published")
+      .in("signal_status", ["pending", "active"])
+      .order("published_at", { ascending: false })
+      .limit(limit)
+      .returns<Array<Pick<SignalRow, "asset">>>();
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok(Array.from(new Set((data ?? []).map((row) => row.asset.toUpperCase()))));
+  }
+
+  async listByRunId(runId: string, limit = 20): Promise<Result<Signal[], RepositoryError>> {
     const { data, error } = await this.table()
       .select("*")
       .eq("run_id", runId)
@@ -392,10 +391,7 @@ export class SignalsRepository extends BaseRepository<
     return ok(data ? toSignal(data) : null);
   }
 
-  async listByAsset(
-    asset: string,
-    limit = 50,
-  ): Promise<Result<Signal[], RepositoryError>> {
+  async listByAsset(asset: string, limit = 50): Promise<Result<Signal[], RepositoryError>> {
     const { data, error } = await this.table()
       .select("*")
       .eq("asset", asset)

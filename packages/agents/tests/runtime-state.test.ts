@@ -54,6 +54,7 @@ describe("agent runtime state", () => {
 
     expect(state.run.id).toBe("run-1");
     expect(state.activeCandidates).toEqual([]);
+    expect(state.activeTradeSymbols).toEqual([]);
     expect(state.events).toEqual([]);
     expect(() => swarmStateSchema.parse(state)).not.toThrow();
   });

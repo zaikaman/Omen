@@ -117,9 +117,10 @@ export function IntelPage() {
   );
   const selectedIntel = detailQuery.intel ? toCardIntel(detailQuery.intel) : cachedSelectedIntel;
 
-  const latestIntel = page === 1 && intelItems.length > 0 ? intelItems[0] : null;
   const hasActiveFilters =
     searchQuery.trim() !== "" || sortBy !== "newest" || filters.type !== "all";
+  const latestIntel =
+    !hasActiveFilters && page === 1 && intelItems.length > 0 ? intelItems[0] : null;
 
   const { displayItems, totalPages } = useMemo(() => {
     const latestId = latestIntel?.id;
@@ -240,8 +241,7 @@ export function IntelPage() {
           </h2>
           <p className="text-gray-400 mt-1">Deep dive analysis and raw intelligence streams.</p>
         </div>
-        {(feedQuery.isRefreshing ||
-          detailQuery.isRefreshing) && (
+        {(feedQuery.isRefreshing || detailQuery.isRefreshing) && (
           <span className="text-xs text-gray-500">Syncing live intel...</span>
         )}
       </div>
@@ -265,7 +265,9 @@ export function IntelPage() {
               error={feedQuery.error}
               onClick={() => latestIntel && navigate(`/app/intel/${latestIntel.id}`)}
             />
-            {latestIntel && <XPostButton intelId={latestIntel.id} className="absolute right-3 top-3 z-10" />}
+            {latestIntel && (
+              <XPostButton intelId={latestIntel.id} className="absolute right-3 top-3 z-10" />
+            )}
           </div>
         </div>
       )}
@@ -295,10 +297,7 @@ export function IntelPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {displayItems.map((intel) => (
                 <div key={intel.id} className="relative">
-                  <IntelCard
-                    intel={intel}
-                    onClick={() => navigate(`/app/intel/${intel.id}`)}
-                  />
+                  <IntelCard intel={intel} onClick={() => navigate(`/app/intel/${intel.id}`)} />
                   <XPostButton intelId={intel.id} className="absolute right-3 top-3 z-10" />
                 </div>
               ))}
