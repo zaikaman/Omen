@@ -95,10 +95,64 @@ describe("publisher agent", () => {
     expect(result.packet?.drafts).toHaveLength(1);
     expect(result.packet?.drafts[0]?.kind).toBe("signal_alert");
     expect(result.packet?.approvedReview?.decision).toBe("approved");
-    expect(result.packet?.drafts[0]?.text).toContain("entry: $65000");
-    expect(result.packet?.drafts[0]?.text).toContain("target: $70980");
-    expect(result.packet?.drafts[0]?.text).toContain("stop: $62725");
+    expect(result.packet?.drafts[0]?.text.length).toBeLessThanOrEqual(280);
+    expect(result.packet?.drafts[0]?.text).toContain("entry: $65,000");
+    expect(result.packet?.drafts[0]?.text).toContain("target: $70,980 (+9.2%)");
+    expect(result.packet?.drafts[0]?.text).toContain("stop: $62,725 (-3.5%)");
     expect(result.packet?.drafts[0]?.text).toContain("hold: 8-16 hours");
+    expect(result.packet?.drafts[0]?.text).toContain(
+      "thesis: breakout reclaim + momentum expansion",
+    );
+  });
+
+  it("compacts verbose chart thesis drafts for signal publication", async () => {
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-verbose",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        thesis: {
+          candidateId: "candidate-sol",
+          asset: "SOL",
+          direction: "SHORT",
+          confidence: 92,
+          orderType: "limit",
+          tradingStyle: "swing_trade",
+          expectedDuration: "2-5 days",
+          currentPrice: 83.61,
+          entryPrice: 85.81,
+          targetPrice: 68.22,
+          stopLoss: 90.1,
+          riskReward: 4.1,
+          whyNow:
+            "SOL is actionable because SOL 15m chart: SOL 15m chart shows trend is leaning downward, with visible range between 83.34 and 85.81 and the latest close near 83.56. SOL 1h chart: SOL 1h chart shows trend is leaning downward, with visible range between 83.34 and 88.08 and the latest close near 83.55.",
+          confluences: [],
+          uncertaintyNotes: "No material uncertainty flags.",
+          missingDataNotes: "No additional missing-data flags.",
+        },
+        review: {
+          candidateId: "candidate-sol",
+          decision: "approved",
+          objections: [],
+          forcedOutcomeReason: null,
+        },
+        intelSummary: null,
+      },
+      state,
+    );
+
+    const text = result.packet?.drafts[0]?.text ?? "";
+
+    expect(text.length).toBeLessThanOrEqual(280);
+    expect(text).toContain("📉 $SOL swing trade");
+    expect(text).toContain("target: $68.22 (+20.5%)");
+    expect(text).toContain(
+      "thesis: 15m/1h trend leaning downward; range 83.34-88.08; latest close 83.56",
+    );
+    expect(text).not.toContain("with visible range");
   });
 
   it("builds a single intel summary draft for intel-ready runs", async () => {
@@ -231,5 +285,7 @@ describe("publisher agent", () => {
     expect(result.packet?.drafts[0]?.kind).toBe("signal_alert");
     expect(result.packet?.drafts[0]?.headline).toBe("BTC long signal clears the board");
     expect(result.packet?.approvedReview?.decision).toBe("approved");
+    expect(result.packet?.drafts[0]?.text).toContain("entry: $65,000");
+    expect(result.packet?.drafts[0]?.text).not.toContain("BTC long signal\nConfidence");
   });
 });

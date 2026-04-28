@@ -34,6 +34,28 @@ const buildHashtagLine = (values: string[]) => {
   return unique.join(" ");
 };
 
+const symbolHashtagMap: Record<string, string> = {
+  ARB: "arbitrum",
+  BTC: "bitcoin",
+  DOGE: "dogecoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  SUI: "sui",
+};
+
+const toSymbol = (value: string) =>
+  value
+    .replace(/^\$/, "")
+    .replace(/[^a-z0-9]+/gi, "")
+    .toUpperCase();
+
+const buildSignalHashtagLine = (asset: string) => {
+  const symbol = toSymbol(asset);
+  const label = symbolHashtagMap[symbol] ?? symbol.toLowerCase();
+
+  return `#${label}`;
+};
+
 const trimToLength = (value: string, maxLength: number) => {
   if (value.length <= maxLength) {
     return value;
@@ -59,38 +81,166 @@ const stripGenericIntelTitle = (value: string) =>
 
 const buildSignalBodyLine = (label: string, value: string) => `${label}: ${value}`;
 
+const formatPrice = (value: number) => {
+  if (value >= 100) {
+    return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  }
+
+  if (value >= 1) {
+    return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  }
+
+  return value.toLocaleString("en-US", { maximumFractionDigits: 8 });
+};
+
+const formatPercent = (value: number) => {
+  const rounded = Number(value.toFixed(1));
+  const prefix = rounded > 0 ? "+" : "";
+
+  return `${prefix}${rounded}%`;
+};
+
+const calculateMovePercent = (
+  entry: number | null,
+  exit: number | null,
+  direction: ThesisDraft["direction"],
+) => {
+  if (entry === null || exit === null || entry === 0) {
+    return null;
+  }
+
+  const multiplier = direction === "SHORT" ? -1 : 1;
+
+  return ((exit - entry) / entry) * 100 * multiplier;
+};
+
+const normalizeThesisText = (value: string) => toFeedSentence(value).toLowerCase();
+
+const cleanSignalThesisSource = (thesis: ThesisDraft) => {
+  const symbol = toSymbol(thesis.asset).toLowerCase();
+  const raw = [thesis.whyNow, ...thesis.confluences].join(". ");
+
+  return normalizeThesisText(raw)
+    .replace(new RegExp(`^${symbol}\\s+is\\s+actionable\\s+because\\s+`, "i"), "")
+    .replace(
+      new RegExp(
+        `\\b${symbol}\\s+((?:15m|1h|4h|1d|daily)\\s+chart):\\s+${symbol}\\s+\\1\\s+`,
+        "gi",
+      ),
+      "$1 ",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const buildCompactChartThesis = (source: string) => {
+  const timeframeMatches = [
+    ...source.matchAll(/\b(15m|1h|4h|1d|daily)\s+chart[^.]*?\btrend is leaning ([a-z]+)/gi),
+  ];
+  const rangeMatches = [
+    ...source.matchAll(/\brange between ([0-9]+(?:\.[0-9]+)?) and ([0-9]+(?:\.[0-9]+)?)/gi),
+  ];
+  const closeMatch = source.match(/\blatest close near ([0-9]+(?:\.[0-9]+)?)/i);
+  const parts: string[] = [];
+
+  if (timeframeMatches.length > 0) {
+    const direction = timeframeMatches[0]?.[2]?.toLowerCase();
+    const timeframes = [
+      ...new Set(timeframeMatches.map((match) => match[1]?.toLowerCase()).filter(Boolean)),
+    ];
+
+    parts.push(`${timeframes.join("/")} trend leaning ${direction}`);
+  }
+
+  if (rangeMatches.length > 0) {
+    const ranges = rangeMatches
+      .map((match) => [Number(match[1]), Number(match[2])] as const)
+      .filter(([low, high]) => Number.isFinite(low) && Number.isFinite(high));
+
+    if (ranges.length > 0) {
+      const low = Math.min(...ranges.map(([first, second]) => Math.min(first, second)));
+      const high = Math.max(...ranges.map(([first, second]) => Math.max(first, second)));
+      parts.push(`range ${formatPrice(low)}-${formatPrice(high)}`);
+    }
+  }
+
+  if (closeMatch?.[1]) {
+    parts.push(`latest close ${formatPrice(Number(closeMatch[1]))}`);
+  }
+
+  return parts.join("; ");
+};
+
+const buildSignalThesisText = (thesis: ThesisDraft) => {
+  const source = cleanSignalThesisSource(thesis);
+  const compactChartThesis = buildCompactChartThesis(source);
+
+  if (compactChartThesis) {
+    return compactChartThesis;
+  }
+
+  return thesis.confluences.length > 0
+    ? thesis.confluences.slice(0, 2).map(normalizeThesisText).join(" + ")
+    : source;
+};
+
+const buildPriceLine = (label: "target" | "stop", price: number | null, thesis: ThesisDraft) => {
+  if (price === null) {
+    return null;
+  }
+
+  const move = calculateMovePercent(thesis.entryPrice, price, thesis.direction);
+  const percentText = move === null ? "" : ` (${formatPercent(move)})`;
+
+  return buildSignalBodyLine(label, `$${formatPrice(price)}${percentText}`);
+};
+
+const compactSignalDraftLines = (input: {
+  fixedLines: string[];
+  thesisText: string;
+  hashtagLine: string;
+}) => {
+  const thesisPrefix = "thesis: ";
+  const fixedLength = [...input.fixedLines, input.hashtagLine].join("\n").length + 2;
+  const thesisBudget = Math.max(thesisPrefix.length + 24, 280 - fixedLength);
+  const thesisLine = `${thesisPrefix}${trimToLength(
+    input.thesisText.replace(/\s+/g, " ").trim(),
+    Math.max(1, thesisBudget - thesisPrefix.length),
+  )}`;
+
+  return trimToLength([...input.fixedLines, thesisLine, input.hashtagLine].join("\n"), 280);
+};
+
 const buildSignalAlertDraft = (thesis: ThesisDraft, review: CriticReview): PublisherDraft => {
   const riskRewardText = thesis.riskReward === null ? "n/a" : `1:${thesis.riskReward.toFixed(1)}`;
   const orderTypeText = thesis.orderType ?? "market";
   const tradingStyleText = thesis.tradingStyle ?? "day_trade";
   const durationText = thesis.expectedDuration ?? "8-16 hours";
   const whyNowText = toFeedSentence(thesis.whyNow);
-  const confluences = thesis.confluences
-    .slice(0, 3)
-    .map((confluence) => `- ${toFeedSentence(confluence).toLowerCase()}`);
-  const hashtagLine = buildHashtagLine([thesis.asset, "crypto"]);
+  const hashtagLine = buildSignalHashtagLine(thesis.asset);
   const summary = `${thesis.asset} ${thesis.direction.toLowerCase()} setup with ${thesis.confidence}% confidence. ${whyNowText}`;
   const textLines = [
-    `${tradingStyleText === "swing_trade" ? "📈" : "🎯"} $${thesis.asset} ${tradingStyleText === "swing_trade" ? "swing trade" : "day trade"}`,
+    `${thesis.direction === "SHORT" ? "📉" : "📈"} $${toSymbol(thesis.asset)} ${tradingStyleText === "swing_trade" ? "swing trade" : "day trade"}`,
     buildSignalBodyLine("order", orderTypeText),
     buildSignalBodyLine("hold", durationText),
-    ...(thesis.entryPrice !== null ? [buildSignalBodyLine("entry", `$${thesis.entryPrice}`)] : []),
-    ...(thesis.targetPrice !== null
-      ? [buildSignalBodyLine("target", `$${thesis.targetPrice}`)]
+    ...(thesis.entryPrice !== null
+      ? [buildSignalBodyLine("entry", `$${formatPrice(thesis.entryPrice)}`)]
       : []),
-    ...(thesis.stopLoss !== null ? [buildSignalBodyLine("stop", `$${thesis.stopLoss}`)] : []),
+    buildPriceLine("target", thesis.targetPrice, thesis),
+    buildPriceLine("stop", thesis.stopLoss, thesis),
     buildSignalBodyLine("r:r", riskRewardText),
     buildSignalBodyLine("conf", `${thesis.confidence}%`),
-    buildSignalBodyLine("thesis", whyNowText.toLowerCase()),
-    ...(confluences.length > 0 ? confluences : ["- no named confluences recorded"]),
-    hashtagLine,
-  ].filter((line) => line.trim().length > 0);
+  ].filter((line): line is string => line !== null && line.trim().length > 0);
 
   return {
     kind: "signal_alert",
     headline: `${thesis.asset} ${thesis.direction.toLowerCase()} setup`,
     summary,
-    text: textLines.join("\n"),
+    text: compactSignalDraftLines({
+      fixedLines: textLines,
+      thesisText: buildSignalThesisText(thesis),
+      hashtagLine,
+    }),
     metadata: {
       candidateId: thesis.candidateId,
       decision: review.decision,
@@ -273,7 +423,7 @@ const mergeRewrittenDrafts = (input: {
       ...draft,
       headline: rewritten.headline,
       summary: rewritten.summary,
-      text: rewritten.text,
+      text: draft.kind === "signal_alert" ? draft.text : rewritten.text,
     } satisfies PublisherDraft;
   });
 
