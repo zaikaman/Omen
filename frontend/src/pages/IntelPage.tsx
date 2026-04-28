@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { IntelBlog } from "../components/IntelBlog";
 import { IntelCard } from "../components/IntelCard";
-import { SponsorProofSummary } from "../components/proofs/SponsorProofSummary";
+import { XPostButton } from "../components/XPostButton";
 import { SearchAndSort } from "../components/ui/SearchAndSort";
 import type { SortOption, FilterConfig } from "../components/ui/SearchAndSort";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -15,8 +15,6 @@ import {
 import { Button } from "../components/ui/button";
 import type { Intel, IntelListItem } from "@omen/shared";
 import { useIntel, useIntelDetail } from "../hooks/useIntel";
-import { usePosts } from "../hooks/usePosts";
-import { useProofDetail } from "../hooks/useProofs";
 
 const ITEMS_PER_PAGE = 9;
 const REFRESH_INTERVAL_MS = 30_000;
@@ -84,22 +82,6 @@ const toCardIntel = (intel: Intel | IntelListItem): CardIntel => ({
   proofRefIds: "proofRefIds" in intel ? intel.proofRefIds : undefined,
 });
 
-const postStatusClassName = (status: string | undefined) => {
-  switch (status) {
-    case "posted":
-      return "border-green-500/30 bg-green-500/10 text-green-200";
-    case "failed":
-      return "border-red-500/30 bg-red-500/10 text-red-200";
-    case "queued":
-    case "formatting":
-    case "ready":
-    case "posting":
-      return "border-yellow-500/30 bg-yellow-500/10 text-yellow-100";
-    default:
-      return "border-gray-700 bg-gray-900/50 text-gray-400";
-  }
-};
-
 export function IntelPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -136,17 +118,6 @@ export function IntelPage() {
   const selectedIntel = detailQuery.intel ? toCardIntel(detailQuery.intel) : cachedSelectedIntel;
 
   const latestIntel = page === 1 && intelItems.length > 0 ? intelItems[0] : null;
-  const proofRunId = selectedIntel?.runId ?? latestIntel?.runId ?? null;
-  const proofDetail = useProofDetail(proofRunId, {
-    enabled: Boolean(proofRunId),
-    refreshIntervalMs: REFRESH_INTERVAL_MS,
-  });
-  const selectedPostQuery = usePosts({
-    intelId: selectedIntel?.id ?? latestIntel?.id,
-    enabled: Boolean(selectedIntel?.id ?? latestIntel?.id),
-    refreshIntervalMs: REFRESH_INTERVAL_MS,
-  });
-
   const hasActiveFilters =
     searchQuery.trim() !== "" || sortBy !== "newest" || filters.type !== "all";
 
@@ -228,6 +199,9 @@ export function IntelPage() {
           <HugeiconsIcon icon={ArrowLeft01Icon} className="w-4 h-4" />
           Back to Feed
         </Button>
+        <div className="flex justify-end">
+          <XPostButton intelId={selectedIntel.id} />
+        </div>
 
         <IntelBlog
           title={headline}
@@ -267,9 +241,7 @@ export function IntelPage() {
           <p className="text-gray-400 mt-1">Deep dive analysis and raw intelligence streams.</p>
         </div>
         {(feedQuery.isRefreshing ||
-          detailQuery.isRefreshing ||
-          proofDetail.isRefreshing ||
-          selectedPostQuery.isRefreshing) && (
+          detailQuery.isRefreshing) && (
           <span className="text-xs text-gray-500">Syncing live intel...</span>
         )}
       </div>
@@ -286,46 +258,14 @@ export function IntelPage() {
           <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">
             Latest Report
           </h3>
-          <IntelCard
-            intel={latestIntel}
-            isLoading={feedQuery.isLoading}
-            error={feedQuery.error}
-            onClick={() => latestIntel && navigate(`/app/intel/${latestIntel.id}`)}
-          />
-          {selectedPostQuery.latestPost && (
-            <div
-              className={`mt-4 rounded-lg border px-4 py-3 text-sm ${postStatusClassName(selectedPostQuery.latestPost.status)}`}
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span className="font-mono uppercase">
-                  X delivery: {selectedPostQuery.latestPost.status.replace(/_/g, " ")}
-                </span>
-                {selectedPostQuery.latestPost.publishedUrl && (
-                  <a
-                    href={selectedPostQuery.latestPost.publishedUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-cyan-300 hover:text-cyan-200"
-                  >
-                    View published post
-                  </a>
-                )}
-              </div>
-              {selectedPostQuery.latestPost.lastError && (
-                <p className="mt-2 text-xs opacity-80">{selectedPostQuery.latestPost.lastError}</p>
-              )}
-            </div>
-          )}
-          <div className="mt-4">
-            <SponsorProofSummary
-              title="Latest Report Proof"
-              runId={proofRunId}
-              artifacts={proofDetail.artifacts}
-              manifest={proofDetail.manifest}
-              proofRefIds={latestIntel?.proofRefIds ?? []}
-              isLoading={proofDetail.isLoading}
-              error={proofDetail.error}
+          <div className="relative">
+            <IntelCard
+              intel={latestIntel}
+              isLoading={feedQuery.isLoading}
+              error={feedQuery.error}
+              onClick={() => latestIntel && navigate(`/app/intel/${latestIntel.id}`)}
             />
+            {latestIntel && <XPostButton intelId={latestIntel.id} className="absolute right-3 top-3 z-10" />}
           </div>
         </div>
       )}
@@ -354,11 +294,13 @@ export function IntelPage() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {displayItems.map((intel) => (
-                <IntelCard
-                  key={intel.id}
-                  intel={intel}
-                  onClick={() => navigate(`/app/intel/${intel.id}`)}
-                />
+                <div key={intel.id} className="relative">
+                  <IntelCard
+                    intel={intel}
+                    onClick={() => navigate(`/app/intel/${intel.id}`)}
+                  />
+                  <XPostButton intelId={intel.id} className="absolute right-3 top-3 z-10" />
+                </div>
               ))}
             </div>
 
