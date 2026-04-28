@@ -12,6 +12,20 @@ export const zeroGChainConfigSchema = z.object({
 export type ZeroGChainConfig = z.infer<typeof zeroGChainConfigSchema>;
 export type ZeroGChainProof = ChainProof;
 
+const buildExplorerUrl = (baseUrl: string | undefined, transactionHash: string) => {
+  if (!baseUrl) {
+    return null;
+  }
+
+  const trimmedBaseUrl = baseUrl.replace(/\/$/, "");
+
+  if (trimmedBaseUrl.endsWith("/tx")) {
+    return `${trimmedBaseUrl}/${transactionHash}`;
+  }
+
+  return `${trimmedBaseUrl}/tx/${transactionHash}`;
+};
+
 export class ZeroGChainAdapter {
   private readonly config: ZeroGChainConfig;
 
@@ -33,9 +47,10 @@ export class ZeroGChainAdapter {
           data: hexlify(toUtf8Bytes(manifestRoot)),
         });
         const receipt = await transaction.wait();
-        const explorerUrl = this.config.explorerBaseUrl
-          ? `${this.config.explorerBaseUrl.replace(/\/$/, "")}/${transaction.hash}`
-          : null;
+        const explorerUrl = buildExplorerUrl(
+          this.config.explorerBaseUrl,
+          transaction.hash,
+        );
 
         return ok(chainProofSchema.parse({
           manifestRoot,
