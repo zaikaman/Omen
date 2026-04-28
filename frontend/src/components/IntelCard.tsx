@@ -6,7 +6,7 @@ import { Calendar01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { Newspaper } from 'lucide-react';
 import type { IntelCardItem } from '../types/ui-models';
 
-const AGENT_AVATAR = '/logo.png';
+const AGENT_AVATAR = '/generated/omen-logo-v2.png';
 
 interface IntelCardProps {
   intel: IntelCardItem | null | undefined;

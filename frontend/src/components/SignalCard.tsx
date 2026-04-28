@@ -8,7 +8,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { Calendar01Icon } from '@hugeicons/core-free-icons';
 import type { SignalCardItem } from '../types/ui-models';
 
-const AGENT_AVATAR = '/logo.png';
+const AGENT_AVATAR = '/generated/omen-logo-v2.png';
 
 interface SignalCardProps {
   signal: SignalCardItem | null | undefined;

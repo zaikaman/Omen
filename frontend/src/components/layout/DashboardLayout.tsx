@@ -102,7 +102,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800">
                     <Link to="/" className="flex items-center gap-3 no-underline" onClick={() => setIsMobileMenuOpen(false)}>
                         <div className="p-1 bg-cyan-500/10 rounded-lg border border-cyan-500/20 flex items-center justify-center">
-                            <img src="/logo.png" alt="Omen" className="h-6 w-6 object-contain rounded" />
+                            <img src="/generated/omen-logo-v2.png" alt="Omen" className="h-6 w-6 object-contain" />
                         </div>
                         <span className="font-bold text-white tracking-tight">OMEN</span>
                     </Link>

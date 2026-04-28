@@ -27,7 +27,7 @@ export function IntelThread({ content, title = 'Intel Thread', symbols = [], sou
     <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
       <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex items-center gap-3">
         <Avatar className="h-10 w-10 border border-cyan-500/30">
-          <AvatarImage src="/logo.png" />
+          <AvatarImage src="/generated/omen-logo-v2.png" />
           <AvatarFallback className="bg-cyan-950 text-cyan-400">OM</AvatarFallback>
         </Avatar>
         <div>

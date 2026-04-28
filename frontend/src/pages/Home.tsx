@@ -71,6 +71,56 @@ export default function Home() {
         }
     ];
 
+    const platformSteps = [
+        {
+            title: "Market + Social Scanner",
+            desc: "Runs scheduled sweeps across market data, X/Twitter, Telegram, and narrative sources to find candidate trades or intel.",
+            color: "bg-blue-500",
+            shadow: "shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+        },
+        {
+            title: "Analyst + Critic Loop",
+            desc: "Turns candidates into either trade signals or narrative reports, then challenges the thesis before anything gets published.",
+            color: "bg-purple-500",
+            shadow: "shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+        },
+        {
+            title: "0G Proof Trail",
+            desc: "Persists checkpoints, logs, compute evidence, manifests, and post artifacts so each run has a verifiable record.",
+            color: "bg-teal-glow",
+            shadow: "shadow-[0_0_10px_rgba(0,212,255,0.5)]"
+        },
+        {
+            title: "Publish + Execute",
+            desc: "Posts approved intel to X/Telegram and prepares actionable LONG/SHORT setups with entry, target, stop, and risk context.",
+            color: "bg-emerald-400",
+            shadow: "shadow-[0_0_10px_rgba(52,211,153,0.45)]"
+        }
+    ];
+
+    const platformCards = [
+        {
+            eyebrow: "SCANNER",
+            title: "Narrative Radar",
+            image: "/generated/omen-card-market-scanner.png"
+        },
+        {
+            eyebrow: "SIGNALS",
+            title: "Trade Thesis Engine",
+            image: "/generated/omen-card-signal-analysis.png"
+        },
+        {
+            eyebrow: "EVIDENCE",
+            title: "0G Run Provenance",
+            image: "/generated/omen-card-evidence-trail.png"
+        },
+        {
+            eyebrow: "OUTPUT",
+            title: "Autonomous Dispatch",
+            image: "/generated/omen-card-publish-execute.png"
+        }
+    ];
+
     // Use lazy loading hook for UnicornStudio - loads during browser idle time
     // and only initializes when hero section is near viewport
     const { isInitialized: unicornReady, containerRef: unicornContainerRef } = useLazyUnicornStudio({
@@ -90,7 +140,7 @@ export default function Home() {
                 <div className="max-w-7xl mx-auto rounded-full px-6 py-3 bg-noir-black/70 backdrop-blur-xl border border-white/10 shadow-2xl relative">
                     <div className="flex items-center justify-between">
                         <Link to="/" className="flex items-center gap-3 group">
-                            <img src="/logo.png" alt="Omen Logo" className="w-8 h-8 rounded-full" />
+                            <img src="/generated/omen-logo-v2.png" alt="Omen Logo" className="w-8 h-8 object-contain" />
                             <span className="text-white text-lg font-bold tracking-tight">OMEN</span>
                         </Link>
                         <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-white/60">
@@ -470,7 +520,7 @@ export default function Home() {
                         {/* Background Glow */}
                         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-glow/5 rounded-full blur-[100px] pointer-events-none" />
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+                        <div className="grid grid-cols-1 lg:grid-cols-[0.95fr_1.05fr] gap-12 lg:gap-12 items-center">
                             <div className="flex flex-col justify-between h-full">
                                 <div>
                                     <motion.span
@@ -502,12 +552,7 @@ export default function Home() {
                                             className="absolute left-0 top-3 w-[1px] bg-gradient-to-b from-teal-glow via-white/20 to-transparent"
                                         />
 
-                                        {[
-                                            { title: "Ecosystem Scanner", desc: "Monitors X, Telegram, and on-chain data 24/7 to surface opportunities before they trend.", color: "bg-blue-500", shadow: "shadow-[0_0_10px_rgba(59,130,246,0.5)]" },
-                                            { title: "Signal Analyzer", desc: "AI-powered analysis identifies high-conviction setups with precise entry, target, and stop-loss levels.", color: "bg-purple-500", shadow: "shadow-[0_0_10px_rgba(168,85,247,0.5)]" },
-                                            { title: "Autonomous Execution", desc: "Executes LONG/SHORT futures trades on Hyperliquid with dynamic leverage. Mainnet & testnet supported.", color: "bg-teal-glow", shadow: "shadow-[0_0_10px_rgba(0,212,255,0.5)]" },
-                                            { title: "Alpha Publisher", desc: "Broadcasts signals to all users instantly via Telegram. Curated highlights posted to X.", color: "bg-orange-500", shadow: "shadow-[0_0_10px_rgba(249,115,22,0.5)]" }
-                                        ].map((item, index) => (
+                                        {platformSteps.map((item, index) => (
                                             <motion.div
                                                 key={index}
                                                 initial={{ opacity: 0, x: -20 }}
@@ -546,65 +591,50 @@ export default function Home() {
 
                             <div className="grid grid-cols-2 gap-4 relative">
                                 <div className="space-y-4 mt-12">
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 40 }}
-                                        whileInView={{ opacity: 1, y: 0 }}
-                                        viewport={{ once: true }}
-                                        transition={{ delay: 0.4, duration: 0.6 }}
-                                        className="aspect-[4/5] rounded-2xl bg-noir-black border border-white/10 p-4 relative overflow-hidden group hover:border-teal-glow/30 transition-colors"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-noir-black/90 z-10" />
-                                        <div className="absolute bottom-4 left-4 z-20">
-                                            <div className="text-xs text-teal-glow font-mono mb-1">MONITORING</div>
-                                            <div className="text-lg font-bold text-white">Live Tracking</div>
-                                        </div>
-                                        {/* Abstract UI representation */}
-                                        <img src="/live-tracking.webp" alt="Live Tracking" className="w-full h-full object-cover rounded-lg" />
-                                    </motion.div>
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 40 }}
-                                        whileInView={{ opacity: 1, y: 0 }}
-                                        viewport={{ once: true }}
-                                        transition={{ delay: 0.6, duration: 0.6 }}
-                                        className="aspect-[4/3] rounded-2xl bg-noir-black border border-white/10 p-4 relative overflow-hidden group hover:border-teal-glow/30 transition-colors"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-noir-black/90 z-10" />
-                                        <div className="absolute bottom-4 left-4 z-20">
-                                            <div className="text-xs text-teal-glow font-mono mb-1">SECURITY</div>
-                                            <div className="text-lg font-bold text-white">Risk Analysis</div>
-                                        </div>
-                                        <img src="/risk-analysis.webp" alt="Risk Analysis" className="w-full h-full object-cover rounded-lg" />
-                                    </motion.div>
+                                    {platformCards.filter((_, index) => index % 2 === 0).map((card, index) => (
+                                        <motion.div
+                                            key={card.title}
+                                            initial={{ opacity: 0, y: 40 }}
+                                            whileInView={{ opacity: 1, y: 0 }}
+                                            viewport={{ once: true }}
+                                            transition={{ delay: 0.4 + (index * 0.2), duration: 0.6 }}
+                                            className={`${index === 0 ? "aspect-[4/5]" : "aspect-[4/3]"} rounded-2xl bg-noir-black border border-white/10 p-4 relative overflow-hidden group hover:border-teal-glow/30 transition-colors`}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-noir-black/10 to-noir-black/90 z-10" />
+                                            <div className="absolute bottom-4 left-4 right-4 z-20">
+                                                <div className="text-xs text-teal-glow font-mono mb-1 tracking-wider">{card.eyebrow}</div>
+                                                <div className="text-lg font-bold text-white leading-tight">{card.title}</div>
+                                            </div>
+                                            <img
+                                                src={card.image}
+                                                alt=""
+                                                className="w-full h-full object-cover rounded-lg opacity-90 transition-transform duration-700 group-hover:scale-105"
+                                            />
+                                        </motion.div>
+                                    ))}
                                 </div>
                                 <div className="space-y-4">
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 40 }}
-                                        whileInView={{ opacity: 1, y: 0 }}
-                                        viewport={{ once: true }}
-                                        transition={{ delay: 0.5, duration: 0.6 }}
-                                        className="aspect-[4/3] rounded-2xl bg-noir-black border border-white/10 p-4 relative overflow-hidden group hover:border-teal-glow/30 transition-colors"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-noir-black/90 z-10" />
-                                        <div className="absolute bottom-4 left-4 z-20">
-                                            <div className="text-xs text-teal-glow font-mono mb-1">STRATEGY</div>
-                                            <div className="text-lg font-bold text-white">Multi-Chain</div>
-                                        </div>
-                                        <img src="/multi-chain.webp" alt="Multi-Chain" className="w-full h-full object-cover rounded-lg" />
-                                    </motion.div>
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 40 }}
-                                        whileInView={{ opacity: 1, y: 0 }}
-                                        viewport={{ once: true }}
-                                        transition={{ delay: 0.7, duration: 0.6 }}
-                                        className="aspect-[4/5] rounded-2xl bg-noir-black border border-white/10 p-4 relative overflow-hidden group hover:border-teal-glow/30 transition-colors"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-noir-black/90 z-10" />
-                                        <div className="absolute bottom-4 left-4 z-20">
-                                            <div className="text-xs text-teal-glow font-mono mb-1">AI</div>
-                                            <div className="text-lg font-bold text-white">Smart Optimization</div>
-                                        </div>
-                                        <img src="/smart-optimization.webp" alt="Smart Optimization" className="w-full h-full object-cover rounded-lg" />
-                                    </motion.div>
+                                    {platformCards.filter((_, index) => index % 2 === 1).map((card, index) => (
+                                        <motion.div
+                                            key={card.title}
+                                            initial={{ opacity: 0, y: 40 }}
+                                            whileInView={{ opacity: 1, y: 0 }}
+                                            viewport={{ once: true }}
+                                            transition={{ delay: 0.5 + (index * 0.2), duration: 0.6 }}
+                                            className={`${index === 0 ? "aspect-[4/3]" : "aspect-[4/5]"} rounded-2xl bg-noir-black border border-white/10 p-4 relative overflow-hidden group hover:border-teal-glow/30 transition-colors`}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-noir-black/10 to-noir-black/90 z-10" />
+                                            <div className="absolute bottom-4 left-4 right-4 z-20">
+                                                <div className="text-xs text-teal-glow font-mono mb-1 tracking-wider">{card.eyebrow}</div>
+                                                <div className="text-lg font-bold text-white leading-tight">{card.title}</div>
+                                            </div>
+                                            <img
+                                                src={card.image}
+                                                alt=""
+                                                className="w-full h-full object-cover rounded-lg opacity-90 transition-transform duration-700 group-hover:scale-105"
+                                            />
+                                        </motion.div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -745,7 +775,7 @@ export default function Home() {
                     <div className="grid md:grid-cols-4 gap-12 mb-12">
                         <div className="col-span-1 md:col-span-1">
                             <div className="flex items-center gap-2 mb-6">
-                                <img src="/logo.png" alt="Omen Logo" className="w-8 h-8 rounded-full" />
+                                <img src="/generated/omen-logo-v2.png" alt="Omen Logo" className="w-8 h-8 object-contain" />
                                 <span className="text-white text-xl font-bold">OMEN</span>
                             </div>
                             <p className="text-sm text-gray-500 leading-relaxed">
