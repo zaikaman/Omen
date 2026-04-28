@@ -77,7 +77,7 @@ const extractJsonString = (content: string) => {
 export type JsonCompletionInput<T> = {
   systemPrompt: string;
   userPrompt: string;
-  schema: z.ZodType<T>;
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>;
   temperature?: number;
 };
 

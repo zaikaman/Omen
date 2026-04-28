@@ -49,93 +49,7 @@ describe("intel agent", () => {
     updatedAt: "2026-04-25T08:00:00.000Z",
   };
 
-  const capturedAt = "2026-04-25T08:00:00.000Z";
-
-  const createBinanceStub = () =>
-    ({
-      getSnapshots: async (symbols: string[]) => ({
-        ok: true as const,
-        provider: "binance",
-        value: symbols.map((symbol, index) => ({
-          symbol,
-          price: [76944.83, 1832.41, 83.83][index] ?? 1,
-          change24hPercent: [-0.42, 0.21, -3.11][index] ?? 0,
-          volume24h: [26100000000, 13300000000, 2100000000][index] ?? 1000000,
-          fundingRate: [0.0001, 0.00008, -0.00012][index] ?? null,
-          openInterest: [13200000000, 7800000000, 1900000000][index] ?? null,
-          candles: [],
-          capturedAt,
-        })),
-        health: {
-          provider: "binance",
-          available: true,
-          degraded: false,
-          checkedAt: capturedAt,
-          notes: [],
-        },
-      }),
-    }) as never;
-
-  const createCoinGeckoStub = () =>
-    ({
-      getTopMovers: async (symbols: string[]) => ({
-        ok: true as const,
-        provider: "coingecko",
-        value: symbols.map((symbol, index) => ({
-          symbol,
-          price: [76944.83, 1832.41, 83.83][index] ?? 1,
-          change24hPercent: [-0.42, 0.21, -3.11][index] ?? 0,
-          volume24h: [26100000000, 13300000000, 2100000000][index] ?? 1000000,
-          capturedAt,
-        })),
-        health: {
-          provider: "coingecko",
-          available: true,
-          degraded: false,
-          checkedAt: capturedAt,
-          notes: [],
-        },
-      }),
-    }) as never;
-
-  const createDefiLlamaStub = () =>
-    ({
-      getProtocolLeaderboard: async () => ({
-        ok: true as const,
-        provider: "defillama",
-        value: [
-          {
-            protocol: "Kamino",
-            chain: "Solana",
-            tvlUsd: 1850000000,
-            tvlChange1dPercent: 4.2,
-            tvlChange7dPercent: 18.4,
-            category: "Lending",
-            sourceUrl: null,
-            capturedAt,
-          },
-          {
-            protocol: "Ethena",
-            chain: "Ethereum",
-            tvlUsd: 7200000000,
-            tvlChange1dPercent: 1.1,
-            tvlChange7dPercent: 9.6,
-            category: "CDP",
-            sourceUrl: null,
-            capturedAt,
-          },
-        ],
-        health: {
-          provider: "defillama",
-          available: true,
-          degraded: false,
-          checkedAt: capturedAt,
-          notes: [],
-        },
-      }),
-    }) as never;
-
-  it("builds a publishable intel report when a signal is rejected", async () => {
+  it("builds a publishable intel report when mocked evidence is supplied directly", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createIntelAgent({ llmClient: null });
 
@@ -152,70 +66,30 @@ describe("intel agent", () => {
           reasoning: "Risk appetite improved and majors stayed green.",
           confidence: 74,
         },
-        candidates: [
-          {
-            id: "candidate-avax-1",
-            symbol: "AVAX",
-            reason: "Relative strength in layer-1 rotation.",
-            directionHint: "WATCHLIST",
-            status: "researched",
-            sourceUniverse: "AVAX,SOL,ETH",
-            dedupeKey: "AVAX",
-            missingDataNotes: [],
-          },
-        ],
+        candidates: [],
         evidence: [
-          {
-            category: "market",
-            summary: "AVAX spot snapshot recorded 9.42 with stable funding and constructive flow.",
-            sourceLabel: "Binance",
-            sourceUrl: null,
-            structuredData: {},
-          },
           {
             category: "sentiment",
             summary:
-              "Layer-1 rotation chatter kept AVAX on watchlists despite the failed trade setup.",
+              "High-throughput infra momentum is building as XPL, MON, and HYPE gain social and on-chain chatter.",
             sourceLabel: "Market Desk",
             sourceUrl: null,
-            structuredData: {},
+            structuredData: {
+              symbols: ["XPL", "MON", "HYPE"],
+            },
           },
         ],
-        chartVisionSummary:
-          "15m and 1h stayed constructive, while 4h remained range-bound near resistance.",
-        thesis: {
-          candidateId: "candidate-avax-1",
-          asset: "AVAX",
-          direction: "WATCHLIST",
-          confidence: 72,
-          orderType: null,
-          tradingStyle: null,
-          expectedDuration: null,
-          currentPrice: 9.42,
-          entryPrice: null,
-          targetPrice: null,
-          stopLoss: null,
-          riskReward: null,
-          whyNow: "Momentum improved but did not clear the signal bar.",
-          confluences: ["Relative strength", "Constructive chart posture"],
-          uncertaintyNotes: "Higher-timeframe confirmation is still incomplete.",
-          missingDataNotes: "No additional missing-data flags.",
-        },
-        review: {
-          candidateId: "candidate-avax-1",
-          decision: "rejected",
-          objections: ["Signal confidence stayed below threshold"],
-          forcedOutcomeReason: "Good context, not enough for a trade call.",
-        },
+        chartVisionSummary: null,
+        thesis: null,
+        review: null,
         recentIntelHistory: [],
       },
       state,
     );
 
     expect(result.action).toBe("ready");
-    expect(result.report?.title).toContain("AVAX");
     expect(result.report?.importanceScore).toBeGreaterThanOrEqual(7);
-    expect(result.report?.summary).not.toMatch(/failed the signal gate/i);
+    expect(result.report?.summary).toMatch(/high-throughput infra/i);
   });
 
   it("suppresses duplicate intel when a similar report was published recently", async () => {
@@ -262,7 +136,7 @@ describe("intel agent", () => {
     expect(result.skipReason).toBe("recent_duplicate");
   });
 
-  it("uses fresh market data for live intel instead of failed trade evidence", async () => {
+  it("does not synthesize live intel from raw token feeds when no model is available", async () => {
     const liveRun = {
       ...run,
       mode: "live" as const,
@@ -272,235 +146,13 @@ describe("intel agent", () => {
       mode: "live" as const,
     };
     const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
-    const agent = createIntelAgent({
-      llmClient: null,
-      binance: createBinanceStub(),
-      coinGecko: createCoinGeckoStub(),
-      defiLlama: createDefiLlamaStub(),
-    });
-
-    const result = await agent.invoke(
-      {
-        context: {
-          runId: liveRun.id,
-          threadId: "thread-intel-live",
-          mode: "live",
-          triggeredBy: "scheduler",
-        },
-        bias: {
-          marketBias: "SHORT",
-          reasoning: "Risk-off tape with majors weak.",
-          confidence: 83,
-        },
-        candidates: [
-          {
-            id: "candidate-sol-1",
-            symbol: "SOL",
-            reason: "SOL underperformed in a short-biased tape.",
-            directionHint: null,
-            status: "researched",
-            sourceUniverse: "BTC,ETH,SOL",
-            dedupeKey: "SOL",
-            missingDataNotes: [],
-          },
-        ],
-        evidence: [
-          {
-            category: "market",
-            summary: "SOL spot snapshot recorded 83.83 with 24h change -3.11%.",
-            sourceLabel: "Binance",
-            sourceUrl: null,
-            structuredData: {},
-          },
-        ],
-        chartVisionSummary: "SOL 1h chart shows trend is leaning downward.",
-        thesis: {
-          candidateId: "candidate-sol-1",
-          asset: "SOL",
-          direction: "NONE",
-          confidence: 63,
-          orderType: null,
-          tradingStyle: null,
-          expectedDuration: null,
-          currentPrice: null,
-          entryPrice: null,
-          targetPrice: null,
-          stopLoss: null,
-          riskReward: null,
-          whyNow: "SOL did not form an executable trade setup.",
-          confluences: ["Market snapshot only"],
-          uncertaintyNotes: "No trade levels.",
-          missingDataNotes: "No additional missing-data flags.",
-        },
-        review: {
-          candidateId: "candidate-sol-1",
-          decision: "rejected",
-          objections: [],
-          forcedOutcomeReason: "The thesis failed the minimum quality gate.",
-        },
-        recentIntelHistory: [],
-      },
-      state,
-    );
-
-    expect(result.action).toBe("ready");
-    expect(result.report?.importanceScore).toBeGreaterThanOrEqual(7);
-    expect(result.report?.summary).toMatch(/SOL|DeFi TVL rotation|Top watched movers/i);
-  });
-
-  it("can start a live intel scan from a clean market brief", async () => {
-    const liveRun = {
-      ...run,
-      mode: "live" as const,
-      marketBias: "NEUTRAL" as const,
-    };
-    const liveConfig = {
-      ...config,
-      mode: "live" as const,
-    };
-    const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
-    const agent = createIntelAgent({
-      llmClient: null,
-      binance: createBinanceStub(),
-      coinGecko: createCoinGeckoStub(),
-      defiLlama: createDefiLlamaStub(),
-    });
+    const agent = createIntelAgent({ llmClient: null });
 
     const result = await agent.invoke(
       {
         context: {
           runId: liveRun.id,
           threadId: "thread-intel-clean",
-          mode: "live",
-          triggeredBy: "scheduler",
-        },
-        bias: {
-          marketBias: "NEUTRAL",
-          reasoning: "Market bias stayed neutral.",
-          confidence: 67,
-        },
-        candidates: [],
-        evidence: [],
-        chartVisionSummary: null,
-        thesis: null,
-        review: null,
-        recentIntelHistory: [],
-      },
-      state,
-    );
-
-    expect(result.action).toBe("ready");
-    expect(result.report?.summary).toMatch(/BTC|ETH|SOL|DeFi TVL rotation|Top watched movers/i);
-    expect(result.report?.summary).not.toMatch(/trade cleared|trade setup|ETC spot/i);
-    expect(result.report?.title).not.toMatch(/market market/i);
-    expect(result.report?.summary).not.toMatch(/fresh market intelligence scan/i);
-  });
-
-  it("falls back to synthesized intel when the model returns a literal provider list", async () => {
-    const liveRun = {
-      ...run,
-      mode: "live" as const,
-    };
-    const liveConfig = {
-      ...config,
-      mode: "live" as const,
-      marketUniverse: ["SOL", "TRUMP", "CATI"],
-    };
-    const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
-    const agent = createIntelAgent({
-      llmClient: {
-        completeJson: async () => ({
-          topic: "CoinGecko trending tokens",
-          insight: "CoinGecko trending tokens: zkj rank 1000; pengu rank 89; cati rank 228.",
-          importance_score: 8,
-        }),
-      } as never,
-      binance: createBinanceStub(),
-      coinGecko: {
-        getTopMovers: async () => ({
-          ok: true as const,
-          provider: "coingecko",
-          value: [
-            {
-              symbol: "TRUMP",
-              price: 8,
-              change24hPercent: 5.5,
-              volume24h: 12000000,
-              capturedAt,
-            },
-          ],
-          health: {
-            provider: "coingecko",
-            available: true,
-            degraded: false,
-            checkedAt: capturedAt,
-            notes: [],
-          },
-        }),
-        getTrending: async () => ({
-          ok: true as const,
-          provider: "coingecko",
-          value: [
-            {
-              name: "Pudgy Penguins",
-              symbol: "PENGU",
-              rank: 89,
-              chain: null,
-              address: null,
-              volume24h: null,
-              source: "coingecko",
-              capturedAt,
-            },
-            {
-              name: "Official Trump",
-              symbol: "TRUMP",
-              rank: 91,
-              chain: null,
-              address: null,
-              volume24h: null,
-              source: "coingecko",
-              capturedAt,
-            },
-            {
-              name: "Catizen",
-              symbol: "CATI",
-              rank: 228,
-              chain: null,
-              address: null,
-              volume24h: null,
-              source: "coingecko",
-              capturedAt,
-            },
-          ],
-          health: {
-            provider: "coingecko",
-            available: true,
-            degraded: false,
-            checkedAt: capturedAt,
-            notes: [],
-          },
-        }),
-        getTopGainersLosers: async () => ({
-          ok: true as const,
-          provider: "coingecko",
-          value: [],
-          health: {
-            provider: "coingecko",
-            available: true,
-            degraded: false,
-            checkedAt: capturedAt,
-            notes: [],
-          },
-        }),
-      } as never,
-      defiLlama: createDefiLlamaStub(),
-    });
-
-    const result = await agent.invoke(
-      {
-        context: {
-          runId: liveRun.id,
-          threadId: "thread-intel-provider-list",
           mode: "live",
           triggeredBy: "scheduler",
         },
@@ -515,24 +167,34 @@ describe("intel agent", () => {
       state,
     );
 
-    expect(result.action).toBe("ready");
-    expect(result.report?.title).not.toBe("CoinGecko trending tokens");
-    expect(result.report?.title).toContain("meme narrative attention");
-    expect(result.report?.symbols).toEqual(expect.arrayContaining(["PENGU", "TRUMP", "CATI"]));
+    expect(result.action).toBe("skip");
+    expect(result.report).toBeNull();
   });
 
-  it("passes recent post text to the intel model to avoid repeated posts", async () => {
+  it("passes recent post context while asking the model to use built-in X search", async () => {
     const state = createInitialSwarmState({ run, config });
     let capturedUserPrompt = "";
+    let capturedUseResponsesApi: unknown = "missing";
+    let capturedTools: unknown = "missing";
     const agent = createIntelAgent({
       llmClient: {
-        completeJson: async ({ userPrompt }: { userPrompt: string }) => {
+        completeJson: async ({
+          userPrompt,
+          useResponsesApi,
+          tools,
+        }: {
+          userPrompt: string;
+          useResponsesApi?: unknown;
+          tools?: unknown;
+        }) => {
           capturedUserPrompt = userPrompt;
+          capturedUseResponsesApi = useResponsesApi;
+          capturedTools = tools;
 
           return {
-            topic: "SOL liquidity rotation",
+            topic: "Privacy coin rotation",
             insight:
-              "SOL liquidity rotation is distinct from the already posted privacy coin note.",
+              "High-signal accounts are connecting privacy coin strength to policy chatter and institutional compliance demand.",
             importance_score: 8,
           };
         },
@@ -543,21 +205,13 @@ describe("intel agent", () => {
       {
         context: {
           runId: run.id,
-          threadId: "thread-intel-recent-posts",
+          threadId: "thread-intel-x-search",
           mode: "mocked",
           triggeredBy: "scheduler",
         },
         bias: null,
         candidates: [],
-        evidence: [
-          {
-            category: "liquidity",
-            summary: "SOL liquidity improved while majors stayed range-bound.",
-            sourceLabel: "Market Desk",
-            sourceUrl: null,
-            structuredData: {},
-          },
-        ],
+        evidence: [],
         chartVisionSummary: null,
         thesis: null,
         review: null,
@@ -570,21 +224,28 @@ describe("intel agent", () => {
             publishedUrl: "https://x.com/i/web/status/123",
             signalId: null,
             intelId: "intel-privacy",
-            timestamp: capturedAt,
+            timestamp: "2026-04-25T08:00:00.000Z",
           },
         ],
       },
       state,
     );
-
     const parsedPrompt = JSON.parse(capturedUserPrompt) as {
+      instruction: string;
       recent_posts?: Array<{ text?: string }>;
+      market_data?: unknown[];
     };
 
     expect(result.action).toBe("ready");
     expect(parsedPrompt.recent_posts?.[0]?.text).toBe(
       "privacy coins wake as btc/eth range; thin liquidity could spark a move",
     );
+    expect(parsedPrompt.market_data).toEqual([]);
+    expect(capturedUseResponsesApi).toBeUndefined();
+    expect(capturedTools).toBeUndefined();
+    expect(parsedPrompt.instruction).toMatch(/built-in X search/i);
+    expect(parsedPrompt.instruction).toMatch(/only the high-signal X accounts/i);
+    expect(parsedPrompt.instruction).toMatch(/Do not build intel from CoinGecko/i);
   });
 
   it("rejects generic low-signal news even when the model scores it highly", async () => {
