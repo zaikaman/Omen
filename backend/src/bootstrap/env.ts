@@ -38,6 +38,8 @@ export type BackendEnv = {
     computeApiKey: string | null;
     privateKey: string | null;
     flowContractAddress: string | null;
+    chainId: string;
+    chainExplorerBaseUrl: string | null;
     checkpointStrategy: "milestone" | "all";
   };
   providers: {
@@ -241,6 +243,8 @@ export const createBackendEnv = (
       computeApiKey: env.ZERO_G_COMPUTE_API_KEY ?? null,
       privateKey: env.ZERO_G_PRIVATE_KEY ?? null,
       flowContractAddress: env.ZERO_G_FLOW_CONTRACT_ADDRESS ?? null,
+      chainId: env.ZERO_G_CHAIN_ID ?? "16600",
+      chainExplorerBaseUrl: env.ZERO_G_CHAIN_EXPLORER_BASE_URL ?? null,
       checkpointStrategy: normalizeZeroGCheckpointStrategy(
         env.ZERO_G_CHECKPOINT_STRATEGY,
       ),

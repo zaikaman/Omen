@@ -25,6 +25,7 @@ import {
   ZeroGStateStore,
   type ZeroGAdapterConfig,
   ZeroGClientAdapter,
+  ZeroGProofAnchor,
 } from "@omen/zero-g";
 import { TRADEABLE_SYMBOLS } from "@omen/shared";
 import type {
@@ -130,6 +131,16 @@ const slugify = (value: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
 
+const deriveManifestAnchorRoot = (artifact: ProofArtifact) => {
+  const rootHashHint = artifact.metadata.rootHashHint;
+
+  if (typeof rootHashHint === "string" && rootHashHint.trim()) {
+    return rootHashHint;
+  }
+
+  return artifact.locator || artifact.key || artifact.id;
+};
+
 const buildIntelImagePrompt = (report: SwarmState["intelReports"][number]) =>
   report.imagePrompt ??
   [
@@ -169,6 +180,14 @@ const buildZeroGAdapterConfig = (env: BackendEnv): ZeroGAdapterConfig | null => 
           baseUrl: env.zeroG.computeUrl,
           apiKey: env.zeroG.computeApiKey ?? undefined,
           requestTimeoutMs: 60_000,
+        }
+      : undefined,
+    chain: env.zeroG.rpcUrl && env.zeroG.privateKey
+      ? {
+          rpcUrl: env.zeroG.rpcUrl,
+          chainId: env.zeroG.chainId,
+          privateKey: env.zeroG.privateKey,
+          explorerBaseUrl: env.zeroG.chainExplorerBaseUrl ?? undefined,
         }
       : undefined,
   };
@@ -492,6 +511,8 @@ class LivePipelineExecutionContext {
 
   private readonly runManifestPublisher: RunManifestPublisher | null;
 
+  private readonly zeroGProofAnchor: ZeroGProofAnchor | null;
+
   private readonly postProofPublisher: PostProofPublisher | null;
 
   private readonly postPublisher: PostPublisher | null;
@@ -596,6 +617,7 @@ class LivePipelineExecutionContext {
       this.evidenceBundlePublisher = new EvidenceBundlePublisher(zeroGConfig);
       this.reportBundlePublisher = new ReportBundlePublisher(zeroGConfig);
       this.runManifestPublisher = new RunManifestPublisher(zeroGConfig);
+      this.zeroGProofAnchor = new ZeroGProofAnchor(zeroGConfig.chain);
       this.postProofPublisher = new PostProofPublisher(zeroGConfig);
     } else {
       this.zeroGStateStore = null;
@@ -604,6 +626,7 @@ class LivePipelineExecutionContext {
       this.evidenceBundlePublisher = null;
       this.reportBundlePublisher = null;
       this.runManifestPublisher = null;
+      this.zeroGProofAnchor = null;
       this.postProofPublisher = null;
     }
   }
@@ -1391,6 +1414,23 @@ class LivePipelineExecutionContext {
         });
 
         finalArtifacts.push(manifestBundle.manifestArtifact);
+
+        if (this.zeroGProofAnchor) {
+          const anchored = await this.zeroGProofAnchor.anchorManifest({
+            runId: finalState.run.id,
+            manifestRoot: deriveManifestAnchorRoot(manifestBundle.manifestArtifact),
+            locator: manifestBundle.manifestArtifact.locator,
+            metadata: {
+              manifestArtifactId: manifestBundle.manifestArtifact.id,
+              manifestLocator: manifestBundle.manifestArtifact.locator,
+              manifestKey: manifestBundle.manifestArtifact.key,
+            },
+          });
+
+          if (anchored.ok && anchored.value) {
+            finalArtifacts.push(anchored.value.artifact);
+          }
+        }
       }
 
       for (const artifact of finalArtifacts) {

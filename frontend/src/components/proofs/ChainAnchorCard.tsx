@@ -67,6 +67,10 @@ const proofFromArtifact = (artifact: ProofArtifact): ChainProof | null => {
     return artifact.metadata;
   }
 
+  if (isChainProof(artifact.metadata.chainProof)) {
+    return artifact.metadata.chainProof;
+  }
+
   const status = metadataString(artifact.metadata, 'status');
 
   if (status !== 'pending' && status !== 'anchored' && status !== 'skipped' && status !== 'failed') {

@@ -50,6 +50,24 @@ const metadataLink = (artifact: ProofArtifact | null, key: string) => {
   return typeof value === 'string' && value.startsWith('http') ? value : null;
 };
 
+const chainExplorerLink = (artifact: ProofArtifact | null) => {
+  const directLink = metadataLink(artifact, 'explorerUrl');
+
+  if (directLink) {
+    return directLink;
+  }
+
+  const chainProof = artifact?.metadata.chainProof;
+
+  if (chainProof && typeof chainProof === 'object' && 'explorerUrl' in chainProof) {
+    const explorerUrl = chainProof.explorerUrl;
+
+    return typeof explorerUrl === 'string' && explorerUrl.startsWith('http') ? explorerUrl : null;
+  }
+
+  return null;
+};
+
 export function EvidencePage() {
   const proofFeed = useProofFeed({
     limit: 10,
@@ -77,7 +95,7 @@ export function EvidencePage() {
   const manifestArtifact =
     proofDetail.manifest?.manifestArtifact?.artifact ?? getArtifact(proofDetail.artifacts, ['manifest']);
   const publishedUrl = metadataLink(postArtifact, 'publishedUrl');
-  const explorerUrl = metadataLink(chainArtifact, 'explorerUrl');
+  const explorerUrl = chainExplorerLink(chainArtifact);
   const isRefreshing = proofFeed.isRefreshing || proofDetail.isRefreshing;
 
   return (
