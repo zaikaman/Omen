@@ -78,6 +78,10 @@
     "AXL_API_TOKEN": {
       "required": false
     },
+    "AXL_REQUEST_TIMEOUT_MS": {
+      "required": false,
+      "value": "30000"
+    },
     "ZERO_G_RPC_URL": {
       "value": "https://evmrpc-testnet.0g.ai"
     },

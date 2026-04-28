@@ -35,6 +35,35 @@ export type HttpNodeResponse = {
   body: Uint8Array;
 };
 
+const decodeResponseBody = (body: Uint8Array) => new TextDecoder().decode(body);
+
+const buildHttpStatusError = (input: {
+  operation: string;
+  status: number;
+  body: Uint8Array;
+}) => {
+  const text = decodeResponseBody(input.body).trim();
+  const suffix = text ? ` Response body: ${text.slice(0, 300)}` : "";
+
+  return new Error(
+    `${input.operation} failed with HTTP ${input.status.toString()}.${suffix}`,
+  );
+};
+
+const buildRequestError = (error: unknown, timeoutMs: number) => {
+  if (error instanceof Error) {
+    if (error.name === "AbortError") {
+      return new Error(
+        `AXL HTTP request timed out after ${timeoutMs.toString()}ms.`,
+      );
+    }
+
+    return error;
+  }
+
+  return new Error("AXL HTTP request failed.");
+};
+
 export class HttpNodeClient {
   private readonly config: AxlNodeHttpClientConfig;
 
@@ -52,8 +81,18 @@ export class HttpNodeClient {
       return response;
     }
 
+    if (response.value.status < 200 || response.value.status >= 300) {
+      return err(
+        buildHttpStatusError({
+          operation: "AXL topology request",
+          status: response.value.status,
+          body: response.value.body,
+        }),
+      );
+    }
+
     try {
-      const text = new TextDecoder().decode(response.value.body);
+      const text = decodeResponseBody(response.value.body);
       const parsed = JSON.parse(text) as unknown;
       return ok(axlTopologyResponseSchema.parse(parsed));
     } catch (error) {
@@ -88,6 +127,16 @@ export class HttpNodeClient {
 
     if (!response.ok) {
       return response;
+    }
+
+    if (response.value.status < 200 || response.value.status >= 300) {
+      return err(
+        buildHttpStatusError({
+          operation: "AXL receive request",
+          status: response.value.status,
+          body: response.value.body,
+        }),
+      );
     }
 
     if (response.value.status === 204) {
@@ -159,11 +208,7 @@ export class HttpNodeClient {
         body,
       });
     } catch (error) {
-      return err(
-        error instanceof Error
-          ? error
-          : new Error("AXL HTTP request failed."),
-      );
+      return err(buildRequestError(error, this.config.requestTimeoutMs));
     } finally {
       clearTimeout(timeout);
     }
@@ -183,8 +228,18 @@ export class HttpNodeClient {
       return response;
     }
 
+    if (response.value.status < 200 || response.value.status >= 300) {
+      return err(
+        buildHttpStatusError({
+          operation: "AXL JSON request",
+          status: response.value.status,
+          body: response.value.body,
+        }),
+      );
+    }
+
     try {
-      const text = new TextDecoder().decode(response.value.body);
+      const text = decodeResponseBody(response.value.body);
       const parsed = JSON.parse(text) as unknown;
 
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {

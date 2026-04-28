@@ -7,7 +7,7 @@ import {
   type SwarmCheckpointStore,
   type SwarmState,
 } from "@omen/agents";
-import { AxlHttpNodeAdapter } from "@omen/axl";
+import { AxlHttpNodeAdapter, toAxlPeerStatuses } from "@omen/axl";
 import {
   AgentEventsRepository,
   AgentNodesRepository,
@@ -455,26 +455,6 @@ const createServiceRoleClientFromEnv = (env: BackendEnv) => {
   });
 };
 
-class InMemoryCheckpointStore implements SwarmCheckpointStore {
-  protected readonly checkpoints: SwarmCheckpoint[] = [];
-
-  async save(checkpoint: SwarmCheckpoint) {
-    this.checkpoints.push(checkpoint);
-  }
-
-  async loadLatest(input: { runId: string; threadId: string }) {
-    const matches = this.checkpoints.filter(
-      (checkpoint) => checkpoint.runId === input.runId && checkpoint.threadId === input.threadId,
-    );
-
-    return matches.length > 0 ? (matches[matches.length - 1] ?? null) : null;
-  }
-
-  async listByRun(runId: string) {
-    return this.checkpoints.filter((checkpoint) => checkpoint.runId === runId);
-  }
-}
-
 class LivePipelineExecutionContext {
   private readonly environment: string;
 
@@ -588,7 +568,7 @@ class LivePipelineExecutionContext {
       this.axlAdapter = new AxlHttpNodeAdapter({
         node: {
           baseUrl: input.env.axl.nodeBaseUrl,
-          requestTimeoutMs: 10_000,
+          requestTimeoutMs: input.env.axl.requestTimeoutMs,
           defaultHeaders: input.env.axl.apiToken
             ? {
                 Authorization: `Bearer ${input.env.axl.apiToken}`,
@@ -1279,14 +1259,13 @@ class LivePipelineExecutionContext {
   }
 
   private async probeAxlTransport(runId: string, observedAt: string) {
-    if (!this.axlNodeManager || !this.axlAdapter) {
+    if (!this.axlNodeManager || !this.axlAdapter || !this.axlPeerRegistry) {
       return false;
     }
 
-    const status = await this.axlNodeManager.syncPeerStatuses();
     const topology = await this.axlAdapter.client.getTopology();
 
-    if (!status.ok || !topology.ok) {
+    if (!topology.ok) {
       if (this.eventPublisher) {
         await this.safePublishEvent({
           id: `event-${randomUUID()}`,
@@ -1295,9 +1274,10 @@ class LivePipelineExecutionContext {
           agentRole: "orchestrator",
           eventType: "warning",
           status: "warning",
-          summary: `AXL topology probe failed: ${status.ok ? (topology.ok ? "unknown topology error" : topology.error.message) : status.error.message}`,
+          summary: `AXL topology probe failed: ${topology.error.message}`,
           payload: {
             axlBaseUrl: this.input.env.axl.nodeBaseUrl,
+            timeoutMs: this.input.env.axl.requestTimeoutMs,
           },
           timestamp: observedAt,
           correlationId: `${runId}:axl-probe`,
@@ -1311,6 +1291,9 @@ class LivePipelineExecutionContext {
       return false;
     }
 
+    this.axlPeerRegistry.updatePeerStatuses(
+      toAxlPeerStatuses(topology.value, observedAt),
+    );
     this.axlServicePeerId = topology.value.our_public_key;
 
     return true;

@@ -22,6 +22,7 @@ export type BackendEnv = {
   axl: {
     nodeBaseUrl: string;
     apiToken: string | null;
+    requestTimeoutMs: number;
     nodes: {
       orchestrator: string;
       scanner: string;
@@ -227,6 +228,7 @@ export const createBackendEnv = (
     axl: {
       nodeBaseUrl: env.AXL_NODE_BASE_URL ?? "http://127.0.0.1:8080",
       apiToken: env.AXL_API_TOKEN ?? null,
+      requestTimeoutMs: parsePort(env.AXL_REQUEST_TIMEOUT_MS, 30_000),
       nodes: {
         orchestrator: env.AXL_ORCHESTRATOR_NODE_ID ?? "omen-orchestrator",
         scanner: env.AXL_SCANNER_NODE_ID ?? "omen-scanner",

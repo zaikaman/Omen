@@ -4,6 +4,7 @@ import {
   AxlA2AClient,
   AxlHttpAdapter,
   AxlHttpNodeAdapter,
+  HttpNodeClient,
   AxlServiceRegistry,
   assertAxlMcpMethodSupported,
   buildAxlMcpRoute,
@@ -93,6 +94,33 @@ describe("axl adapter", () => {
 
     expect(callMcp).toHaveBeenCalledOnce();
     expect(result.ok).toBe(true);
+  });
+
+  it("reports AXL topology HTTP failures with status and response body", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: "bridge timeout" }), {
+          status: 504,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    const client = new HttpNodeClient({
+      baseUrl: "https://axl.example",
+      requestTimeoutMs: 30_000,
+      defaultHeaders: {},
+    });
+
+    const result = await client.getTopology();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("HTTP 504");
+      expect(result.error.message).toContain("bridge timeout");
+    }
+
+    fetchMock.mockRestore();
   });
 
   it("preserves fromPeerId when receiving envelopes through the node adapter", async () => {
