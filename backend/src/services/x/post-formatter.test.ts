@@ -14,7 +14,9 @@ describe("post formatter", () => {
 
     expect(post.text.length).toBeLessThanOrEqual(280);
     expect(post.text).toMatch(/^crypto market rotation watch \$BTC \$PEPETO\n\n- /);
-    expect(post.text).toContain("\nwatch $BTC / $PEPETO if btc liquidity rotation gets follow-through");
+    expect(post.text).toContain(
+      "\nwatch $BTC / $PEPETO if btc liquidity rotation gets follow-through",
+    );
     expect(post.text).not.toContain("#");
     expect(post.text).not.toContain("...");
     expect(post.text).not.toContain("businessinsider.com");
@@ -45,8 +47,34 @@ describe("post formatter", () => {
     expect(post.text).toContain("stop: $62,725 (-3.5%)");
     expect(post.text).toContain("r:r: 1:2.6");
     expect(post.text).toContain("conf: 88%");
-    expect(post.text).toContain("breakout reclaim + momentum expansion");
+    expect(post.text).toContain("thesis: breakout reclaim + momentum expansion");
     expect(post.text).toContain("#bitcoin");
+  });
+
+  it("compresses verbose chart thesis text instead of cutting it mid-phrase", () => {
+    const post = formatSignalPost({
+      asset: "SOL",
+      direction: "SHORT",
+      confidence: 92,
+      whyNow:
+        "SOL is actionable because SOL 15m chart: SOL 15m chart shows trend is leaning downward, with visible range between 83.34 and 85.81 and the latest close near 83.56. SOL 1h chart: SOL 1h chart shows trend is leaning downward, with visible range between 83.34 and 88.08 and the latest close near 83.56.",
+      riskReward: 4.1,
+      confluences: [],
+      tradingStyle: "swing_trade",
+      expectedDuration: "2-5 days",
+      entryPrice: 85.81,
+      targetPrice: 68.22,
+      stopLoss: 90.1,
+      orderType: "limit",
+    });
+
+    expect(post.text.length).toBeLessThanOrEqual(280);
+    expect(post.text).toContain("$SOL swing trade");
+    expect(post.text).toContain("order: limit");
+    expect(post.text).toContain(
+      "thesis: 15m/1h trend leaning downward; range 83.34-88.08; latest close 83.56",
+    );
+    expect(post.text).not.toContain("with visible range");
   });
 
   it("uses generated intel tweet text when present", () => {

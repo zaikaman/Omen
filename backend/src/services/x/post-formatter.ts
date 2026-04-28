@@ -18,7 +18,6 @@ const STANDARD_X_POST_LIMIT = 280;
 const MAX_HOOK_LENGTH = 72;
 const MAX_BULLET_LENGTH = 82;
 const MAX_TAKE_LENGTH = 92;
-const MAX_SIGNAL_ANALYSIS_LENGTH = 82;
 
 const symbolHashtagMap: Record<string, string> = {
   ARB: "arbitrum",
@@ -49,10 +48,14 @@ const toCashtag = (value: string) =>
     .replace(/[^a-z0-9]+/gi, "")
     .toUpperCase()}`;
 
+const toSymbol = (value: string) =>
+  value
+    .replace(/^\$/, "")
+    .replace(/[^a-z0-9]+/gi, "")
+    .toUpperCase();
+
 const buildCashtags = (values: string[], limit = 3) =>
-  [...new Set(values.map(toCashtag))]
-    .filter((value) => value.length > 1)
-    .slice(0, limit);
+  [...new Set(values.map(toCashtag))].filter((value) => value.length > 1).slice(0, limit);
 
 const joinWithCashtags = (value: string, symbols: string[], maxLength: number) => {
   const cashtags = buildCashtags(symbols);
@@ -90,22 +93,79 @@ const formatSignalStyle = (tradingStyle: Signal["tradingStyle"]) =>
 const formatSignalHold = (signal: Pick<Signal, "expectedDuration" | "tradingStyle">) =>
   signal.expectedDuration ?? (signal.tradingStyle === "swing_trade" ? "3-5 days" : "8-16h");
 
-const buildSignalAnalysis = (
-  signal: Pick<Signal, "asset" | "confluences" | "whyNow">,
-) => {
-  const raw =
-    signal.confluences.length > 0
-      ? signal.confluences.slice(0, 3).join(" + ")
-      : signal.whyNow;
-
-  return trimLineToLength(normalizeAnalysisLine(raw), MAX_SIGNAL_ANALYSIS_LENGTH);
-};
-
 const buildSignalHashtag = (asset: string) => {
-  const symbol = asset.replace(/^\$/, "").toUpperCase();
+  const symbol = toSymbol(asset);
   const label = symbolHashtagMap[symbol] ?? symbol.toLowerCase();
 
   return `#${label}`;
+};
+
+const cleanSignalThesisSource = (signal: Pick<Signal, "asset" | "confluences" | "whyNow">) => {
+  const symbol = toSymbol(signal.asset).toLowerCase();
+  const raw = [signal.whyNow, ...signal.confluences].join(". ");
+
+  return normalizeAnalysisLine(raw)
+    .replace(new RegExp(`^${symbol}\\s+is\\s+actionable\\s+because\\s+`, "i"), "")
+    .replace(
+      new RegExp(
+        `\\b${symbol}\\s+((?:15m|1h|4h|1d|daily)\\s+chart):\\s+${symbol}\\s+\\1\\s+`,
+        "gi",
+      ),
+      "$1 ",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const buildCompactChartThesis = (source: string) => {
+  const timeframeMatches = [
+    ...source.matchAll(/\b(15m|1h|4h|1d|daily)\s+chart[^.]*?\btrend is leaning ([a-z]+)/gi),
+  ];
+  const rangeMatches = [
+    ...source.matchAll(/\brange between ([0-9]+(?:\.[0-9]+)?) and ([0-9]+(?:\.[0-9]+)?)/gi),
+  ];
+  const closeMatch = source.match(/\blatest close near ([0-9]+(?:\.[0-9]+)?)/i);
+  const parts: string[] = [];
+
+  if (timeframeMatches.length > 0) {
+    const direction = timeframeMatches[0]?.[2]?.toLowerCase();
+    const timeframes = [
+      ...new Set(timeframeMatches.map((match) => match[1]?.toLowerCase()).filter(Boolean)),
+    ];
+
+    parts.push(`${timeframes.join("/")} trend leaning ${direction}`);
+  }
+
+  if (rangeMatches.length > 0) {
+    const ranges = rangeMatches
+      .map((match) => [Number(match[1]), Number(match[2])] as const)
+      .filter(([low, high]) => Number.isFinite(low) && Number.isFinite(high));
+
+    if (ranges.length > 0) {
+      const low = Math.min(...ranges.map(([first, second]) => Math.min(first, second)));
+      const high = Math.max(...ranges.map(([first, second]) => Math.max(first, second)));
+      parts.push(`range ${formatPrice(low)}-${formatPrice(high)}`);
+    }
+  }
+
+  if (closeMatch?.[1]) {
+    parts.push(`latest close ${formatPrice(Number(closeMatch[1]))}`);
+  }
+
+  return parts.join("; ");
+};
+
+const buildSignalThesisText = (signal: Pick<Signal, "asset" | "confluences" | "whyNow">) => {
+  const source = cleanSignalThesisSource(signal);
+  const compactChartThesis = buildCompactChartThesis(source);
+
+  if (compactChartThesis) {
+    return compactChartThesis;
+  }
+
+  return signal.confluences.length > 0
+    ? signal.confluences.slice(0, 2).map(normalizeAnalysisLine).join(" + ")
+    : source;
 };
 
 const calculateMovePercent = (
@@ -189,9 +249,10 @@ const buildIntelTake = (intel: IntelPostInput) => {
     .join(" / ");
   const topic = normalizeAnalysisLine(intel.topic ?? intel.title ?? intel.summary ?? "");
 
-  const take = tickers.length > 0
-    ? `watch ${tickers} if ${topic || "this narrative"} gets follow-through`
-    : `watch for rotation if ${topic || "this narrative"} gets follow-through`;
+  const take =
+    tickers.length > 0
+      ? `watch ${tickers} if ${topic || "this narrative"} gets follow-through`
+      : `watch for rotation if ${topic || "this narrative"} gets follow-through`;
 
   return trimLineToLength(take, MAX_TAKE_LENGTH);
 };
@@ -218,6 +279,25 @@ const compactPostLines = (lines: string[], maxLength = STANDARD_X_POST_LIMIT) =>
   return trimToLength(compacted.join("\n"), maxLength);
 };
 
+const compactSignalPostLines = (input: {
+  fixedLines: string[];
+  thesisText: string;
+  hashtagLine: string;
+}) => {
+  const thesisPrefix = "thesis: ";
+  const fixedLength = [...input.fixedLines, input.hashtagLine].join("\n").length + 2;
+  const thesisBudget = Math.max(thesisPrefix.length + 24, STANDARD_X_POST_LIMIT - fixedLength);
+  const thesisLine = `${thesisPrefix}${trimLineToLength(
+    input.thesisText,
+    Math.max(1, thesisBudget - thesisPrefix.length),
+  )}`;
+
+  return compactPostLines(
+    [...input.fixedLines, thesisLine, input.hashtagLine],
+    STANDARD_X_POST_LIMIT,
+  );
+};
+
 export const formatSignalPost = (
   signal: Pick<
     Signal,
@@ -236,11 +316,11 @@ export const formatSignalPost = (
   >,
 ): XPostDraft =>
   xPostDraftSchema.parse({
-    text: compactPostLines(
-      [
-        `${signal.direction === "SHORT" ? "📉" : "📈"} $${signal.asset.toUpperCase()} ${formatSignalStyle(signal.tradingStyle)}`,
+    text: compactSignalPostLines({
+      fixedLines: [
+        `${signal.direction === "SHORT" ? "📉" : "📈"} $${toSymbol(signal.asset)} ${formatSignalStyle(signal.tradingStyle)}`,
         `order: ${signal.orderType ?? "market"}`,
-        `⏱️ hold: ${formatSignalHold(signal)}`,
+        `hold: ${formatSignalHold(signal)}`,
         signal.entryPrice !== null ? `entry: $${formatPrice(signal.entryPrice)}` : null,
         signal.targetPrice !== null
           ? `target: $${formatPrice(signal.targetPrice)}${
@@ -263,11 +343,10 @@ export const formatSignalPost = (
           : null,
         `r:r: ${signal.riskReward === null ? "n/a" : `1:${signal.riskReward.toFixed(1)}`}`,
         `conf: ${signal.confidence}%`,
-        buildSignalAnalysis(signal),
-        buildSignalHashtag(signal.asset),
       ].filter((line): line is string => line !== null),
-      STANDARD_X_POST_LIMIT,
-    ),
+      thesisText: buildSignalThesisText(signal),
+      hashtagLine: buildSignalHashtag(signal.asset),
+    }),
     replyToTweetId: null,
     quoteTweetId: null,
     attachmentUrl: null,
@@ -292,9 +371,10 @@ export const formatIntelPost = (intel: IntelPostInput): XPostDraft => {
   }
 
   const hook = buildIntelHook(intel);
-  const sourceText = intel.body && intel.body.trim().length > intel.summary.length
-    ? `${intel.summary}. ${intel.body}`
-    : intel.summary;
+  const sourceText =
+    intel.body && intel.body.trim().length > intel.summary.length
+      ? `${intel.summary}. ${intel.body}`
+      : intel.summary;
   const bullets = buildIntelBullets(sourceText, hook);
   const fallbackBullet =
     bullets.length > 0
