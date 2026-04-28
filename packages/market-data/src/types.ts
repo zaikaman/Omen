@@ -50,6 +50,52 @@ export const protocolSnapshotSchema = z.object({
   capturedAt: z.string().datetime(),
 });
 
+export const trendingTokenSchema = z.object({
+  name: z.string().min(1),
+  symbol: z.string().min(1),
+  rank: z.number().nullable().default(null),
+  chain: z.string().min(1).nullable().default(null),
+  address: z.string().min(1).nullable().default(null),
+  volume24h: z.number().nullable().default(null),
+  source: z.string().min(1),
+  capturedAt: z.string().datetime(),
+});
+
+export const defiChainSnapshotSchema = z.object({
+  name: z.string().min(1),
+  tvlUsd: z.number().min(0),
+  tokenSymbol: z.string().min(1).nullable().default(null),
+  capturedAt: z.string().datetime(),
+});
+
+export const defiProtocolStatSchema = z.object({
+  name: z.string().min(1),
+  symbol: z.string().min(1).nullable().default(null),
+  chain: z.string().min(1).nullable().default(null),
+  tvlUsd: z.number().min(0),
+  tvlChange1dPercent: z.number().nullable().default(null),
+  category: z.string().min(1).nullable().default(null),
+  capturedAt: z.string().datetime(),
+});
+
+export const defiYieldPoolSchema = z.object({
+  chain: z.string().min(1),
+  project: z.string().min(1),
+  symbol: z.string().min(1),
+  tvlUsd: z.number().min(0),
+  apy: z.number(),
+  poolId: z.string().min(1),
+  sourceUrl: z.string().url().nullable(),
+  capturedAt: z.string().datetime(),
+});
+
+export const cmcQuoteSchema = z.object({
+  symbol: z.string().min(1),
+  price: z.number(),
+  change24hPercent: z.number().nullable(),
+  capturedAt: z.string().datetime(),
+});
+
 export const providerErrorSchema = z.object({
   provider: z.string().min(1),
   code: z.string().min(1),
@@ -117,4 +163,9 @@ export type MarketCandle = z.infer<typeof marketCandleSchema>;
 export type MarketSnapshot = z.infer<typeof marketSnapshotSchema>;
 export type AssetNarrative = z.infer<typeof assetNarrativeSchema>;
 export type ProtocolSnapshot = z.infer<typeof protocolSnapshotSchema>;
+export type TrendingToken = z.infer<typeof trendingTokenSchema>;
+export type DefiChainSnapshot = z.infer<typeof defiChainSnapshotSchema>;
+export type DefiProtocolStat = z.infer<typeof defiProtocolStatSchema>;
+export type DefiYieldPool = z.infer<typeof defiYieldPoolSchema>;
+export type CmcQuote = z.infer<typeof cmcQuoteSchema>;
 export type ProviderError = z.infer<typeof providerErrorSchema>;

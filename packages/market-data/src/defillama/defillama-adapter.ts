@@ -3,7 +3,13 @@ import { z } from "zod";
 import {
   createProviderFailure,
   createProviderSuccess,
+  defiChainSnapshotSchema,
+  defiProtocolStatSchema,
+  defiYieldPoolSchema,
   protocolSnapshotSchema,
+  type DefiChainSnapshot,
+  type DefiProtocolStat,
+  type DefiYieldPool,
   type ProtocolSnapshot,
   type ProviderResult,
 } from "../types.js";
@@ -63,6 +69,158 @@ export class DefiLlamaAdapter {
     });
   }
 
+  async getGlobalTVL(limit = 5): Promise<ProviderResult<DefiChainSnapshot[]>> {
+    const result = await this.requestJson("/v2/chains", this.config.baseUrl);
+
+    if (!result.ok) {
+      return createProviderFailure({
+        provider: "defillama",
+        code: "DEFILLAMA_CHAINS_REQUEST_FAILED",
+        message: result.error.message,
+        retryable: true,
+        sourceStatus: result.status,
+      });
+    }
+
+    const chains = Array.isArray(result.value)
+      ? result.value.filter(
+          (entry): entry is Record<string, unknown> =>
+            !!entry && typeof entry === "object" && !Array.isArray(entry),
+        )
+      : [];
+
+    return createProviderSuccess({
+      provider: "defillama",
+      value: chains
+        .sort((left, right) => this.parseNumber(right.tvl) - this.parseNumber(left.tvl))
+        .slice(0, limit)
+        .map((chain) =>
+          defiChainSnapshotSchema.parse({
+            name: String(chain.name ?? "unknown"),
+            tvlUsd: this.parseNumber(chain.tvl),
+            tokenSymbol:
+              typeof chain.tokenSymbol === "string" && chain.tokenSymbol.trim()
+                ? chain.tokenSymbol
+                : null,
+            capturedAt: new Date().toISOString(),
+          }),
+        ),
+      notes: ["Fetched DeFiLlama global TVL chains."],
+    });
+  }
+
+  async getProtocolStats(limit = 5): Promise<ProviderResult<DefiProtocolStat[]>> {
+    const result = await this.requestJson("/protocols", this.config.baseUrl);
+
+    if (!result.ok) {
+      return createProviderFailure({
+        provider: "defillama",
+        code: "DEFILLAMA_PROTOCOLS_REQUEST_FAILED",
+        message: result.error.message,
+        retryable: true,
+        sourceStatus: result.status,
+      });
+    }
+
+    const protocols = Array.isArray(result.value)
+      ? result.value.filter(
+          (entry): entry is Record<string, unknown> =>
+            !!entry && typeof entry === "object" && !Array.isArray(entry),
+        )
+      : [];
+
+    return createProviderSuccess({
+      provider: "defillama",
+      value: protocols
+        .filter((protocol) => this.parseNullableNumber(protocol.tvl) !== null)
+        .filter((protocol) => (this.parseNullableNumber(protocol.tvl) ?? 0) > 1_000_000)
+        .sort(
+          (left, right) =>
+            (this.parseNullableNumber(right.change_1d) ?? -Infinity) -
+            (this.parseNullableNumber(left.change_1d) ?? -Infinity),
+        )
+        .slice(0, limit)
+        .map((protocol) =>
+          defiProtocolStatSchema.parse({
+            name: String(protocol.name ?? "unknown"),
+            symbol:
+              typeof protocol.symbol === "string" && protocol.symbol.trim()
+                ? protocol.symbol
+                : null,
+            chain:
+              typeof protocol.chain === "string" && protocol.chain.trim()
+                ? protocol.chain
+                : null,
+            tvlUsd: this.parseNumber(protocol.tvl),
+            tvlChange1dPercent: this.parseNullableNumber(protocol.change_1d),
+            category:
+              typeof protocol.category === "string" && protocol.category.trim()
+                ? protocol.category
+                : null,
+            capturedAt: new Date().toISOString(),
+          }),
+        ),
+      notes: ["Fetched DeFiLlama top-growing protocol stats."],
+    });
+  }
+
+  async getYieldPools(limit = 50): Promise<ProviderResult<DefiYieldPool[]>> {
+    const result = await this.requestJson("/pools", "https://yields.llama.fi");
+
+    if (!result.ok) {
+      return createProviderFailure({
+        provider: "defillama",
+        code: "DEFILLAMA_YIELDS_REQUEST_FAILED",
+        message: result.error.message,
+        retryable: true,
+        sourceStatus: result.status,
+      });
+    }
+
+    const data =
+      result.value && typeof result.value === "object" && !Array.isArray(result.value)
+        ? (result.value as Record<string, unknown>).data
+        : null;
+    const pools = Array.isArray(data)
+      ? data.filter(
+          (entry): entry is Record<string, unknown> =>
+            !!entry && typeof entry === "object" && !Array.isArray(entry),
+        )
+      : [];
+
+    return createProviderSuccess({
+      provider: "defillama",
+      value: pools
+        .filter((pool) => (this.parseNullableNumber(pool.tvlUsd) ?? 0) > 500_000)
+        .filter((pool) => {
+          const apy = this.parseNullableNumber(pool.apy);
+          return apy !== null && apy > 10 && apy < 5_000;
+        })
+        .sort(
+          (left, right) =>
+            (this.parseNullableNumber(right.apy) ?? -Infinity) -
+            (this.parseNullableNumber(left.apy) ?? -Infinity),
+        )
+        .slice(0, limit)
+        .map((pool) =>
+          defiYieldPoolSchema.parse({
+            chain: String(pool.chain ?? "unknown"),
+            project: String(pool.project ?? "unknown"),
+            symbol: String(pool.symbol ?? "unknown"),
+            tvlUsd: this.parseNumber(pool.tvlUsd),
+            apy: this.parseNumber(pool.apy),
+            poolId: String(pool.pool ?? "unknown"),
+            sourceUrl:
+              typeof pool.pool === "string"
+                ? `https://defillama.com/yields/pool/${encodeURIComponent(pool.pool)}`
+                : null,
+            capturedAt: new Date().toISOString(),
+          }),
+        ),
+      notes: ["Fetched DeFiLlama yield pools."],
+    });
+  }
+
   private resolveChain(payload: Record<string, unknown>) {
     if (typeof payload.chain === "string" && payload.chain.trim()) {
       return payload.chain;
@@ -94,12 +252,40 @@ export class DefiLlamaAdapter {
     | { ok: true; value: Record<string, unknown>; status: number }
     | { ok: false; error: Error; status: number | null }
   > {
+    const result = await this.requestJson(`/protocol/${encodeURIComponent(protocol)}`, this.config.baseUrl);
+
+    if (!result.ok) {
+      return result;
+    }
+
+    if (Array.isArray(result.value)) {
+      return {
+        ok: false,
+        error: new Error("DeFiLlama returned an array payload for a protocol request."),
+        status: result.status,
+      };
+    }
+
+    return {
+      ok: true,
+      value: result.value,
+      status: result.status,
+    };
+  }
+
+  private async requestJson(
+    path: string,
+    baseUrl: string,
+  ): Promise<
+    | { ok: true; value: Record<string, unknown> | unknown[]; status: number }
+    | { ok: false; error: Error; status: number | null }
+  > {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.requestTimeoutMs);
 
     try {
       const response = await fetch(
-        `${this.config.baseUrl.replace(/\/$/, "")}/protocol/${encodeURIComponent(protocol)}`,
+        `${baseUrl.replace(/\/$/, "")}${path}`,
         {
           method: "GET",
           headers: {
@@ -119,17 +305,17 @@ export class DefiLlamaAdapter {
 
       const payload = (await response.json()) as unknown;
 
-      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      if (!payload || typeof payload !== "object") {
         return {
           ok: false,
-          error: new Error("DeFiLlama returned a non-object JSON payload."),
+          error: new Error("DeFiLlama returned an invalid JSON payload."),
           status: response.status,
         };
       }
 
       return {
         ok: true,
-        value: payload as Record<string, unknown>,
+        value: payload as Record<string, unknown> | unknown[],
         status: response.status,
       };
     } catch (error) {

@@ -9,6 +9,7 @@ import {
   createProviderSuccess,
   type MarketSnapshot,
   type ProviderResult,
+  type TrendingToken,
 } from "../types.js";
 
 export const coinGeckoSnapshotsRequestSchema = z.object({
@@ -75,5 +76,13 @@ export class CoinGeckoMarketService {
       value: sorted,
       notes: ["Prepared CoinGecko movers view ordered by 24h change."],
     });
+  }
+
+  async getTrending(): Promise<ProviderResult<TrendingToken[]>> {
+    return this.adapter.getTrending();
+  }
+
+  async getTopGainersLosers(limit = 20): Promise<ProviderResult<MarketSnapshot[]>> {
+    return this.adapter.getTopGainersLosers(limit);
   }
 }

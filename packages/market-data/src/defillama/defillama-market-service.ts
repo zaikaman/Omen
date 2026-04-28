@@ -7,6 +7,9 @@ import {
 import {
   createProviderFailure,
   createProviderSuccess,
+  type DefiChainSnapshot,
+  type DefiProtocolStat,
+  type DefiYieldPool,
   type ProtocolSnapshot,
   type ProviderResult,
 } from "../types.js";
@@ -71,5 +74,17 @@ export class DefiLlamaMarketService {
       value: [...snapshots.value].sort((left, right) => right.tvlUsd - left.tvlUsd),
       notes: ["Prepared DeFiLlama protocol leaderboard ordered by TVL."],
     });
+  }
+
+  async getGlobalTVL(limit = 5): Promise<ProviderResult<DefiChainSnapshot[]>> {
+    return this.adapter.getGlobalTVL(limit);
+  }
+
+  async getProtocolStats(limit = 5): Promise<ProviderResult<DefiProtocolStat[]>> {
+    return this.adapter.getProtocolStats(limit);
+  }
+
+  async getYieldPools(limit = 50): Promise<ProviderResult<DefiYieldPool[]>> {
+    return this.adapter.getYieldPools(limit);
   }
 }

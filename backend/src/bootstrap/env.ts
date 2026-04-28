@@ -1,4 +1,5 @@
 import path from "path";
+import { fileURLToPath } from "url";
 
 import dotenv from "dotenv";
 
@@ -113,6 +114,11 @@ const parseApiKeyArray = (
   prefix: "COINGECKO" | "BIRDEYE" | "CMC",
 ) => {
   const keys: string[] = [];
+  const primaryKey = env[`${prefix}_API_KEY`];
+
+  if (typeof primaryKey === "string" && primaryKey.trim()) {
+    keys.push(primaryKey);
+  }
 
   for (let index = 1; index <= 10; index += 1) {
     const key = env[`${prefix}_API_KEY_${index.toString()}`];
@@ -170,9 +176,19 @@ const normalizeLogLevel = (
 const normalizeZeroGCheckpointStrategy = (value: string | undefined) =>
   value === "all" ? "all" : "milestone";
 
+const backendEnvPaths = () => {
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+  return [
+    path.resolve(currentDir, "../../.env"),
+    path.resolve(currentDir, "../../../../.env"),
+  ].filter((envPath) => path.basename(path.dirname(envPath)) === "backend");
+};
+
 const loadEnvFiles = () => {
-  dotenv.config({ path: path.resolve(process.cwd(), ".env") });
-  dotenv.config({ path: path.resolve(process.cwd(), "backend/.env"), override: false });
+  for (const envPath of backendEnvPaths()) {
+    dotenv.config({ path: envPath, override: false });
+  }
 };
 
 export const createBackendEnv = (

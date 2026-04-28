@@ -3,8 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BinanceAdapter,
   BinanceMarketService,
+  BirdeyeMarketService,
   CoinGeckoMarketService,
+  CoinMarketCapMarketService,
   DefiLlamaMarketService,
+  ApiKeyRotator,
   TavilyMarketResearchService,
   createProviderFailure,
   createProviderSuccess,
@@ -31,6 +34,16 @@ describe("market-data provider results", () => {
     expect(success.health.available).toBe(true);
     expect(failure.ok).toBe(false);
     expect(failure.health.degraded).toBe(true);
+  });
+
+  it("rotates API keys round-robin", () => {
+    const rotator = new ApiKeyRotator(["one", "two", undefined, "three"]);
+
+    expect(rotator.size).toBe(3);
+    expect(rotator.next()).toBe("one");
+    expect(rotator.next()).toBe("two");
+    expect(rotator.next()).toBe("three");
+    expect(rotator.next()).toBe("one");
   });
 
   it("returns a live-shaped market snapshot from the Binance adapter", async () => {
@@ -177,6 +190,98 @@ describe("market-data provider results", () => {
     if (movers.ok) {
       expect(movers.value).toHaveLength(2);
     }
+  });
+
+  it("builds template-style CoinGecko, Birdeye, and CMC views", async () => {
+    const requestedHeaders: Array<Record<string, string>> = [];
+    vi.stubGlobal(
+      "fetch",
+      async (input: string | URL, init?: RequestInit) =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () => {
+            const url = input.toString();
+            requestedHeaders.push((init?.headers ?? {}) as Record<string, string>);
+
+            if (url.includes("token_trending")) {
+              return {
+                success: true,
+                data: {
+                  tokens: [
+                    {
+                      name: "Test Token",
+                      symbol: "TEST",
+                      rank: 1,
+                      chain: "solana",
+                      address: "abc",
+                      volume24hUSD: 123000,
+                    },
+                  ],
+                },
+              };
+            }
+
+            if (url.includes("coinmarketcap")) {
+              return {
+                data: {
+                  BTC: [
+                    {
+                      quote: {
+                        USD: {
+                          price: 65000,
+                          percent_change_24h: 2.5,
+                        },
+                      },
+                    },
+                  ],
+                },
+              };
+            }
+
+            if (url.includes("search/trending")) {
+              return {
+                coins: [
+                  {
+                    item: {
+                      name: "Solana",
+                      symbol: "SOL",
+                      market_cap_rank: 6,
+                    },
+                  },
+                ],
+              };
+            }
+
+            return [
+              {
+                symbol: "sol",
+                current_price: 100,
+                price_change_percentage_24h: 12.3,
+                total_volume: 1000000,
+              },
+            ];
+          },
+        }) as Response,
+    );
+
+    const coinGecko = new CoinGeckoMarketService({ apiKeys: ["cg-1", "cg-2"] });
+    const birdeye = new BirdeyeMarketService({ apiKeys: ["be-1", "be-2"] });
+    const coinMarketCap = new CoinMarketCapMarketService({ apiKeys: ["cmc-1", "cmc-2"] });
+
+    const [trending, gainers, birdeyeTrending, btc] = await Promise.all([
+      coinGecko.getTrending(),
+      coinGecko.getTopGainersLosers(),
+      birdeye.getTrendingTokens(),
+      coinMarketCap.getPriceWithChange("BTC"),
+    ]);
+
+    expect(trending.ok).toBe(true);
+    expect(gainers.ok).toBe(true);
+    expect(birdeyeTrending.ok).toBe(true);
+    expect(btc.ok).toBe(true);
+    expect(requestedHeaders.some((headers) => headers["X-API-KEY"] === "be-1")).toBe(true);
+    expect(requestedHeaders.some((headers) => headers["X-CMC_PRO_API_KEY"] === "cmc-1")).toBe(true);
   });
 
   it("builds normalized protocol and research service views", async () => {

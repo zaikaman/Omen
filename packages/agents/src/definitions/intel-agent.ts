@@ -3,7 +3,9 @@ import { z as zod } from "zod";
 
 import {
   BinanceMarketService,
+  BirdeyeMarketService,
   CoinGeckoMarketService,
+  CoinMarketCapMarketService,
   DefiLlamaMarketService,
   TavilyMarketResearchService,
 } from "@omen/market-data";
@@ -22,7 +24,9 @@ import { buildIntelSystemPrompt } from "../prompts/intel/system.js";
 const intelAgentOptionsSchema = zod.object({
   llmClient: zod.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
   binance: zod.custom<BinanceMarketService>().optional(),
+  birdeye: zod.custom<BirdeyeMarketService>().optional(),
   coinGecko: zod.custom<CoinGeckoMarketService>().optional(),
+  coinMarketCap: zod.custom<CoinMarketCapMarketService>().optional(),
   defiLlama: zod.custom<DefiLlamaMarketService>().optional(),
   marketResearch: zod.custom<TavilyMarketResearchService>().optional(),
 });
@@ -302,7 +306,11 @@ export class IntelAgentFactory {
 
   private readonly binance: BinanceMarketService;
 
+  private readonly birdeye: BirdeyeMarketService;
+
   private readonly coinGecko: CoinGeckoMarketService;
+
+  private readonly coinMarketCap: CoinMarketCapMarketService;
 
   private readonly defiLlama: DefiLlamaMarketService;
 
@@ -313,7 +321,9 @@ export class IntelAgentFactory {
     this.llmClient =
       parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("intel"));
     this.binance = parsed.binance ?? new BinanceMarketService();
+    this.birdeye = parsed.birdeye ?? new BirdeyeMarketService();
     this.coinGecko = parsed.coinGecko ?? new CoinGeckoMarketService();
+    this.coinMarketCap = parsed.coinMarketCap ?? new CoinMarketCapMarketService();
     this.defiLlama = parsed.defiLlama ?? new DefiLlamaMarketService();
     this.marketResearch = parsed.marketResearch ?? new TavilyMarketResearchService();
   }
@@ -547,11 +557,59 @@ export class IntelAgentFactory {
     const symbols = state.config.marketUniverse.slice(0, 6);
     const evidence: EvidenceItem[] = [];
 
-    const [binanceSnapshots, coinGeckoMovers, defiProtocols] = await Promise.all([
+    const [
+      binanceSnapshots,
+      coinGeckoMovers,
+      coinGeckoTrending,
+      coinGeckoGainers,
+      birdeyeTrending,
+      cmcBitcoin,
+      defiChains,
+      defiProtocols,
+      defiProtocolStats,
+      defiYieldPools,
+    ] = await Promise.all([
       this.binance.getSnapshots(symbols).catch(() => null),
       this.coinGecko.getTopMovers(symbols).catch(() => null),
+      typeof this.coinGecko.getTrending === "function"
+        ? this.coinGecko.getTrending().catch(() => null)
+        : Promise.resolve(null),
+      typeof this.coinGecko.getTopGainersLosers === "function"
+        ? this.coinGecko.getTopGainersLosers(15).catch(() => null)
+        : Promise.resolve(null),
+      typeof this.birdeye.getTrendingTokens === "function"
+        ? this.birdeye.getTrendingTokens(10).catch(() => null)
+        : Promise.resolve(null),
+      typeof this.coinMarketCap.getPriceWithChange === "function"
+        ? this.coinMarketCap.getPriceWithChange("BTC").catch(() => null)
+        : Promise.resolve(null),
+      typeof this.defiLlama.getGlobalTVL === "function"
+        ? this.defiLlama.getGlobalTVL(5).catch(() => null)
+        : Promise.resolve(null),
       this.defiLlama.getProtocolLeaderboard(templateDefiProtocols).catch(() => null),
+      typeof this.defiLlama.getProtocolStats === "function"
+        ? this.defiLlama.getProtocolStats(5).catch(() => null)
+        : Promise.resolve(null),
+      typeof this.defiLlama.getYieldPools === "function"
+        ? this.defiLlama.getYieldPools(20).catch(() => null)
+        : Promise.resolve(null),
     ]);
+
+    if (cmcBitcoin?.ok) {
+      evidence.push({
+        category: "market",
+        summary: `BTC market context from CoinMarketCap: price ${cmcBitcoin.value.price.toLocaleString("en-US", { maximumFractionDigits: 2 })}, 24h change ${cmcBitcoin.value.change24hPercent?.toFixed(2) ?? "n/a"}%.`,
+        sourceLabel: "CoinMarketCap",
+        sourceUrl: null,
+        structuredData: {
+          source: "intel-market-data",
+          symbol: "BTC",
+          price: cmcBitcoin.value.price,
+          change24hPercent: cmcBitcoin.value.change24hPercent,
+          capturedAt: cmcBitcoin.value.capturedAt,
+        },
+      });
+    }
 
     if (binanceSnapshots?.ok) {
       for (const snapshot of binanceSnapshots.value.slice(0, 6)) {
@@ -601,6 +659,88 @@ export class IntelAgentFactory {
       }
     }
 
+    if (coinGeckoTrending?.ok && coinGeckoTrending.value.length > 0) {
+      const trending = coinGeckoTrending.value.slice(0, 10);
+      evidence.push({
+        category: "sentiment",
+        summary: `CoinGecko trending tokens: ${trending
+          .map((token) => `${token.symbol}${token.rank !== null ? ` rank ${token.rank.toString()}` : ""}`)
+          .join("; ")}.`,
+        sourceLabel: "CoinGecko",
+        sourceUrl: null,
+        structuredData: {
+          source: "intel-market-data",
+          symbols: trending.map((token) => token.symbol),
+          capturedAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    if (coinGeckoGainers?.ok && coinGeckoGainers.value.length > 0) {
+      const gainers = coinGeckoGainers.value
+        .filter((snapshot) => snapshot.change24hPercent !== null)
+        .slice(0, 10);
+
+      if (gainers.length > 0) {
+        evidence.push({
+          category: "liquidity",
+          summary: `CoinGecko top gainers: ${gainers
+            .map(
+              (snapshot) =>
+                `${snapshot.symbol} ${snapshot.change24hPercent?.toFixed(2) ?? "n/a"}% on ${snapshot.volume24h?.toLocaleString("en-US", { maximumFractionDigits: 0 }) ?? "n/a"} volume`,
+            )
+            .join("; ")}.`,
+          sourceLabel: "CoinGecko",
+          sourceUrl: null,
+          structuredData: {
+            source: "intel-market-data",
+            symbols: gainers.map((snapshot) => snapshot.symbol),
+            capturedAt: new Date().toISOString(),
+          },
+        });
+      }
+    }
+
+    if (birdeyeTrending?.ok && birdeyeTrending.value.length > 0) {
+      const trending = birdeyeTrending.value.slice(0, 10);
+      evidence.push({
+        category: "sentiment",
+        summary: `Birdeye trending tokens: ${trending
+          .map(
+            (token) =>
+              `${token.symbol}${token.chain ? ` on ${token.chain}` : ""}${token.volume24h !== null ? `, ${token.volume24h.toLocaleString("en-US", { maximumFractionDigits: 0 })} 24h volume` : ""}`,
+          )
+          .join("; ")}.`,
+        sourceLabel: "Birdeye",
+        sourceUrl: null,
+        structuredData: {
+          source: "intel-market-data",
+          symbols: trending.map((token) => token.symbol),
+          chains: trending.map((token) => token.chain).filter(Boolean),
+          capturedAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    if (defiChains?.ok && defiChains.value.length > 0) {
+      evidence.push({
+        category: "liquidity",
+        summary: `DeFiLlama top chain TVL: ${defiChains.value
+          .map(
+            (chain) =>
+              `${chain.name} $${chain.tvlUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
+          )
+          .join("; ")}.`,
+        sourceLabel: "DeFiLlama",
+        sourceUrl: null,
+        structuredData: {
+          source: "intel-market-data",
+          chains: defiChains.value.map((chain) => chain.name),
+          capturedAt: new Date().toISOString(),
+        },
+      });
+    }
+
     if (defiProtocols?.ok) {
       const growingProtocols = defiProtocols.value
         .filter((snapshot) => snapshot.tvlChange1dPercent !== null || snapshot.tvlChange7dPercent !== null)
@@ -630,6 +770,47 @@ export class IntelAgentFactory {
           },
         });
       }
+    }
+
+    if (defiProtocolStats?.ok && defiProtocolStats.value.length > 0) {
+      evidence.push({
+        category: "fundamental",
+        summary: `DeFiLlama fastest-growing protocols: ${defiProtocolStats.value
+          .map(
+            (protocol) =>
+              `${protocol.name}${protocol.chain ? ` on ${protocol.chain}` : ""} has $${protocol.tvlUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })} TVL and ${protocol.tvlChange1dPercent?.toFixed(2) ?? "n/a"}% 1d change`,
+          )
+          .join("; ")}.`,
+        sourceLabel: "DeFiLlama",
+        sourceUrl: null,
+        structuredData: {
+          source: "intel-market-data",
+          protocols: defiProtocolStats.value.map((protocol) => protocol.name),
+          chains: defiProtocolStats.value.map((protocol) => protocol.chain).filter(Boolean),
+          capturedAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    if (defiYieldPools?.ok && defiYieldPools.value.length > 0) {
+      const pools = defiYieldPools.value.slice(0, 8);
+      evidence.push({
+        category: "liquidity",
+        summary: `DeFiLlama high-yield pools: ${pools
+          .map(
+            (pool) =>
+              `${pool.project} ${pool.symbol} on ${pool.chain}: ${pool.apy.toFixed(2)}% APY with $${pool.tvlUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })} TVL`,
+          )
+          .join("; ")}.`,
+        sourceLabel: "DeFiLlama",
+        sourceUrl: null,
+        structuredData: {
+          source: "intel-market-data",
+          protocols: pools.map((pool) => pool.project),
+          chains: pools.map((pool) => pool.chain),
+          capturedAt: new Date().toISOString(),
+        },
+      });
     }
 
     return evidence;
