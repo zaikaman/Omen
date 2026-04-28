@@ -28,6 +28,7 @@ const FILTER_CONFIG: FilterConfig[] = [
         label: 'Status',
         options: [
             { value: 'all', label: 'All' },
+            { value: 'pending', label: 'Pending' },
             { value: 'active', label: 'Active' },
             { value: 'tp_hit', label: 'TP Hit' },
             { value: 'sl_hit', label: 'SL Hit' },

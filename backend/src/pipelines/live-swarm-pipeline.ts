@@ -1084,7 +1084,7 @@ class LivePipelineExecutionContext {
       entryPrice: thesis.entryPrice,
       targetPrice: thesis.targetPrice,
       stopLoss: thesis.stopLoss,
-      signalStatus: "active",
+      signalStatus: thesis.orderType === "limit" ? "pending" : "active",
       pnlPercent: null,
       closedAt: null,
       priceUpdatedAt: null,

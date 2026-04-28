@@ -206,6 +206,90 @@ describe("analyst agent", () => {
     expect((result.analystNotes ?? []).some((note) => note.includes("test-reasoner"))).toBe(true);
   });
 
+  it("rejects stale market-order entries that drift away from current price", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createAnalystAgent({
+      llmClient: {
+        config: {
+          apiKey: "test-key",
+          baseUrl: "https://example.com/v1",
+          model: "test-reasoner",
+          timeoutMs: 30_000,
+        },
+        completeJson: async () => ({
+          thesis: {
+            candidateId: "ignored-by-sanitizer",
+            asset: "ignored-by-sanitizer",
+            direction: "LONG" as const,
+            confidence: 90,
+            orderType: "market" as const,
+            tradingStyle: "day_trade" as const,
+            expectedDuration: "6-12 hours",
+            currentPrice: 100,
+            entryPrice: 95,
+            targetPrice: 110,
+            stopLoss: 91,
+            riskReward: 3.75,
+            whyNow: "BTC has immediate momentum, but the market entry is stale.",
+            confluences: ["Momentum stayed constructive", "Trend support held"],
+            uncertaintyNotes: "Market entry must be live.",
+            missingDataNotes: "No additional missing-data flags.",
+          },
+          analystNotes: ["Model returned a stale market entry."],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-stale-market",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        research: {
+          candidate: {
+            id: "candidate-btc-stale",
+            symbol: "BTC",
+            reason: "Testing market entry validation.",
+            directionHint: "LONG",
+            status: "researched",
+            sourceUniverse: "BTC",
+            dedupeKey: "BTC",
+            missingDataNotes: [],
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "BTC spot snapshot recorded 100 with positive momentum.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: {
+                price: 100,
+                currentPrice: 100,
+              },
+            },
+            {
+              category: "technical",
+              summary: "BTC momentum stayed constructive above trend support.",
+              sourceLabel: "Omen Indicators",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+          narrativeSummary: "Momentum stayed constructive.",
+          missingDataNotes: [],
+        },
+      },
+      state,
+    );
+
+    expect(result.thesis.direction).toBe("NONE");
+    expect(result.thesis.entryPrice).toBeNull();
+    expect(result.thesis.whyNow).toContain("Market order entry is more than 1% away");
+  });
+
   it("derives a short thesis from downward chart language without a direction hint", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createAnalystAgent({ llmClient: null });

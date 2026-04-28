@@ -38,6 +38,7 @@ describe("post formatter", () => {
 
     expect(post.text.length).toBeLessThanOrEqual(280);
     expect(post.text).toContain("$BTC day trade");
+    expect(post.text).toContain("order: market");
     expect(post.text).toContain("hold: 8-16 hours");
     expect(post.text).toContain("entry: $65,000");
     expect(post.text).toContain("target: $70,980 (+9.2%)");

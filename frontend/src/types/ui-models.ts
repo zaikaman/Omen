@@ -1,6 +1,7 @@
 export type SignalDirectionLabel = 'LONG' | 'SHORT' | string;
 
 export type SignalStatus =
+  | 'pending'
   | 'active'
   | 'tp_hit'
   | 'sl_hit'

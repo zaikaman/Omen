@@ -239,6 +239,7 @@ export const formatSignalPost = (
     text: compactPostLines(
       [
         `${signal.direction === "SHORT" ? "📉" : "📈"} $${signal.asset.toUpperCase()} ${formatSignalStyle(signal.tradingStyle)}`,
+        `order: ${signal.orderType ?? "market"}`,
         `⏱️ hold: ${formatSignalHold(signal)}`,
         signal.entryPrice !== null ? `entry: $${formatPrice(signal.entryPrice)}` : null,
         signal.targetPrice !== null

@@ -19,6 +19,7 @@ export type SignalMonitorResult = {
 };
 
 const RISK_PER_TRADE_PERCENT = 1;
+const LIMIT_ENTRY_TRIGGER_TOLERANCE = 0.005;
 
 const isPersistenceConfigured = (env: MonitorEnv) =>
   Boolean(env.supabase.url && env.supabase.serviceRoleKey);
@@ -81,6 +82,46 @@ export const calculateSignalPnL = (input: {
     riskReward: roundMetric(riskReward),
     closed: false,
   };
+};
+
+export const hasLimitEntryTriggered = (input: {
+  direction: "LONG" | "SHORT";
+  entryPrice: number;
+  currentPrice: number;
+}) =>
+  input.direction === "LONG"
+    ? input.currentPrice <= input.entryPrice * (1 + LIMIT_ENTRY_TRIGGER_TOLERANCE)
+    : input.currentPrice >= input.entryPrice * (1 - LIMIT_ENTRY_TRIGGER_TOLERANCE);
+
+export const calculateSignalTrackingState = (input: {
+  direction: "LONG" | "SHORT";
+  orderType: Signal["orderType"];
+  signalStatus: Signal["signalStatus"];
+  entryPrice: number;
+  targetPrice: number;
+  stopLoss: number;
+  currentPrice: number;
+}) => {
+  const pendingLimitOrder =
+    input.orderType === "limit" && input.signalStatus !== "active";
+
+  if (
+    pendingLimitOrder &&
+    !hasLimitEntryTriggered({
+      direction: input.direction,
+      entryPrice: input.entryPrice,
+      currentPrice: input.currentPrice,
+    })
+  ) {
+    return {
+      status: "pending" as const,
+      pnlPercent: null,
+      riskReward: null,
+      closed: false,
+    };
+  }
+
+  return calculateSignalPnL(input);
 };
 
 export class SignalMonitorService {
@@ -181,8 +222,10 @@ export class SignalMonitorService {
       return ok({ updated: false, closed: false });
     }
 
-    const calculated = calculateSignalPnL({
+    const calculated = calculateSignalTrackingState({
       direction: signal.direction,
+      orderType: signal.orderType,
+      signalStatus: signal.signalStatus,
       entryPrice: signal.entryPrice,
       targetPrice: signal.targetPrice,
       stopLoss: signal.stopLoss,

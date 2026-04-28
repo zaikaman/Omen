@@ -145,6 +145,7 @@ const calculateRiskReward = (input: {
 
 const validateTemplateTradeRules = (input: {
   direction: "LONG" | "SHORT" | "WATCHLIST" | "NONE";
+  orderType: "market" | "limit" | null;
   currentPrice: number | null;
   entryPrice: number | null;
   stopLoss: number | null;
@@ -167,6 +168,14 @@ const validateTemplateTradeRules = (input: {
       violations.push(
         "SHORT entry would be below current price, which implies a forbidden sell-stop entry.",
       );
+    }
+  }
+
+  if (input.orderType === "market" && input.currentPrice !== null && input.entryPrice !== null) {
+    const priceDeviation = Math.abs((input.entryPrice - input.currentPrice) / input.currentPrice);
+
+    if (priceDeviation > 0.01) {
+      violations.push("Market order entry is more than 1% away from current price.");
     }
   }
 
@@ -342,6 +351,7 @@ const deriveTradeSetup = (input: {
 const enforceTemplateTradeRules = (thesis: z.infer<typeof thesisDraftSchema>) => {
   const violations = validateTemplateTradeRules({
     direction: thesis.direction,
+    orderType: thesis.orderType,
     currentPrice: thesis.currentPrice,
     entryPrice: thesis.entryPrice,
     stopLoss: thesis.stopLoss,

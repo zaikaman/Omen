@@ -55,6 +55,22 @@ export const evaluateThesisAgainstThresholds = (input: {
       );
     }
 
+    if (
+      input.thesis.orderType === "market" &&
+      input.thesis.currentPrice !== null &&
+      input.thesis.entryPrice !== null
+    ) {
+      const priceDeviation = Math.abs(
+        (input.thesis.entryPrice - input.thesis.currentPrice) / input.thesis.currentPrice,
+      );
+
+      if (priceDeviation > 0.01) {
+        blockingReasons.push(
+          "Market order entry is more than 1% away from current price.",
+        );
+      }
+    }
+
     if (input.thesis.entryPrice === null || input.thesis.stopLoss === null) {
       blockingReasons.push("Actionable thesis is missing entry or stop-loss levels.");
     } else {
