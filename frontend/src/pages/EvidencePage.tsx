@@ -2,12 +2,11 @@ import { useMemo, useState } from 'react';
 import type { ProofArtifact } from '@omen/shared';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  ArrowRight01Icon,
   Certificate01Icon,
   Database01Icon,
   Link01Icon,
 } from '@hugeicons/core-free-icons';
-import { ExternalLink, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Database, ExternalLink, FileJson, Network, ServerCrash, Zap } from 'lucide-react';
 
 import { ArtifactList } from '../components/proofs/ArtifactList';
 import { ChainAnchorCard } from '../components/proofs/ChainAnchorCard';
@@ -43,6 +42,9 @@ const formatDateTime = (value: string | null | undefined) => {
 
 const getArtifact = (artifacts: ProofArtifact[], refTypes: ProofArtifact['refType'][]) =>
   artifacts.find((artifact) => refTypes.includes(artifact.refType)) ?? null;
+
+const countArtifacts = (artifacts: ProofArtifact[], refTypes: ProofArtifact['refType'][]) =>
+  artifacts.filter((artifact) => refTypes.includes(artifact.refType)).length;
 
 const metadataLink = (artifact: ProofArtifact | null, key: string) => {
   const value = artifact?.metadata[key];
@@ -96,7 +98,38 @@ export function EvidencePage() {
     proofDetail.manifest?.manifestArtifact?.artifact ?? getArtifact(proofDetail.artifacts, ['manifest']);
   const publishedUrl = metadataLink(postArtifact, 'publishedUrl');
   const explorerUrl = chainExplorerLink(chainArtifact);
+  const storageCount = countArtifacts(proofDetail.artifacts, ['kv_state', 'log_entry', 'log_bundle', 'file_artifact']);
+  const computeCount = countArtifacts(proofDetail.artifacts, ['compute_result', 'compute_job']);
+  const postCount = countArtifacts(proofDetail.artifacts, ['post_result', 'post_payload']);
   const isRefreshing = proofFeed.isRefreshing || proofDetail.isRefreshing;
+  const selectedProof = proofFeed.proofs.find((proof) => proof.runId === activeRunId) ?? proofFeed.proofs[0] ?? null;
+
+  const overviewItems = [
+    {
+      label: '0G refs',
+      value: proofDetail.artifacts.length.toString(),
+      icon: Database,
+      className: 'text-cyan-300',
+    },
+    {
+      label: 'Storage',
+      value: storageCount.toString(),
+      icon: FileJson,
+      className: 'text-purple-300',
+    },
+    {
+      label: 'Compute',
+      value: computeCount > 0 ? 'ready' : 'none',
+      icon: Zap,
+      className: computeCount > 0 ? 'text-green-300' : 'text-gray-500',
+    },
+    {
+      label: 'Chain',
+      value: chainArtifact ? 'anchored' : 'not set',
+      icon: Network,
+      className: chainArtifact ? 'text-orange-300' : 'text-gray-500',
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -104,28 +137,28 @@ export function EvidencePage() {
         <div>
           <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white">
             <HugeiconsIcon icon={Certificate01Icon} className="h-6 w-6 text-cyan-500" />
-            0G Evidence
+            0G Activity
           </h2>
           <p className="mt-1 max-w-3xl text-gray-400">
-            Judge-facing verification for 0G Storage refs, compute provenance, manifests, and published outputs.
+            Runtime storage, compute, and chain records for recent swarm runs.
           </p>
         </div>
-        {isRefreshing && <span className="text-xs text-gray-500">Syncing proof data...</span>}
+        {isRefreshing && <span className="text-xs text-gray-500">Syncing 0G activity...</span>}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="space-y-6">
           <Card className="border-gray-800 bg-gray-900/50">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-400">
                 <HugeiconsIcon icon={Database01Icon} className="h-4 w-4 text-cyan-300" />
-                Evidence Runs
+                Runs
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {proofFeed.error && proofFeed.proofs.length === 0 ? (
                 <div className="rounded-lg border border-yellow-500/20 bg-yellow-950/10 p-4 text-sm text-yellow-100">
-                  Unable to load live evidence runs.
+                  Unable to load 0G run records.
                 </div>
               ) : proofFeed.isLoading && proofFeed.proofs.length === 0 ? (
                 Array.from({ length: 3 }).map((_, index) => (
@@ -133,7 +166,7 @@ export function EvidencePage() {
                 ))
               ) : proofFeed.proofs.length === 0 ? (
                 <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-4 text-sm text-gray-500">
-                  No evidence runs recorded yet.
+                  No 0G activity recorded yet.
                 </div>
               ) : (
                 proofFeed.proofs.map((proof) => {
@@ -156,8 +189,8 @@ export function EvidencePage() {
                           <div className="truncate font-mono text-sm text-white">{shorten(proof.runId)}</div>
                           <div className="mt-1 text-xs text-gray-500">{formatDateTime(proof.createdAt)}</div>
                         </div>
-                        <Badge className="border-purple-500/40 bg-purple-500/10 text-purple-200">
-                          {proof.artifactCount}
+                        <Badge className="border-cyan-500/40 bg-cyan-500/10 text-cyan-300">
+                          {proof.artifactCount} refs
                         </Badge>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-800 pt-3 text-xs">
@@ -181,12 +214,12 @@ export function EvidencePage() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-400">
                 <HugeiconsIcon icon={Link01Icon} className="h-4 w-4 text-cyan-300" />
-                Quick Links
+                Links
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Manifest Ref</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Manifest</div>
                 <div className="mt-1 truncate font-mono text-sm text-white">{shorten(manifestArtifact?.id)}</div>
               </div>
               {publishedUrl && (
@@ -213,30 +246,54 @@ export function EvidencePage() {
               )}
               {!publishedUrl && !explorerUrl && (
                 <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-3 text-sm text-gray-500">
-                  External links will appear when a run has published or anchored outputs.
+                  Links appear after a post or chain anchor is available.
                 </div>
               )}
             </CardContent>
           </Card>
-        </div>
+        </aside>
 
         <div className="space-y-6">
-          <Card className="border-cyan-500/20 bg-cyan-500/5">
-            <CardContent className="p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-start gap-3">
-                  <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300" />
-                  <div>
-                    <div className="font-mono text-sm text-white">{shorten(activeRunId)}</div>
-                    <p className="mt-1 text-sm text-gray-400">
-                      This page groups the evidence judges usually need: 0G Storage state, run logs, compute hashes,
-                      manifest summary, and output links.
-                    </p>
+          <Card className="border-gray-800 bg-gray-900/40">
+            <CardContent className="p-5">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      {proofDetail.error ? (
+                        <ServerCrash className="h-4 w-4 text-yellow-300" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 text-green-300" />
+                      )}
+                      <span>{proofDetail.error ? 'Run record unavailable' : 'Run record loaded'}</span>
+                    </div>
+                    <div className="mt-2 truncate font-mono text-lg text-white">{shorten(activeRunId)}</div>
+                    <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
+                      <span>{formatDateTime(selectedProof?.createdAt)}</span>
+                      <span>Signal {shorten(selectedProof?.finalSignalId)}</span>
+                      <span>Intel {shorten(selectedProof?.finalIntelId)}</span>
+                    </div>
                   </div>
+                  <Badge className="w-fit border-gray-700 bg-gray-950/60 text-gray-300">
+                    {postCount > 0 ? `${postCount} post refs` : 'no post refs'}
+                  </Badge>
                 </div>
-                <Badge className="w-fit border-cyan-500/40 bg-cyan-500/10 text-cyan-300">
-                  {proofDetail.artifacts.length} REFS
-                </Badge>
+
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {overviewItems.map((item) => {
+                    const Icon = item.icon;
+
+                    return (
+                      <div key={item.label} className="rounded-lg border border-gray-800 bg-gray-950/40 p-3">
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                          <Icon className={cn('h-3.5 w-3.5', item.className)} />
+                          {item.label}
+                        </div>
+                        <div className="mt-2 font-mono text-sm text-white">{item.value}</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -262,20 +319,10 @@ export function EvidencePage() {
 
           <ArtifactList
             artifacts={proofDetail.artifacts}
-            title="Evidence Refs"
+            title="0G Refs"
             isLoading={proofDetail.isLoading}
             error={proofDetail.error}
           />
-
-          <div className="flex justify-end">
-            <a
-              href="/app"
-              className="inline-flex items-center gap-2 text-sm font-medium text-cyan-400 hover:text-cyan-300"
-            >
-              Back to dashboard
-              <HugeiconsIcon icon={ArrowRight01Icon} className="h-4 w-4" />
-            </a>
-          </div>
         </div>
       </div>
     </div>
