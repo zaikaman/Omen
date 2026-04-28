@@ -10,6 +10,12 @@ import { JsonRpcProvider, Wallet } from "ethers";
 
 const RESULT_PREFIX = "__ZERO_G_UPLOAD_RESULT__";
 
+if (process.env.ZERO_G_SDK_LOGS !== "true" && process.env.LOG_LEVEL !== "debug") {
+  console.debug = () => undefined;
+  console.info = () => undefined;
+  console.log = () => undefined;
+}
+
 const readStdin = async () => {
   const chunks = [];
 
@@ -21,9 +27,7 @@ const readStdin = async () => {
 };
 
 const fail = (message) => {
-  process.stdout.write(
-    `${RESULT_PREFIX}${JSON.stringify({ ok: false, error: message })}\n`,
-  );
+  process.stdout.write(`${RESULT_PREFIX}${JSON.stringify({ ok: false, error: message })}\n`);
   process.exit(1);
 };
 
@@ -37,16 +41,9 @@ const main = async () => {
 
   const payload = JSON.parse(raw);
   const indexer = new Indexer(payload.indexerUrl);
-  const signer = new Wallet(
-    payload.privateKey,
-    new JsonRpcProvider(payload.blockchainRpcUrl),
-  );
+  const signer = new Wallet(payload.privateKey, new JsonRpcProvider(payload.blockchainRpcUrl));
   const shardedNodes = await indexer.getShardedNodes();
-  const [selected, ok] = selectNodes(
-    shardedNodes.trusted,
-    payload.expectedReplica,
-    "random",
-  );
+  const [selected, ok] = selectNodes(shardedNodes.trusted, payload.expectedReplica, "random");
 
   if (!ok || selected.length === 0) {
     fail("0G indexer did not return a usable random node set.");
@@ -55,9 +52,7 @@ const main = async () => {
 
   const clients = selected.map((node) => new StorageNode(node.url));
   const firstStatus = await clients[0]?.getStatus();
-  const flowAddress =
-    payload.flowContractAddress ||
-    firstStatus?.networkIdentity?.flowAddress;
+  const flowAddress = payload.flowContractAddress || firstStatus?.networkIdentity?.flowAddress;
 
   if (!flowAddress) {
     fail("Unable to resolve 0G flow contract address from selected nodes.");
@@ -109,9 +104,7 @@ const main = async () => {
           selectedNodeUrls: clients.map((client) => client.url),
         };
 
-  process.stdout.write(
-    `${RESULT_PREFIX}${JSON.stringify({ ok: true, value: normalized })}\n`,
-  );
+  process.stdout.write(`${RESULT_PREFIX}${JSON.stringify({ ok: true, value: normalized })}\n`);
 };
 
 main().catch((error) => {

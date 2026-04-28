@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import type { AgentRuntime, RuntimeNodeDefinition } from "./agent-runtime.js";
-import { swarmCheckpointSchema, type SwarmCheckpoint, type SwarmCheckpointStore } from "./checkpointing.js";
+import {
+  swarmCheckpointSchema,
+  type SwarmCheckpoint,
+  type SwarmCheckpointStore,
+} from "./checkpointing.js";
 import {
   applyOmenNodeOutput,
   buildOmenNodeInput,
@@ -64,6 +68,163 @@ const serializeRuntimeLogValue = (value: unknown): unknown => {
   return value;
 };
 
+const runtimeDetailLoggingEnabled = () =>
+  process.env.OMEN_RUNTIME_LOG_DETAIL === "full" || process.env.LOG_LEVEL === "debug";
+
+const toRecord = (value: unknown) =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+
+const summarizeCandidate = (candidate: unknown) => {
+  const parsed = toRecord(candidate);
+
+  return {
+    symbol: parsed.symbol,
+    status: parsed.status,
+    directionHint: parsed.directionHint,
+  };
+};
+
+const summarizeDraft = (draft: unknown) => {
+  const parsed = toRecord(draft);
+  const text = typeof parsed.text === "string" ? parsed.text : "";
+
+  return {
+    kind: parsed.kind,
+    headline: parsed.headline,
+    textLength: text.length,
+  };
+};
+
+const summarizeRuntimeOutput = (nodeKey: OmenSwarmNodeKey, output: unknown) => {
+  const parsed = toRecord(output);
+
+  switch (nodeKey) {
+    case "market-bias-agent":
+      return {
+        marketBias: parsed.marketBias,
+        confidence: parsed.confidence,
+        reasoning: truncateRuntimeLogString(String(parsed.reasoning ?? ""), 160),
+      };
+    case "scanner-agent": {
+      const candidates = Array.isArray(parsed.candidates) ? parsed.candidates : [];
+
+      return {
+        marketBias: parsed.marketBias,
+        candidateCount: candidates.length,
+        candidates: candidates.map(summarizeCandidate),
+      };
+    }
+    case "research-agent": {
+      const evidence = Array.isArray(parsed.evidence) ? parsed.evidence : [];
+      const missingDataNotes = Array.isArray(parsed.missingDataNotes)
+        ? parsed.missingDataNotes
+        : [];
+
+      return {
+        candidate: summarizeCandidate(parsed.candidate),
+        evidenceCount: evidence.length,
+        evidenceCategories: evidence.map((item) => toRecord(item).category).filter(Boolean),
+        narrativeSummary: truncateRuntimeLogString(String(parsed.narrativeSummary ?? ""), 180),
+        missingDataCount: missingDataNotes.length,
+      };
+    }
+    case "chart-vision-agent": {
+      const frames = Array.isArray(parsed.frames) ? parsed.frames : [];
+
+      return {
+        candidate: summarizeCandidate(parsed.candidate),
+        frameCount: frames.length,
+        timeframes: frames.map((frame) => toRecord(frame).timeframe).filter(Boolean),
+        chartSummary: truncateRuntimeLogString(String(parsed.chartSummary ?? ""), 220),
+      };
+    }
+    case "analyst-agent": {
+      const thesis = toRecord(parsed.thesis);
+      const analystNotes = Array.isArray(parsed.analystNotes) ? parsed.analystNotes : [];
+
+      return {
+        asset: thesis.asset,
+        direction: thesis.direction,
+        confidence: thesis.confidence,
+        orderType: thesis.orderType,
+        tradingStyle: thesis.tradingStyle,
+        riskReward: thesis.riskReward,
+        confluenceCount: Array.isArray(thesis.confluences) ? thesis.confluences.length : 0,
+        analystNoteCount: analystNotes.length,
+      };
+    }
+    case "memory-agent": {
+      const appendedProofRefs = Array.isArray(parsed.appendedProofRefs)
+        ? parsed.appendedProofRefs
+        : [];
+
+      return {
+        checkpointRefId: parsed.checkpointRefId,
+        proofRefCount: appendedProofRefs.length,
+      };
+    }
+    case "publisher-agent": {
+      const drafts = Array.isArray(parsed.drafts) ? parsed.drafts : [];
+
+      return {
+        outcome: parsed.outcome,
+        draftCount: drafts.length,
+        drafts: drafts.map(summarizeDraft),
+      };
+    }
+    case "intel-agent": {
+      const report = toRecord(parsed.report);
+
+      return {
+        hasReport: parsed.report !== null && parsed.report !== undefined,
+        title: report.title,
+        category: report.category,
+        confidence: report.confidence,
+        skipReason: parsed.skipReason,
+      };
+    }
+    case "generator-agent": {
+      const content = toRecord(parsed.content);
+      const tweetText = typeof content.tweetText === "string" ? content.tweetText : "";
+
+      return {
+        topic: content.topic,
+        tweetLength: tweetText.length,
+        hasBlogPost: typeof content.blogPost === "string" && content.blogPost.length > 0,
+      };
+    }
+    case "writer-agent": {
+      const article = toRecord(parsed.article);
+
+      return {
+        headline: article.headline,
+        contentLength: typeof article.content === "string" ? article.content.length : 0,
+      };
+    }
+    default:
+      return serializeRuntimeLogValue(output);
+  }
+};
+
+const summarizeRuntimeState = (stateDelta: SwarmStateUpdate) => {
+  const run = stateDelta.run;
+
+  return {
+    status: run?.status,
+    marketBias: run?.marketBias,
+    outcomeType: run?.outcome?.outcomeType,
+    activeCandidateCount: run?.activeCandidateCount,
+    finalSignalId: run?.finalSignalId,
+    finalIntelId: run?.finalIntelId,
+    noteCount: stateDelta.notes?.length,
+    evidenceCount: stateDelta.evidenceItems?.length,
+    thesisCount: stateDelta.thesisDrafts?.length,
+    draftCount: stateDelta.publisherDrafts?.length,
+  };
+};
+
 const logRuntimeStage = (input: {
   runId: string;
   threadId: string;
@@ -72,18 +233,24 @@ const logRuntimeStage = (input: {
   output: unknown;
   stateDelta: SwarmStateUpdate;
 }) => {
-  const payload = {
-    runId: input.runId,
-    threadId: input.threadId,
-    node: input.nodeKey,
-    sequence: input.sequence,
-    output: serializeRuntimeLogValue(input.output),
-    stateDelta: serializeRuntimeLogValue(input.stateDelta),
-  };
+  const payload = runtimeDetailLoggingEnabled()
+    ? {
+        runId: input.runId,
+        threadId: input.threadId,
+        node: input.nodeKey,
+        sequence: input.sequence,
+        output: serializeRuntimeLogValue(input.output),
+        stateDelta: serializeRuntimeLogValue(input.stateDelta),
+      }
+    : {
+        runId: input.runId,
+        node: input.nodeKey,
+        sequence: input.sequence,
+        output: summarizeRuntimeOutput(input.nodeKey, input.output),
+        state: summarizeRuntimeState(input.stateDelta),
+      };
 
-  console.log(
-    `[omen-runtime] ${input.nodeKey} response\n${JSON.stringify(payload, null, 2)}`,
-  );
+  console.log(`[omen-runtime] ${input.nodeKey} ${JSON.stringify(payload)}`);
 };
 
 type InvokeAndCheckpointInput = {
@@ -108,10 +275,7 @@ class DefaultAgentRuntime implements AgentRuntime {
     this.graph = input.graph;
   }
 
-  async invoke(input: {
-    threadId: string;
-    initialState: z.infer<typeof swarmStateSchema>;
-  }) {
+  async invoke(input: { threadId: string; initialState: z.infer<typeof swarmStateSchema> }) {
     const initialState = swarmStateSchema.parse(input.initialState);
     this.states.set(input.threadId, initialState);
 
@@ -140,14 +304,13 @@ class DefaultAgentRuntime implements AgentRuntime {
     return this.states.get(threadId) ?? null;
   }
 
-  async applyUpdate(input: {
-    threadId: string;
-    update: SwarmStateUpdate;
-  }) {
+  async applyUpdate(input: { threadId: string; update: SwarmStateUpdate }) {
     const currentState = this.states.get(input.threadId);
 
     if (!currentState) {
-      throw new Error(`No state found for thread ${input.threadId} in runtime ${this.runtimeName}.`);
+      throw new Error(
+        `No state found for thread ${input.threadId} in runtime ${this.runtimeName}.`,
+      );
     }
 
     const nextState = mergeSwarmState(currentState, input.update);
@@ -248,9 +411,7 @@ class DefaultAgentRuntime implements AgentRuntime {
     });
   }
 
-  private async applyOutputAndCheckpoint(
-    input: InvokeAndCheckpointInput & { output: unknown },
-  ) {
+  private async applyOutputAndCheckpoint(input: InvokeAndCheckpointInput & { output: unknown }) {
     const timestamp = new Date().toISOString();
     const applied = applyOmenNodeOutput({
       state: input.state,

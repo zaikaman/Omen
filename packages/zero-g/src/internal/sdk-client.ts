@@ -2,12 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { Batcher, Indexer, KvClient, getFlowContract } from "@0gfoundation/0g-ts-sdk";
 import { err, ok, type Result } from "@omen/shared";
-import {
-  JsonRpcProvider,
-  Wallet,
-  keccak256,
-  toUtf8Bytes,
-} from "ethers";
+import { JsonRpcProvider, Wallet, keccak256, toUtf8Bytes } from "ethers";
 
 const DEFAULT_EXPECTED_REPLICA = 1;
 const DEFAULT_NAMESPACE_SEED = "omen-zero-g-kv-v1";
@@ -18,6 +13,33 @@ const ZERO_G_WRITE_RETRY_DELAYS_MS = [2_000, 5_000];
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 const signerWriteQueues = new Map<string, Promise<void>>();
+
+const zeroGSdkVerboseLoggingEnabled = () =>
+  process.env.ZERO_G_SDK_LOGS === "true" || process.env.LOG_LEVEL === "debug";
+
+const withSilencedZeroGSdkConsole = async <T>(operation: () => Promise<T>) => {
+  if (zeroGSdkVerboseLoggingEnabled()) {
+    return operation();
+  }
+
+  const originalConsole = {
+    debug: console.debug,
+    info: console.info,
+    log: console.log,
+  };
+
+  try {
+    console.debug = () => undefined;
+    console.info = () => undefined;
+    console.log = () => undefined;
+
+    return await operation();
+  } finally {
+    console.debug = originalConsole.debug;
+    console.info = originalConsole.info;
+    console.log = originalConsole.log;
+  }
+};
 
 export type ZeroGSdkClientConfig = {
   indexerUrl: string;
@@ -75,8 +97,7 @@ export class ZeroGSdkClient {
   private readonly requestTimeoutMs: number;
 
   constructor(private readonly config: ZeroGSdkClientConfig) {
-    this.blockchainRpcUrl =
-      config.blockchainRpcUrl?.trim() || null;
+    this.blockchainRpcUrl = config.blockchainRpcUrl?.trim() || null;
     this.kvNodeUrl = config.kvNodeUrl?.trim() || null;
     this.privateKey = config.privateKey?.trim() || null;
     this.flowContractAddress = config.flowContractAddress?.trim() || null;
@@ -85,10 +106,7 @@ export class ZeroGSdkClient {
     this.requestTimeoutMs = config.requestTimeoutMs ?? 10_000;
   }
 
-  async putKeyValue(
-    key: string,
-    value: Uint8Array,
-  ): Promise<Result<ZeroGStoredKey, Error>> {
+  async putKeyValue(key: string, value: Uint8Array): Promise<Result<ZeroGStoredKey, Error>> {
     const blockchainRpcUrl = this.requireBlockchainRpcUrl();
 
     if (!blockchainRpcUrl.ok) {
@@ -130,7 +148,7 @@ export class ZeroGSdkClient {
         batcher.streamDataBuilder.set(streamId, encodedKeyBytes, value);
 
         const executed = await this.withTimeout(
-          batcher.exec(),
+          withSilencedZeroGSdkConsole(() => batcher.exec()),
           "0G KV batch execution timed out.",
         );
         const [result, execError] = executed;
@@ -150,9 +168,7 @@ export class ZeroGSdkClient {
           rootHash: result.rootHash,
         });
       } catch (error) {
-        return err(
-          error instanceof Error ? error : new Error("0G KV write failed."),
-        );
+        return err(error instanceof Error ? error : new Error("0G KV write failed."));
       }
     });
   }
@@ -188,9 +204,7 @@ export class ZeroGSdkClient {
         size: value.size,
       });
     } catch (error) {
-      return err(
-        error instanceof Error ? error : new Error("0G KV read failed."),
-      );
+      return err(error instanceof Error ? error : new Error("0G KV read failed."));
     }
   }
 
@@ -214,17 +228,14 @@ export class ZeroGSdkClient {
 
         return ok(uploaded.value);
       } catch (error) {
-        return err(
-          error instanceof Error ? error : new Error("0G file upload failed."),
-        );
+        return err(error instanceof Error ? error : new Error("0G file upload failed."));
       }
     });
   }
 
   deriveStreamId(key: string) {
     const marker = "/kv/";
-    const streamNamespace =
-      key.includes(marker) ? key.split(marker)[0] ?? key : key;
+    const streamNamespace = key.includes(marker) ? (key.split(marker)[0] ?? key) : key;
 
     return keccak256(toUtf8Bytes(`${this.namespaceSeed}:${streamNamespace}`));
   }
@@ -265,10 +276,7 @@ export class ZeroGSdkClient {
     await previous.catch(() => undefined);
 
     try {
-      const retryDelays: Array<number | null> = [
-        ...ZERO_G_WRITE_RETRY_DELAYS_MS,
-        null,
-      ];
+      const retryDelays: Array<number | null> = [...ZERO_G_WRITE_RETRY_DELAYS_MS, null];
 
       for (const delayMs of retryDelays) {
         const result = await operation();
@@ -314,7 +322,9 @@ export class ZeroGSdkClient {
     return textEncoder.encode(key);
   }
 
-  private async resolveFlowAddress(clients: { getStatus(): Promise<{ networkIdentity?: { flowAddress?: string } } | null> }[]) {
+  private async resolveFlowAddress(
+    clients: { getStatus(): Promise<{ networkIdentity?: { flowAddress?: string } } | null> }[],
+  ) {
     if (this.flowContractAddress) {
       return ok(this.flowContractAddress);
     }
@@ -396,11 +406,7 @@ export class ZeroGSdkClient {
       let timeoutHandle: NodeJS.Timeout | null = setTimeout(() => {
         child.kill("SIGKILL");
         settle(
-          err(
-            new Error(
-              `0G file upload exceeded ${timeoutMs.toString()}ms and was terminated.`,
-            ),
-          ),
+          err(new Error(`0G file upload exceeded ${timeoutMs.toString()}ms and was terminated.`)),
         );
       }, timeoutMs);
 
@@ -454,9 +460,7 @@ export class ZeroGSdkClient {
         }
 
         try {
-          const parsed = JSON.parse(
-            payloadLine.slice(ZERO_G_UPLOAD_RESULT_PREFIX.length),
-          ) as
+          const parsed = JSON.parse(payloadLine.slice(ZERO_G_UPLOAD_RESULT_PREFIX.length)) as
             | { ok: true; value: ZeroGUploadedObject }
             | { ok: false; error: string };
 
