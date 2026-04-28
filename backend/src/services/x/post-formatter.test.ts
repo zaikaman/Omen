@@ -20,7 +20,7 @@ describe("post formatter", () => {
     expect(post.text).not.toContain("businessinsider.com");
   });
 
-  it("formats signals without emoji or hashtag blocks", () => {
+  it("formats signals in the template trade layout", () => {
     const post = formatSignalPost({
       asset: "BTC",
       direction: "LONG",
@@ -37,10 +37,15 @@ describe("post formatter", () => {
     });
 
     expect(post.text.length).toBeLessThanOrEqual(280);
-    expect(post.text).toContain("$BTC long setup clears with 88% confidence");
-    expect(post.text).toContain("- entry 65,000 / target 70,980");
-    expect(post.text).toContain("watch invalidation if structure fails; $BTC");
-    expect(post.text).not.toContain("#");
+    expect(post.text).toContain("$BTC day trade");
+    expect(post.text).toContain("hold: 8-16 hours");
+    expect(post.text).toContain("entry: $65,000");
+    expect(post.text).toContain("target: $70,980 (+9.2%)");
+    expect(post.text).toContain("stop: $62,725 (-3.5%)");
+    expect(post.text).toContain("r:r: 1:2.6");
+    expect(post.text).toContain("conf: 88%");
+    expect(post.text).toContain("breakout reclaim + momentum expansion");
+    expect(post.text).toContain("#bitcoin");
   });
 
   it("uses generated intel tweet text when present", () => {

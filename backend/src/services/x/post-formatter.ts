@@ -18,6 +18,16 @@ const STANDARD_X_POST_LIMIT = 280;
 const MAX_HOOK_LENGTH = 72;
 const MAX_BULLET_LENGTH = 82;
 const MAX_TAKE_LENGTH = 92;
+const MAX_SIGNAL_ANALYSIS_LENGTH = 82;
+
+const symbolHashtagMap: Record<string, string> = {
+  ARB: "arbitrum",
+  BTC: "bitcoin",
+  DOGE: "dogecoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  SUI: "sui",
+};
 
 const trimToLength = (value: string, maxLength: number) => {
   if (value.length <= maxLength) {
@@ -72,6 +82,30 @@ const formatPercent = (value: number) => {
   const prefix = rounded > 0 ? "+" : "";
 
   return `${prefix}${rounded}%`;
+};
+
+const formatSignalStyle = (tradingStyle: Signal["tradingStyle"]) =>
+  tradingStyle === "swing_trade" ? "swing trade" : "day trade";
+
+const formatSignalHold = (signal: Pick<Signal, "expectedDuration" | "tradingStyle">) =>
+  signal.expectedDuration ?? (signal.tradingStyle === "swing_trade" ? "3-5 days" : "8-16h");
+
+const buildSignalAnalysis = (
+  signal: Pick<Signal, "asset" | "confluences" | "whyNow">,
+) => {
+  const raw =
+    signal.confluences.length > 0
+      ? signal.confluences.slice(0, 3).join(" + ")
+      : signal.whyNow;
+
+  return trimLineToLength(normalizeAnalysisLine(raw), MAX_SIGNAL_ANALYSIS_LENGTH);
+};
+
+const buildSignalHashtag = (asset: string) => {
+  const symbol = asset.replace(/^\$/, "").toUpperCase();
+  const label = symbolHashtagMap[symbol] ?? symbol.toLowerCase();
+
+  return `#${label}`;
 };
 
 const calculateMovePercent = (
@@ -204,59 +238,34 @@ export const formatSignalPost = (
   xPostDraftSchema.parse({
     text: compactPostLines(
       [
-        `$${signal.asset.toUpperCase()} ${signal.direction.toLowerCase()} setup clears with ${signal.confidence}% confidence`,
-        "",
-        ...(signal.entryPrice !== null || signal.targetPrice !== null || signal.stopLoss !== null
-          ? [
-              `- ${[
-                signal.entryPrice !== null ? `entry ${formatPrice(signal.entryPrice)}` : null,
-                signal.targetPrice !== null
-                  ? `target ${formatPrice(signal.targetPrice)}${
-                      calculateMovePercent(
-                        signal.entryPrice,
-                        signal.targetPrice,
-                        signal.direction,
-                      ) === null
-                        ? ""
-                        : ` (${formatPercent(
-                            calculateMovePercent(
-                              signal.entryPrice,
-                              signal.targetPrice,
-                              signal.direction,
-                            ) ?? 0,
-                          )})`
-                    }`
-                  : null,
-                signal.stopLoss !== null
-                  ? `stop ${formatPrice(signal.stopLoss)}${
-                      calculateMovePercent(signal.entryPrice, signal.stopLoss, signal.direction) ===
-                      null
-                        ? ""
-                        : ` (${formatPercent(
-                            calculateMovePercent(
-                              signal.entryPrice,
-                              signal.stopLoss,
-                              signal.direction,
-                            ) ?? 0,
-                          )})`
-                    }`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" / ")}`,
-            ]
-          : []),
-        `- rr ${signal.riskReward === null ? "n/a" : `1:${signal.riskReward.toFixed(1)}`}; hold ${signal.expectedDuration ?? "8-16h"}`,
-        `- ${trimLineToLength(
-          normalizeAnalysisLine(
-            signal.confluences.length > 0
-              ? signal.confluences.slice(0, 3).join(" + ")
-              : signal.whyNow,
-          ),
-          MAX_BULLET_LENGTH - 2,
-        )}`,
-        `watch invalidation if structure fails; $${signal.asset.toUpperCase()}`,
-      ],
+        `${signal.direction === "SHORT" ? "📉" : "📈"} $${signal.asset.toUpperCase()} ${formatSignalStyle(signal.tradingStyle)}`,
+        `⏱️ hold: ${formatSignalHold(signal)}`,
+        signal.entryPrice !== null ? `entry: $${formatPrice(signal.entryPrice)}` : null,
+        signal.targetPrice !== null
+          ? `target: $${formatPrice(signal.targetPrice)}${
+              calculateMovePercent(signal.entryPrice, signal.targetPrice, signal.direction) === null
+                ? ""
+                : ` (${formatPercent(
+                    calculateMovePercent(signal.entryPrice, signal.targetPrice, signal.direction) ??
+                      0,
+                  )})`
+            }`
+          : null,
+        signal.stopLoss !== null
+          ? `stop: $${formatPrice(signal.stopLoss)}${
+              calculateMovePercent(signal.entryPrice, signal.stopLoss, signal.direction) === null
+                ? ""
+                : ` (${formatPercent(
+                    calculateMovePercent(signal.entryPrice, signal.stopLoss, signal.direction) ?? 0,
+                  )})`
+            }`
+          : null,
+        `r:r: ${signal.riskReward === null ? "n/a" : `1:${signal.riskReward.toFixed(1)}`}`,
+        `conf: ${signal.confidence}%`,
+        buildSignalAnalysis(signal),
+        buildSignalHashtag(signal.asset),
+      ].filter((line): line is string => line !== null),
+      STANDARD_X_POST_LIMIT,
     ),
     replyToTweetId: null,
     quoteTweetId: null,
