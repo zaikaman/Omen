@@ -21,6 +21,9 @@ if [ ! -f "$PRIVATE_KEY_PATH" ]; then
   fi
 fi
 
+AXL_PUBLIC_KEY="$(openssl pkey -in "$PRIVATE_KEY_PATH" -pubout -outform DER | tail -c 32 | od -An -tx1 -v | tr -d ' \n')"
+export AXL_PUBLIC_KEY
+
 cat > "$CONFIG_PATH" <<EOF
 {
   "PrivateKeyPath": "$PRIVATE_KEY_PATH",
@@ -42,11 +45,11 @@ ROUTER_PID=$!
 pnpm --dir /app/backend run mcp:host &
 OMEN_MCP_PID=$!
 
+node /app/axl-public-proxy.mjs &
+PUBLIC_PROXY_PID=$!
+
 /app/node -config "$CONFIG_PATH" &
 NODE_PID=$!
-
-python3 /app/axl-public-proxy.py &
-PUBLIC_PROXY_PID=$!
 
 echo "[axl-entrypoint] public proxy started on ${PUBLIC_PROXY_PORT}"
 
@@ -60,4 +63,12 @@ cleanup() {
 
 trap cleanup INT TERM EXIT
 
-wait "$NODE_PID"
+while true; do
+  for pid in "$NODE_PID" "$PUBLIC_PROXY_PID" "$A2A_PID" "$OMEN_MCP_PID" "$ROUTER_PID"; do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      echo "[axl-entrypoint] process $pid exited; shutting down" >&2
+      exit 1
+    fi
+  done
+  sleep 5
+done

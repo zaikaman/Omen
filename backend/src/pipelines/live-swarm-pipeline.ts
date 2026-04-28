@@ -113,6 +113,9 @@ const hasSupabasePersistenceConfig = (env: BackendEnv) =>
 
 const hasAxlTransportConfig = (env: BackendEnv) => Boolean(env.axl.nodeBaseUrl);
 
+const hasConfiguredAxlServicePeer = (env: BackendEnv) =>
+  Boolean(env.axl.servicePeerId?.trim());
+
 const hasZeroGStorageConfig = (env: BackendEnv) =>
   Boolean(env.zeroG.indexerUrl && env.zeroG.rpcUrl && env.zeroG.privateKey);
 
@@ -1278,6 +1281,7 @@ class LivePipelineExecutionContext {
           payload: {
             axlBaseUrl: this.input.env.axl.nodeBaseUrl,
             timeoutMs: this.input.env.axl.requestTimeoutMs,
+            fallbackPeerIdConfigured: hasConfiguredAxlServicePeer(this.input.env),
           },
           timestamp: observedAt,
           correlationId: `${runId}:axl-probe`,
@@ -1286,6 +1290,11 @@ class LivePipelineExecutionContext {
           signalId: null,
           intelId: null,
         });
+      }
+
+      if (hasConfiguredAxlServicePeer(this.input.env)) {
+        this.axlServicePeerId = this.input.env.axl.servicePeerId;
+        return true;
       }
 
       return false;

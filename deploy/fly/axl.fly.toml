@@ -4,11 +4,17 @@ primary_region = "sin"
 [build]
   dockerfile = "axl.Dockerfile"
 
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"
+
 [env]
   AXL_BRIDGE_ADDR = "0.0.0.0"
   AXL_API_PORT = "9002"
   AXL_PUBLIC_PROXY_PORT = "8080"
   AXL_PUBLIC_PROXY_TIMEOUT_SECONDS = "25"
+  AXL_PUBLIC_PROXY_TOPOLOGY_TIMEOUT_SECONDS = "3"
   AXL_TCP_PORT = "7000"
   AXL_PEERS_JSON = "[\"tls://34.46.48.224:9001\"]"
   AXL_LISTEN_JSON = "[\"tls://0.0.0.0:9001\"]"

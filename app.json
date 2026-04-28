@@ -82,6 +82,9 @@
       "required": false,
       "value": "30000"
     },
+    "AXL_SERVICE_PEER_ID": {
+      "required": false
+    },
     "ZERO_G_RPC_URL": {
       "value": "https://evmrpc-testnet.0g.ai"
     },

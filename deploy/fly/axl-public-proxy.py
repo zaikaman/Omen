@@ -8,6 +8,10 @@ PUBLIC_PORT = int(os.environ.get("AXL_PUBLIC_PROXY_PORT", "8080"))
 BRIDGE_HOST = os.environ.get("AXL_BRIDGE_PROXY_HOST", "127.0.0.1")
 BRIDGE_PORT = int(os.environ.get("AXL_API_PORT", "9002"))
 TIMEOUT_SECONDS = float(os.environ.get("AXL_PUBLIC_PROXY_TIMEOUT_SECONDS", "10"))
+TOPOLOGY_TIMEOUT_SECONDS = float(
+    os.environ.get("AXL_PUBLIC_PROXY_TOPOLOGY_TIMEOUT_SECONDS", "3")
+)
+AXL_PUBLIC_KEY = os.environ.get("AXL_PUBLIC_KEY", "")
 
 
 class ProxyHandler(BaseHTTPRequestHandler):
@@ -34,7 +38,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             conn = http.client.HTTPConnection(
                 BRIDGE_HOST,
                 BRIDGE_PORT,
-                timeout=TIMEOUT_SECONDS,
+                timeout=self._upstream_timeout(),
             )
             conn.request(self.command, self.path, body=body, headers=headers)
             response = conn.getresponse()
@@ -47,7 +51,22 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
+        except BrokenPipeError:
+            pass
         except Exception as error:
+            if self.path == "/topology" and AXL_PUBLIC_KEY:
+                self._send_json(
+                    200,
+                    {
+                        "our_public_key": AXL_PUBLIC_KEY,
+                        "peers": [],
+                        "tree": [],
+                        "partial": True,
+                        "warning": f"AXL bridge topology snapshot unavailable: {error}",
+                    },
+                )
+                return
+
             self._send_json(
                 504,
                 {
@@ -61,20 +80,30 @@ class ProxyHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
+    def _upstream_timeout(self):
+        return TOPOLOGY_TIMEOUT_SECONDS if self.path == "/topology" else TIMEOUT_SECONDS
+
     def _send_json(self, status, payload):
         encoded = json.dumps(payload).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(encoded)))
-        self.end_headers()
-        self.wfile.write(encoded)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+        except BrokenPipeError:
+            pass
 
     def log_message(self, format, *args):
         client_ip = self.client_address[0] if self.client_address else "unknown"
         print(f"[axl-public-proxy] {client_ip} {format % args}", flush=True)
 
 
-server = ThreadingHTTPServer(("0.0.0.0", PUBLIC_PORT), ProxyHandler)
+class ProxyServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+
+server = ProxyServer(("0.0.0.0", PUBLIC_PORT), ProxyHandler)
 print(f"[axl-public-proxy] listening on 0.0.0.0:{PUBLIC_PORT}", flush=True)
 print(f"[axl-public-proxy] forwarding to {BRIDGE_HOST}:{BRIDGE_PORT}", flush=True)
 server.serve_forever()

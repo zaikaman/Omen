@@ -22,9 +22,10 @@ COPY backend /app/backend
 COPY packages /app/packages
 COPY deploy/fly/axl-entrypoint.sh /app/axl-entrypoint.sh
 COPY deploy/fly/axl-public-proxy.py /app/axl-public-proxy.py
+COPY deploy/fly/axl-public-proxy.mjs /app/axl-public-proxy.mjs
 
 RUN python3 -m venv /opt/venv
-RUN pip install /app/integrations
+RUN pip install /app/integrations "sse-starlette>=2.1.3"
 RUN corepack enable && pnpm install --frozen-lockfile
 RUN chmod +x /app/axl-entrypoint.sh
 
