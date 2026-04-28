@@ -1524,14 +1524,38 @@ class LivePipelineExecutionContext {
   }
 }
 
-class LivePipelineCheckpointStore extends InMemoryCheckpointStore {
+class LivePipelineCheckpointStore implements SwarmCheckpointStore {
+  private latestCheckpoint: SwarmCheckpoint | null = null;
+
+  private checkpointCount = 0;
+
   constructor(private readonly executionContext: LivePipelineExecutionContext) {
-    super();
   }
 
-  override async save(checkpoint: SwarmCheckpoint) {
+  async save(checkpoint: SwarmCheckpoint) {
     const persistedCheckpoint = await this.executionContext.handleCheckpoint(checkpoint);
-    this.checkpoints.push(persistedCheckpoint);
+
+    this.latestCheckpoint = persistedCheckpoint;
+    this.checkpointCount += 1;
+  }
+
+  async loadLatest(input: { runId: string; threadId: string }) {
+    if (
+      this.latestCheckpoint?.runId === input.runId &&
+      this.latestCheckpoint.threadId === input.threadId
+    ) {
+      return this.latestCheckpoint;
+    }
+
+    return null;
+  }
+
+  async listByRun(runId: string) {
+    if (!this.latestCheckpoint || this.latestCheckpoint.runId !== runId) {
+      return [];
+    }
+
+    return Array.from({ length: this.checkpointCount }, () => this.latestCheckpoint!);
   }
 }
 

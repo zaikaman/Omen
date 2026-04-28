@@ -279,12 +279,16 @@ class DefaultAgentRuntime implements AgentRuntime {
     const initialState = swarmStateSchema.parse(input.initialState);
     this.states.set(input.threadId, initialState);
 
-    return this.runFromNode({
-      threadId: input.threadId,
-      startingState: initialState,
-      previousStep: null,
-      sequenceOffset: 0,
-    });
+    try {
+      return await this.runFromNode({
+        threadId: input.threadId,
+        startingState: initialState,
+        previousStep: null,
+        sequenceOffset: 0,
+      });
+    } finally {
+      this.states.delete(input.threadId);
+    }
   }
 
   async resume(checkpoint: SwarmCheckpoint) {
@@ -292,12 +296,16 @@ class DefaultAgentRuntime implements AgentRuntime {
     this.states.set(parsed.threadId, parsed.state);
     const checkpoints = await this.checkpointStore.listByRun(parsed.runId);
 
-    return this.runFromNode({
-      threadId: parsed.threadId,
-      startingState: parsed.state,
-      previousStep: parsed.step as OmenSwarmNodeKey,
-      sequenceOffset: checkpoints.length,
-    });
+    try {
+      return await this.runFromNode({
+        threadId: parsed.threadId,
+        startingState: parsed.state,
+        previousStep: parsed.step as OmenSwarmNodeKey,
+        sequenceOffset: checkpoints.length,
+      });
+    } finally {
+      this.states.delete(parsed.threadId);
+    }
   }
 
   async getState(threadId: string) {

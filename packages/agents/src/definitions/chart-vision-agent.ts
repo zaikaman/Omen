@@ -10,7 +10,10 @@ import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import { evidenceItemSchema, type SwarmState } from "../framework/state.js";
 import { OpenAiCompatibleVisionClient } from "../llm/openai-compatible-vision-client.js";
 import { buildChartVisionSystemPrompt } from "../prompts/chart-vision/system.js";
-import { ChartImageService } from "../services/chart-image-service.js";
+import {
+  ChartImageService,
+  type ChartImageResult,
+} from "../services/chart-image-service.js";
 
 const chartVisionAgentOptionsSchema = z.object({
   marketData: z.custom<BinanceMarketService>().optional(),
@@ -35,6 +38,12 @@ const TIMEFRAMES = [
   { timeframe: "1h", limit: 96 },
   { timeframe: "4h", limit: 90 },
 ] as const;
+
+type RenderedChartFrame = {
+  timeframe: "15m" | "1h" | "4h";
+  image: ChartImageResult;
+  candles: MarketCandle[];
+};
 
 const summarizeCandlesFallback = (
   symbol: string,
@@ -167,8 +176,10 @@ export class ChartVisionAgentFactory {
       });
     }
 
-    const renderedFrames = await Promise.all(
-      availableFrames.map(async (frame) => ({
+    const renderedFrames: RenderedChartFrame[] = [];
+
+    for (const frame of availableFrames) {
+      renderedFrames.push({
         timeframe: frame.timeframe,
         image: await this.chartImageService.generateCandlestickChart({
           symbol,
@@ -176,8 +187,8 @@ export class ChartVisionAgentFactory {
           candles: frame.candles,
         }),
         candles: frame.candles,
-      })),
-    );
+      });
+    }
 
     const modelAnalysis = await this.inspectWithVisionModel({
       symbol,

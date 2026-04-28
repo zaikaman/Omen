@@ -3,12 +3,15 @@ import { z } from "zod";
 
 import { marketCandleSchema } from "@omen/market-data";
 
+sharp.cache(false);
+sharp.concurrency(1);
+
 const chartImageServiceInputSchema = z.object({
   symbol: z.string().min(1),
   timeframe: z.enum(["15m", "1h", "4h"]),
   candles: z.array(marketCandleSchema).min(20),
-  width: z.number().int().min(400).default(1600),
-  height: z.number().int().min(300).default(900),
+  width: z.number().int().min(400).default(960),
+  height: z.number().int().min(300).default(540),
 });
 
 export const chartImageResultSchema = z.object({
