@@ -100,6 +100,16 @@ export const recentIntelHistoryItemSchema = z.object({
   timestamp: z.string().datetime(),
 });
 
+export const recentPostContextItemSchema = z.object({
+  kind: z.enum(["signal_alert", "intel_summary", "intel_thread"]),
+  text: z.string().min(1),
+  status: z.string().min(1),
+  publishedUrl: z.string().url().nullable(),
+  signalId: z.string().min(1).nullable(),
+  intelId: z.string().min(1).nullable(),
+  timestamp: z.string().datetime(),
+});
+
 export const publisherDraftSchema = z.object({
   kind: z.enum(["signal_alert", "intel_summary", "intel_thread", "no_conviction"]),
   headline: z.string().min(1),
@@ -121,6 +131,7 @@ export const swarmStateSchema = z.object({
   generatedIntelContents: z.array(generatedIntelContentSchema),
   intelArticles: z.array(intelArticleSchema),
   recentIntelHistory: z.array(recentIntelHistoryItemSchema),
+  recentPostContext: z.array(recentPostContextItemSchema),
   publisherDrafts: z.array(publisherDraftSchema),
   events: z.array(agentEventSchema),
   axlMessages: z.array(axlEnvelopeSchema),
@@ -150,6 +161,7 @@ export const createInitialSwarmState = (input: {
     generatedIntelContents: [],
     intelArticles: [],
     recentIntelHistory: [],
+    recentPostContext: [],
     publisherDrafts: [],
     events: [],
     axlMessages: [],
@@ -173,6 +185,7 @@ export type IntelReport = z.infer<typeof intelReportSchema>;
 export type GeneratedIntelContent = z.infer<typeof generatedIntelContentSchema>;
 export type IntelArticle = z.infer<typeof intelArticleSchema>;
 export type RecentIntelHistoryItem = z.infer<typeof recentIntelHistoryItemSchema>;
+export type RecentPostContextItem = z.infer<typeof recentPostContextItemSchema>;
 export type PublisherDraft = z.infer<typeof publisherDraftSchema>;
 export type SwarmState = z.infer<typeof swarmStateSchema>;
 export type SwarmStateUpdate = z.infer<typeof swarmStateUpdateSchema>;

@@ -448,6 +448,7 @@ export const buildOmenNodeInput = (input: {
       thesis: null,
       review: null,
       recentIntelHistory: input.state.recentIntelHistory,
+      recentPostContext: input.state.recentPostContext,
     };
   }
 

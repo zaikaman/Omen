@@ -396,6 +396,197 @@ describe("intel agent", () => {
     expect(result.report?.summary).not.toMatch(/fresh market intelligence scan/i);
   });
 
+  it("falls back to synthesized intel when the model returns a literal provider list", async () => {
+    const liveRun = {
+      ...run,
+      mode: "live" as const,
+    };
+    const liveConfig = {
+      ...config,
+      mode: "live" as const,
+      marketUniverse: ["SOL", "TRUMP", "CATI"],
+    };
+    const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
+    const agent = createIntelAgent({
+      llmClient: {
+        completeJson: async () => ({
+          topic: "CoinGecko trending tokens",
+          insight: "CoinGecko trending tokens: zkj rank 1000; pengu rank 89; cati rank 228.",
+          importance_score: 8,
+        }),
+      } as never,
+      binance: createBinanceStub(),
+      coinGecko: {
+        getTopMovers: async () => ({
+          ok: true as const,
+          provider: "coingecko",
+          value: [
+            {
+              symbol: "TRUMP",
+              price: 8,
+              change24hPercent: 5.5,
+              volume24h: 12000000,
+              capturedAt,
+            },
+          ],
+          health: {
+            provider: "coingecko",
+            available: true,
+            degraded: false,
+            checkedAt: capturedAt,
+            notes: [],
+          },
+        }),
+        getTrending: async () => ({
+          ok: true as const,
+          provider: "coingecko",
+          value: [
+            {
+              name: "Pudgy Penguins",
+              symbol: "PENGU",
+              rank: 89,
+              chain: null,
+              address: null,
+              volume24h: null,
+              source: "coingecko",
+              capturedAt,
+            },
+            {
+              name: "Official Trump",
+              symbol: "TRUMP",
+              rank: 91,
+              chain: null,
+              address: null,
+              volume24h: null,
+              source: "coingecko",
+              capturedAt,
+            },
+            {
+              name: "Catizen",
+              symbol: "CATI",
+              rank: 228,
+              chain: null,
+              address: null,
+              volume24h: null,
+              source: "coingecko",
+              capturedAt,
+            },
+          ],
+          health: {
+            provider: "coingecko",
+            available: true,
+            degraded: false,
+            checkedAt: capturedAt,
+            notes: [],
+          },
+        }),
+        getTopGainersLosers: async () => ({
+          ok: true as const,
+          provider: "coingecko",
+          value: [],
+          health: {
+            provider: "coingecko",
+            available: true,
+            degraded: false,
+            checkedAt: capturedAt,
+            notes: [],
+          },
+        }),
+      } as never,
+      defiLlama: createDefiLlamaStub(),
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: liveRun.id,
+          threadId: "thread-intel-provider-list",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        bias: null,
+        candidates: [],
+        evidence: [],
+        chartVisionSummary: null,
+        thesis: null,
+        review: null,
+        recentIntelHistory: [],
+      },
+      state,
+    );
+
+    expect(result.action).toBe("ready");
+    expect(result.report?.title).not.toBe("CoinGecko trending tokens");
+    expect(result.report?.title).toContain("meme narrative attention");
+    expect(result.report?.symbols).toEqual(expect.arrayContaining(["PENGU", "TRUMP", "CATI"]));
+  });
+
+  it("passes recent post text to the intel model to avoid repeated posts", async () => {
+    const state = createInitialSwarmState({ run, config });
+    let capturedUserPrompt = "";
+    const agent = createIntelAgent({
+      llmClient: {
+        completeJson: async ({ userPrompt }: { userPrompt: string }) => {
+          capturedUserPrompt = userPrompt;
+
+          return {
+            topic: "SOL liquidity rotation",
+            insight:
+              "SOL liquidity rotation is distinct from the already posted privacy coin note.",
+            importance_score: 8,
+          };
+        },
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-intel-recent-posts",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        bias: null,
+        candidates: [],
+        evidence: [
+          {
+            category: "liquidity",
+            summary: "SOL liquidity improved while majors stayed range-bound.",
+            sourceLabel: "Market Desk",
+            sourceUrl: null,
+            structuredData: {},
+          },
+        ],
+        chartVisionSummary: null,
+        thesis: null,
+        review: null,
+        recentIntelHistory: [],
+        recentPostContext: [
+          {
+            kind: "intel_summary",
+            text: "privacy coins wake as btc/eth range; thin liquidity could spark a move",
+            status: "posted",
+            publishedUrl: "https://x.com/i/web/status/123",
+            signalId: null,
+            intelId: "intel-privacy",
+            timestamp: capturedAt,
+          },
+        ],
+      },
+      state,
+    );
+
+    const parsedPrompt = JSON.parse(capturedUserPrompt) as {
+      recent_posts?: Array<{ text?: string }>;
+    };
+
+    expect(result.action).toBe("ready");
+    expect(parsedPrompt.recent_posts?.[0]?.text).toBe(
+      "privacy coins wake as btc/eth range; thin liquidity could spark a move",
+    );
+  });
+
   it("rejects generic low-signal news even when the model scores it highly", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createIntelAgent({

@@ -6,6 +6,7 @@ import {
   criticReviewSchema,
   evidenceItemSchema,
   recentIntelHistoryItemSchema,
+  recentPostContextItemSchema,
   orchestrationContextSchema,
   thesisDraftSchema,
 } from "./common.js";
@@ -20,6 +21,7 @@ export const intelInputSchema = z.object({
   thesis: thesisDraftSchema.nullable(),
   review: criticReviewSchema.nullable(),
   recentIntelHistory: z.array(recentIntelHistoryItemSchema).default([]),
+  recentPostContext: z.array(recentPostContextItemSchema).default([]),
 });
 
 export const intelOutputSchema = z.object({

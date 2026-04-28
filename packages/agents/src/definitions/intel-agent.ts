@@ -8,6 +8,7 @@ import {
   CoinMarketCapMarketService,
   DefiLlamaMarketService,
 } from "@omen/market-data";
+import { getTradeableToken } from "@omen/shared";
 import { intelInputSchema, intelOutputSchema } from "../contracts/intel.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
 import {
@@ -61,16 +62,51 @@ const lowSignalNarrativePatterns = [
   /\bpress release\b/i,
 ];
 
+const rawProviderListPatterns = [
+  /^coingecko trending tokens:/i,
+  /^birdeye trending tokens:/i,
+  /^top watched movers:/i,
+  /^coingecko top gainers:/i,
+  /^defillama top chain tvl:/i,
+];
+
+const narrativeCategoryLabels: Record<string, string> = {
+  ai: "AI",
+  defi: "DeFi",
+  ecosystem: "ecosystem",
+  gaming: "gaming",
+  infrastructure: "infrastructure",
+  layer2: "L2",
+  major: "majors",
+  meme: "meme",
+  other: "altcoin",
+};
+
+const isRawProviderListEvidence = (item: EvidenceItem) =>
+  rawProviderListPatterns.some((pattern) => pattern.test(item.summary.trim()));
+
 const templateEvidenceRank = (item: EvidenceItem) => {
-  if (item.category === "sentiment" || item.category === "catalyst") {
+  if (item.structuredData.source === "intel-research") {
     return 0;
   }
 
-  if (item.category === "liquidity" || item.category === "fundamental") {
+  if (
+    item.category === "catalyst" ||
+    item.category === "fundamental" ||
+    item.category === "liquidity"
+  ) {
     return 1;
   }
 
-  return 2;
+  if (item.category === "sentiment" && !isRawProviderListEvidence(item)) {
+    return 2;
+  }
+
+  if (item.category === "market") {
+    return 3;
+  }
+
+  return isRawProviderListEvidence(item) ? 5 : 4;
 };
 
 const sortTemplateEvidence = (evidence: EvidenceItem[]) =>
@@ -116,6 +152,11 @@ const isGenericIntelTopic = (topic: string) => {
   const normalized = topic.trim().toLowerCase();
 
   return (
+    normalized === "coingecko trending tokens" ||
+    normalized === "birdeye trending tokens" ||
+    normalized === "top watched movers" ||
+    normalized === "coingecko top gainers" ||
+    normalized === "defillama top chain tvl" ||
     normalized === "crypto news" ||
     normalized === "market update" ||
     normalized === "crypto market update" ||
@@ -164,6 +205,82 @@ const titleFromTopic = (topic: string) =>
   stripIntelBoilerplate(topic)
     .replace(/^skip$/i, "SKIP")
     .trim();
+
+const toDollarSymbol = (symbol: string) => `$${symbol.replace(/^\$/, "").toUpperCase()}`;
+
+const buildDominantNarrative = (symbols: string[]) => {
+  const grouped = new Map<string, string[]>();
+
+  for (const symbol of [...new Set(symbols.map((value) => value.toUpperCase()))]) {
+    const category = getTradeableToken(symbol)?.category;
+
+    if (!category || category === "other") {
+      continue;
+    }
+
+    grouped.set(category, [...(grouped.get(category) ?? []), symbol]);
+  }
+
+  const [category, categorySymbols] =
+    [...grouped.entries()].sort((left, right) => right[1].length - left[1].length)[0] ?? [];
+
+  if (!category || !categorySymbols || categorySymbols.length < 2) {
+    return null;
+  }
+
+  return {
+    category,
+    label: narrativeCategoryLabels[category] ?? category,
+    symbols: categorySymbols.slice(0, 5),
+  };
+};
+
+const buildNarrativeSynthesisEvidence = (input: {
+  trendingSymbols: string[];
+  gainerSymbols: string[];
+  moverSymbols: string[];
+}): EvidenceItem | null => {
+  const narrative = buildDominantNarrative([
+    ...input.trendingSymbols,
+    ...input.gainerSymbols,
+    ...input.moverSymbols,
+  ]);
+
+  if (narrative === null) {
+    return null;
+  }
+
+  const gainerOverlap = input.gainerSymbols
+    .map((symbol) => symbol.toUpperCase())
+    .filter((symbol) => narrative.symbols.includes(symbol));
+  const moverOverlap = input.moverSymbols
+    .map((symbol) => symbol.toUpperCase())
+    .filter((symbol) => narrative.symbols.includes(symbol));
+  const liquidityText =
+    gainerOverlap.length > 0 || moverOverlap.length > 0
+      ? ` Liquidity confirmation is starting to show through ${[
+          ...new Set([...gainerOverlap, ...moverOverlap]),
+        ]
+          .slice(0, 4)
+          .map(toDollarSymbol)
+          .join(", ")}.`
+      : " Liquidity confirmation still needs follow-through.";
+
+  return {
+    category: "catalyst",
+    summary: `${narrative.label} narrative attention is clustering around ${narrative.symbols
+      .map(toDollarSymbol)
+      .join(", ")} across live trend feeds.${liquidityText}`,
+    sourceLabel: "Omen Intel Synthesis",
+    sourceUrl: null,
+    structuredData: {
+      source: "intel-research",
+      narrativeCategory: narrative.category,
+      symbols: narrative.symbols,
+      capturedAt: new Date().toISOString(),
+    },
+  };
+};
 
 const normalizeComparableText = (value: string) =>
   value
@@ -258,7 +375,9 @@ const deriveTemplateIntel = (evidence: EvidenceItem[]): z.infer<typeof templateI
 
   const first = sortTemplateEvidence(templateEvidence)[0];
   const topic = first
-    ? stripIntelBoilerplate(first.summary).replace(/:\s.*$/, "").trim()
+    ? stripIntelBoilerplate(first.summary)
+        .replace(/:\s.*$/, "")
+        .trim()
     : "Crypto Market Rotation";
 
   return {
@@ -360,11 +479,21 @@ export class IntelAgentFactory {
               symbols: item.symbols,
               timestamp: item.timestamp,
             })),
+            recent_posts: parsed.recentPostContext.slice(0, 10).map((post) => ({
+              kind: post.kind,
+              text: post.text,
+              status: post.status,
+              publishedUrl: post.publishedUrl,
+              signalId: post.signalId,
+              intelId: post.intelId,
+              timestamp: post.timestamp,
+            })),
             instruction: [
               "Return exactly the template intel shape: topic, insight, importance_score.",
               'If importance_score is below 7, set topic to "SKIP" and insight to "Not enough value".',
               "Do not use thesis, critic review, chart vision, publisher notes, or trade-gating context.",
               "Avoid repeating recently covered topics unless the new evidence materially changes the thesis.",
+              "Avoid repeating recent_posts; use their exact text to keep the new intel distinct from what was already published.",
               "Prefer specific rotations, TVL/liquidity changes, major movers, and narrative divergences over generic market commentary.",
             ].join(" "),
           },
@@ -393,6 +522,27 @@ export class IntelAgentFactory {
 
         return intelOutputSchema.parse({
           report: normalizedReport,
+          action: "ready",
+          skipReason: null,
+        });
+      }
+
+      if (fallbackReport !== null) {
+        if (
+          isDuplicateIntelReport({
+            report: fallbackReport,
+            recentHistory: parsed.recentIntelHistory,
+          })
+        ) {
+          return intelOutputSchema.parse({
+            action: "skip",
+            report: null,
+            skipReason: "recent_duplicate",
+          });
+        }
+
+        return intelOutputSchema.parse({
+          report: fallbackReport,
           action: "ready",
           skipReason: null,
         });
@@ -500,6 +650,34 @@ export class IntelAgentFactory {
         ? this.defiLlama.getYieldPools(20).catch(() => null)
         : Promise.resolve(null),
     ]);
+    const coinGeckoTrendingTokens =
+      coinGeckoTrending?.ok && coinGeckoTrending.value.length > 0
+        ? coinGeckoTrending.value.slice(0, 10)
+        : [];
+    const birdeyeTrendingTokens =
+      birdeyeTrending?.ok && birdeyeTrending.value.length > 0
+        ? birdeyeTrending.value.slice(0, 10)
+        : [];
+    const moverSnapshots = coinGeckoMovers?.ok
+      ? coinGeckoMovers.value.filter((snapshot) => snapshot.change24hPercent !== null).slice(0, 5)
+      : [];
+    const gainerSnapshots =
+      coinGeckoGainers?.ok && coinGeckoGainers.value.length > 0
+        ? coinGeckoGainers.value
+            .filter((snapshot) => snapshot.change24hPercent !== null)
+            .slice(0, 10)
+        : [];
+    const narrativeSynthesis = buildNarrativeSynthesisEvidence({
+      trendingSymbols: [...coinGeckoTrendingTokens, ...birdeyeTrendingTokens].map(
+        (token) => token.symbol,
+      ),
+      gainerSymbols: gainerSnapshots.map((snapshot) => snapshot.symbol),
+      moverSymbols: moverSnapshots.map((snapshot) => snapshot.symbol),
+    });
+
+    if (narrativeSynthesis !== null) {
+      evidence.push(narrativeSynthesis);
+    }
 
     if (cmcBitcoin?.ok) {
       evidence.push({
@@ -540,78 +718,67 @@ export class IntelAgentFactory {
       }
     }
 
-    if (coinGeckoMovers?.ok) {
-      const movers = coinGeckoMovers.value
-        .filter((snapshot) => snapshot.change24hPercent !== null)
-        .slice(0, 5);
-
-      if (movers.length > 0) {
-        evidence.push({
-          category: "liquidity",
-          summary: `Top watched movers: ${movers
-            .map(
-              (snapshot) =>
-                `${snapshot.symbol} ${snapshot.change24hPercent?.toFixed(2) ?? "n/a"}% on ${snapshot.volume24h?.toLocaleString("en-US", { maximumFractionDigits: 0 }) ?? "n/a"} volume`,
-            )
-            .join("; ")}.`,
-          sourceLabel: "CoinGecko",
-          sourceUrl: null,
-          structuredData: {
-            source: "intel-market-data",
-            symbols: movers.map((snapshot) => snapshot.symbol),
-            capturedAt: new Date().toISOString(),
-          },
-        });
-      }
-    }
-
-    if (coinGeckoTrending?.ok && coinGeckoTrending.value.length > 0) {
-      const trending = coinGeckoTrending.value.slice(0, 10);
+    if (moverSnapshots.length > 0) {
       evidence.push({
-        category: "sentiment",
-        summary: `CoinGecko trending tokens: ${trending
-          .map((token) => `${token.symbol}${token.rank !== null ? ` rank ${token.rank.toString()}` : ""}`)
+        category: "liquidity",
+        summary: `Top watched movers: ${moverSnapshots
+          .map(
+            (snapshot) =>
+              `${snapshot.symbol} ${snapshot.change24hPercent?.toFixed(2) ?? "n/a"}% on ${snapshot.volume24h?.toLocaleString("en-US", { maximumFractionDigits: 0 }) ?? "n/a"} volume`,
+          )
           .join("; ")}.`,
         sourceLabel: "CoinGecko",
         sourceUrl: null,
         structuredData: {
           source: "intel-market-data",
-          symbols: trending.map((token) => token.symbol),
+          symbols: moverSnapshots.map((snapshot) => snapshot.symbol),
           capturedAt: new Date().toISOString(),
         },
       });
     }
 
-    if (coinGeckoGainers?.ok && coinGeckoGainers.value.length > 0) {
-      const gainers = coinGeckoGainers.value
-        .filter((snapshot) => snapshot.change24hPercent !== null)
-        .slice(0, 10);
-
-      if (gainers.length > 0) {
-        evidence.push({
-          category: "liquidity",
-          summary: `CoinGecko top gainers: ${gainers
-            .map(
-              (snapshot) =>
-                `${snapshot.symbol} ${snapshot.change24hPercent?.toFixed(2) ?? "n/a"}% on ${snapshot.volume24h?.toLocaleString("en-US", { maximumFractionDigits: 0 }) ?? "n/a"} volume`,
-            )
-            .join("; ")}.`,
-          sourceLabel: "CoinGecko",
-          sourceUrl: null,
-          structuredData: {
-            source: "intel-market-data",
-            symbols: gainers.map((snapshot) => snapshot.symbol),
-            capturedAt: new Date().toISOString(),
-          },
-        });
-      }
-    }
-
-    if (birdeyeTrending?.ok && birdeyeTrending.value.length > 0) {
-      const trending = birdeyeTrending.value.slice(0, 10);
+    if (coinGeckoTrendingTokens.length > 0) {
       evidence.push({
         category: "sentiment",
-        summary: `Birdeye trending tokens: ${trending
+        summary: `CoinGecko trending tokens: ${coinGeckoTrendingTokens
+          .map(
+            (token) =>
+              `${token.symbol}${token.rank !== null ? ` rank ${token.rank.toString()}` : ""}`,
+          )
+          .join("; ")}.`,
+        sourceLabel: "CoinGecko",
+        sourceUrl: null,
+        structuredData: {
+          source: "intel-market-data",
+          symbols: coinGeckoTrendingTokens.map((token) => token.symbol),
+          capturedAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    if (gainerSnapshots.length > 0) {
+      evidence.push({
+        category: "liquidity",
+        summary: `CoinGecko top gainers: ${gainerSnapshots
+          .map(
+            (snapshot) =>
+              `${snapshot.symbol} ${snapshot.change24hPercent?.toFixed(2) ?? "n/a"}% on ${snapshot.volume24h?.toLocaleString("en-US", { maximumFractionDigits: 0 }) ?? "n/a"} volume`,
+          )
+          .join("; ")}.`,
+        sourceLabel: "CoinGecko",
+        sourceUrl: null,
+        structuredData: {
+          source: "intel-market-data",
+          symbols: gainerSnapshots.map((snapshot) => snapshot.symbol),
+          capturedAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    if (birdeyeTrendingTokens.length > 0) {
+      evidence.push({
+        category: "sentiment",
+        summary: `Birdeye trending tokens: ${birdeyeTrendingTokens
           .map(
             (token) =>
               `${token.symbol}${token.chain ? ` on ${token.chain}` : ""}${token.volume24h !== null ? `, ${token.volume24h.toLocaleString("en-US", { maximumFractionDigits: 0 })} 24h volume` : ""}`,
@@ -621,8 +788,8 @@ export class IntelAgentFactory {
         sourceUrl: null,
         structuredData: {
           source: "intel-market-data",
-          symbols: trending.map((token) => token.symbol),
-          chains: trending.map((token) => token.chain).filter(Boolean),
+          symbols: birdeyeTrendingTokens.map((token) => token.symbol),
+          chains: birdeyeTrendingTokens.map((token) => token.chain).filter(Boolean),
           capturedAt: new Date().toISOString(),
         },
       });
@@ -649,7 +816,10 @@ export class IntelAgentFactory {
 
     if (defiProtocols?.ok) {
       const growingProtocols = defiProtocols.value
-        .filter((snapshot) => snapshot.tvlChange1dPercent !== null || snapshot.tvlChange7dPercent !== null)
+        .filter(
+          (snapshot) =>
+            snapshot.tvlChange1dPercent !== null || snapshot.tvlChange7dPercent !== null,
+        )
         .sort(
           (left, right) =>
             (right.tvlChange7dPercent ?? right.tvlChange1dPercent ?? -Infinity) -

@@ -10,6 +10,7 @@ import {
   intelArticleSchema,
   intelReportSchema,
   publisherDraftSchema,
+  recentPostContextItemSchema,
   recentIntelHistoryItemSchema,
   thesisDraftSchema,
 } from "../framework/state.js";
@@ -68,6 +69,7 @@ export {
   intelArticleSchema,
   intelReportSchema,
   publisherDraftSchema,
+  recentPostContextItemSchema,
   recentIntelHistoryItemSchema,
   thesisDraftSchema,
 };

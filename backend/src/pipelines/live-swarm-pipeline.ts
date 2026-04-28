@@ -659,6 +659,40 @@ class LivePipelineExecutionContext {
       .filter((item): item is SwarmState["recentIntelHistory"][number] => item !== null);
   }
 
+  async loadRecentPostContext(): Promise<SwarmState["recentPostContext"]> {
+    if (!this.outboundPostsRepository) {
+      return [];
+    }
+
+    const recentPosts = await this.outboundPostsRepository.listRecentPosts(25);
+
+    if (!recentPosts.ok) {
+      throw new Error(`Failed to load recent post context: ${recentPosts.error.message}`);
+    }
+
+    const context: SwarmState["recentPostContext"] = [];
+
+    for (const post of recentPosts.value) {
+      const text = post.payload.text.trim();
+
+      if (text.length === 0) {
+        continue;
+      }
+
+      context.push({
+        kind: post.kind,
+        text,
+        status: post.status,
+        publishedUrl: post.publishedUrl,
+        signalId: post.signalId,
+        intelId: post.intelId,
+        timestamp: post.publishedAt ?? post.updatedAt,
+      });
+    }
+
+    return context;
+  }
+
   async prepareRun(run: SwarmState["run"]) {
     await this.safePersistRun(run);
 
@@ -1529,8 +1563,7 @@ class LivePipelineCheckpointStore implements SwarmCheckpointStore {
 
   private checkpointCount = 0;
 
-  constructor(private readonly executionContext: LivePipelineExecutionContext) {
-  }
+  constructor(private readonly executionContext: LivePipelineExecutionContext) {}
 
   async save(checkpoint: SwarmCheckpoint) {
     const persistedCheckpoint = await this.executionContext.handleCheckpoint(checkpoint);
@@ -1603,6 +1636,7 @@ export class DefaultLiveSwarmRunPipeline implements LiveSwarmPipeline {
       config,
     });
     initialState.recentIntelHistory = await executionContext.loadRecentIntelHistory();
+    initialState.recentPostContext = await executionContext.loadRecentPostContext();
 
     await executionContext.prepareRun(initialState.run);
 
