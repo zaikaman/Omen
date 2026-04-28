@@ -4,6 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import {
     Activity01Icon,
     Calendar01Icon,
+    Certificate01Icon,
     ChartHistogramIcon,
     GpsSignal01Icon,
     Home01Icon,
@@ -67,6 +68,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         { icon: GpsSignal01Icon, label: 'Signals', path: '/app/signals' },
         { icon: News01Icon, label: 'Intel', path: '/app/intel' },
         { icon: ChartHistogramIcon, label: 'Analytics', path: '/app/analytics' },
+        { icon: Certificate01Icon, label: '0G Evidence', path: '/app/evidence' },
     ];
 
     const pageTitles: Record<string, string> = {
@@ -74,6 +76,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         '/app/signals': 'SIGNAL INTERCEPT',
         '/app/intel': 'INTELLIGENCE FEED',
         '/app/analytics': 'SYSTEM ANALYTICS',
+        '/app/evidence': '0G EVIDENCE',
     };
 
     const currentTitle = pageTitles[location.pathname] || 'SYSTEM OVERVIEW';

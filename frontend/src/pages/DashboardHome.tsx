@@ -4,11 +4,9 @@ import { Home01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import type { AgentEvent, Intel, Signal } from '@omen/shared';
 import { SignalCard } from '../components/SignalCard';
 import { IntelCard } from '../components/IntelCard';
-import { SponsorProofSummary } from '../components/proofs/SponsorProofSummary';
 import { TerminalLog } from '../components/TerminalLog';
 import { useIntelDetail } from '../hooks/useIntel';
 import { useLogs } from '../hooks/useLogs';
-import { useProofDetail } from '../hooks/useProofs';
 import { useRunStatus } from '../hooks/useRunStatus';
 import { useSignalDetail } from '../hooks/useSignals';
 import type { IntelCardItem, LogEntry, SignalCardItem } from '../types/ui-models';
@@ -145,7 +143,6 @@ export function DashboardHome() {
     const latestSignalId = runStatus.dashboardSummary?.latestSignalId ?? null;
     const latestIntelId = runStatus.dashboardSummary?.latestIntelId ?? null;
     const latestRun = runStatus.activeRun ?? runStatus.latestRun;
-    const proofRunId = latestRun?.id ?? null;
     const signalDetail = useSignalDetail(latestSignalId, {
         enabled: Boolean(latestSignalId),
         refreshIntervalMs: REFRESH_INTERVAL_MS,
@@ -157,10 +154,6 @@ export function DashboardHome() {
     const logs = useLogs({
         limit: 25,
         runId: runStatus.activeRunId,
-        refreshIntervalMs: REFRESH_INTERVAL_MS,
-    });
-    const proofDetail = useProofDetail(proofRunId, {
-        enabled: Boolean(proofRunId),
         refreshIntervalMs: REFRESH_INTERVAL_MS,
     });
 
@@ -184,7 +177,7 @@ export function DashboardHome() {
                     </h2>
                     <p className="text-gray-400 mt-1">Overview of your agent status and latest intelligence.</p>
                 </div>
-                {(runStatus.isRefreshing || signalDetail.isRefreshing || intelDetail.isRefreshing || logs.isRefreshing || proofDetail.isRefreshing) && (
+                {(runStatus.isRefreshing || signalDetail.isRefreshing || intelDetail.isRefreshing || logs.isRefreshing) && (
                     <span className="text-xs text-gray-500">Syncing live data...</span>
                 )}
             </div>
@@ -278,20 +271,6 @@ export function DashboardHome() {
                                 </div>
                             </div>
                         </div>
-
-                        <SponsorProofSummary
-                            title="Sponsor Proof"
-                            runId={proofRunId}
-                            artifacts={proofDetail.artifacts}
-                            manifest={proofDetail.manifest}
-                            proofRefIds={[
-                                ...(signalDetail.signal?.proofRefIds ?? []),
-                                ...(intelDetail.intel?.proofRefIds ?? []),
-                            ]}
-                            isLoading={proofDetail.isLoading}
-                            error={proofDetail.error}
-                            className="shrink-0"
-                        />
 
                         <TerminalLog
                             logs={logEntries}
