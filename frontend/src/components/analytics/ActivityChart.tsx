@@ -9,26 +9,7 @@ interface Props {
 export function ActivityChart({ signals }: Props) {
   const data = useMemo(() => {
     if (!signals || signals.length === 0) {
-      // Generate mock data for last 14 days
-      const mockData = [];
-      const now = new Date();
-      for (let i = 13; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-
-        // Random activity with some trend
-        const base = 10;
-        const random = Math.floor(Math.random() * 15);
-        const trend = Math.sin(i / 2) * 5; // Slight wave
-
-        mockData.push({
-          date: dateStr,
-          displayDate: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          count: Math.max(2, Math.floor(base + random + trend))
-        });
-      }
-      return mockData;
+      return [];
     }
 
     // Group by date (YYYY-MM-DD)

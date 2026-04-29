@@ -7,8 +7,8 @@ export function AnalyticsNavigation() {
 
   const tabs = [
     { name: 'Overview', path: '/app/analytics' },
-    { name: 'Performance', path: '/app/analytics/performance' },
-    { name: 'Market', path: '/app/analytics/market' },
+    { name: 'Outcomes', path: '/app/analytics/performance' },
+    { name: 'Assets', path: '/app/analytics/market' },
     { name: 'Signals', path: '/app/analytics/signals' },
   ];
 

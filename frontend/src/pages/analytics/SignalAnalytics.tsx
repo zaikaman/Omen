@@ -1,33 +1,27 @@
 import { ActivityChart } from '../../components/analytics/ActivityChart';
+import { ConfidenceOutcomeChart } from '../../components/analytics/ConfidenceOutcomeChart';
+import { DirectionBreakdownChart } from '../../components/analytics/DirectionBreakdownChart';
 import { SignalConfidenceChart } from '../../components/analytics/SignalConfidenceChart';
+import { SignalStatusChart } from '../../components/analytics/SignalStatusChart';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { GpsSignal01Icon, ChartHistogramIcon } from '@hugeicons/core-free-icons';
-import {
-  toActivitySignals,
-  toConfidenceSignals,
-  useAnalyticsOutletContext,
-} from '../AnalyticsPage';
+import { AnalyticsUpIcon, ChartHistogramIcon, GpsSignal01Icon } from '@hugeicons/core-free-icons';
+import { useAnalyticsOutletContext } from '../AnalyticsPage';
 
 export function SignalAnalytics() {
-  const { latestSnapshot, snapshots, isLoading } = useAnalyticsOutletContext();
-  const signals = toActivitySignals(
-    snapshots,
-    (snapshot) => snapshot.totals.publishedSignals,
-  );
-  const confidenceSignals = toConfidenceSignals(latestSnapshot);
+  const { signals, isLoading } = useAnalyticsOutletContext();
 
-  if (isLoading && !latestSnapshot) {
+  if (isLoading && signals.length === 0) {
     return (
       <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
-        Loading analytics snapshots...
+        Loading signal analytics...
       </div>
     );
   }
 
-  if (!latestSnapshot) {
+  if (signals.length === 0) {
     return (
       <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
-        No analytics snapshots have been generated yet.
+        No signals match the selected timeframe.
       </div>
     );
   }
@@ -35,7 +29,6 @@ export function SignalAnalytics() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Signal Activity */}
         <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
             <div className="relative">
@@ -44,28 +37,39 @@ export function SignalAnalytics() {
             </div>
             <h3 className="text-lg font-bold text-white">Signal Activity</h3>
           </div>
-          {signals.length > 0 ? (
-            <ActivityChart signals={signals} />
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-gray-500">
-              No signal activity in the analytics feed.
-            </div>
-          )}
+          <ActivityChart signals={signals} />
         </div>
 
-        {/* Confidence Distribution */}
         <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
             <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-cyan-500" />
             <h3 className="text-lg font-bold text-white">Confidence Distribution</h3>
           </div>
-          {confidenceSignals.length > 0 ? (
-            <SignalConfidenceChart signals={confidenceSignals} />
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-gray-500">
-              No confidence-band data in the latest snapshot.
-            </div>
-          )}
+          <SignalConfidenceChart signals={signals} />
+        </div>
+
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <HugeiconsIcon icon={AnalyticsUpIcon} className="w-5 h-5 text-purple-500" />
+            <h3 className="text-lg font-bold text-white">Direction Mix</h3>
+          </div>
+          <DirectionBreakdownChart signals={signals} />
+        </div>
+
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-lg font-bold text-white">Lifecycle Breakdown</h3>
+          </div>
+          <SignalStatusChart signals={signals} />
+        </div>
+
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 lg:col-span-2">
+          <div className="flex items-center gap-2 mb-6">
+            <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-amber-500" />
+            <h3 className="text-lg font-bold text-white">Confidence vs Outcome</h3>
+          </div>
+          <ConfidenceOutcomeChart signals={signals} />
         </div>
       </div>
     </div>

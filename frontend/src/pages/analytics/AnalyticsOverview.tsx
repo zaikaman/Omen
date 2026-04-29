@@ -1,90 +1,122 @@
-import { MindshareChart } from '../../components/MindshareChart';
 import { ActivityChart } from '../../components/analytics/ActivityChart';
-import { WinRateChart } from '../../components/analytics/WinRateChart';
+import { AssetPerformanceTable } from '../../components/analytics/AssetPerformanceTable';
+import { DirectionBreakdownChart } from '../../components/analytics/DirectionBreakdownChart';
+import { SignalStatusChart } from '../../components/analytics/SignalStatusChart';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ChartHistogramIcon, GpsSignal01Icon } from '@hugeicons/core-free-icons';
-import {
-  toActivitySignals,
-  toMindsharePoints,
-  toPerformanceSignals,
-  useAnalyticsOutletContext,
-} from '../AnalyticsPage';
+import { AnalyticsUpIcon, ChartHistogramIcon, GpsSignal01Icon } from '@hugeicons/core-free-icons';
+import { useAnalyticsOutletContext } from '../AnalyticsPage';
+
+type SummaryCardProps = {
+  label: string;
+  value: string;
+  tone?: 'default' | 'good' | 'bad' | 'info';
+};
+
+const toneClassName: Record<NonNullable<SummaryCardProps['tone']>, string> = {
+  default: 'text-white',
+  good: 'text-emerald-400',
+  bad: 'text-red-400',
+  info: 'text-cyan-400',
+};
+
+function SummaryCard({ label, value, tone = 'default' }: SummaryCardProps) {
+  return (
+    <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+      <div className="text-gray-400 text-sm mb-1">{label}</div>
+      <div className={`text-2xl font-bold ${toneClassName[tone]}`}>{value}</div>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
+      No signals match the selected timeframe.
+    </div>
+  );
+}
 
 export function AnalyticsOverview() {
-  const { latestSnapshot, snapshots, isLoading } = useAnalyticsOutletContext();
-  const mindshare = toMindsharePoints(latestSnapshot);
-  const signals = toActivitySignals(
-    snapshots,
-    (snapshot) => snapshot.totals.publishedSignals,
-  );
-  const performanceSignals = toPerformanceSignals(latestSnapshot);
+  const { signals, summary, isLoading } = useAnalyticsOutletContext();
 
-  if (isLoading && !latestSnapshot) {
+  if (isLoading && signals.length === 0) {
     return (
       <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
-        Loading analytics snapshots...
+        Loading signal analytics...
       </div>
     );
   }
 
-  if (!latestSnapshot) {
-    return (
-      <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
-        No analytics snapshots have been generated yet.
-      </div>
-    );
+  if (signals.length === 0) {
+    return <EmptyState />;
   }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <SummaryCard label="Signals" value={summary.totalSignals.toString()} />
+        <SummaryCard label="Active" value={summary.activeSignals.toString()} tone="info" />
+        <SummaryCard
+          label="Win Rate"
+          value={summary.winRate === null ? 'N/A' : `${summary.winRate.toFixed(1)}%`}
+          tone="good"
+        />
+        <SummaryCard
+          label="Total PnL"
+          value={`${summary.totalPnlPercent > 0 ? '+' : ''}${summary.totalPnlPercent.toFixed(2)}%`}
+          tone={summary.totalPnlPercent >= 0 ? 'good' : 'bad'}
+        />
+        <SummaryCard
+          label="Avg Confidence"
+          value={
+            summary.averageConfidence === null
+              ? 'N/A'
+              : `${summary.averageConfidence.toFixed(1)}%`
+          }
+          tone="info"
+        />
+        <SummaryCard
+          label="Closed"
+          value={`${summary.closedSignals} (${summary.winningSignals}/${summary.losingSignals})`}
+        />
+        <SummaryCard label="Top Asset" value={summary.mostFrequentAsset ?? 'N/A'} />
+        <SummaryCard
+          label="Long / Short"
+          value={`${summary.longSignals} / ${summary.shortSignals}`}
+        />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Mindshare Chart */}
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <HugeiconsIcon icon={GpsSignal01Icon} className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-lg font-bold text-white">Signal Activity</h3>
+          </div>
+          <ActivityChart signals={signals} />
+        </div>
+
         <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
             <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-cyan-500" />
-            <h3 className="text-lg font-bold text-white">Mindshare Velocity</h3>
+            <h3 className="text-lg font-bold text-white">Signal Lifecycle</h3>
           </div>
-
-          {mindshare.length > 0 ? (
-            <MindshareChart data={mindshare} />
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-gray-500">
-              No mindshare data in the latest snapshot.
-            </div>
-          )}
+          <SignalStatusChart signals={signals} />
         </div>
 
-        {/* Win Rate (New Highlight) */}
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <HugeiconsIcon icon={AnalyticsUpIcon} className="w-5 h-5 text-purple-500" />
+            <h3 className="text-lg font-bold text-white">Direction Mix</h3>
+          </div>
+          <DirectionBreakdownChart signals={signals} />
+        </div>
+
         <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
             <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-emerald-500" />
-            <h3 className="text-lg font-bold text-white">Performance Overview</h3>
+            <h3 className="text-lg font-bold text-white">Asset Performance</h3>
           </div>
-          {performanceSignals.length > 0 ? (
-            <WinRateChart signals={performanceSignals} />
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-gray-500">
-              No signal performance data in the latest snapshot.
-            </div>
-          )}
-        </div>
-
-        {/* Signal Activity */}
-        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 lg:col-span-2">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="relative">
-              <HugeiconsIcon icon={GpsSignal01Icon} className="w-5 h-5 text-emerald-500" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-            </div>
-            <h3 className="text-lg font-bold text-white">Signal Activity</h3>
-          </div>
-          {signals.length > 0 ? (
-            <ActivityChart signals={signals} />
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-gray-500">
-              No signal activity in the analytics feed.
-            </div>
-          )}
+          <AssetPerformanceTable signals={signals} />
         </div>
       </div>
     </div>

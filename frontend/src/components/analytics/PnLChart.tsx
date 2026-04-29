@@ -27,21 +27,10 @@ export function PnLChart({ signals }: Props) {
       return acc;
     }, []);
 
-  // Default mock if no data
-  const chartData = data.length > 0 ? data : [
-    { name: 1, pnl: 0 },
-    { name: 2, pnl: 1.2 },
-    { name: 3, pnl: 0.8 },
-    { name: 4, pnl: 2.5 },
-    { name: 5, pnl: 1.9 },
-    { name: 6, pnl: 3.4 },
-    { name: 7, pnl: 4.2 },
-  ];
-
   return (
     <div className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
+        <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
           <XAxis
             dataKey="name"

@@ -1,66 +1,78 @@
-import { MindshareChart } from '../../components/MindshareChart';
+import { AssetPerformanceTable } from '../../components/analytics/AssetPerformanceTable';
+import { DirectionBreakdownChart } from '../../components/analytics/DirectionBreakdownChart';
+import { SignalConfidenceChart } from '../../components/analytics/SignalConfidenceChart';
 import { TokenFrequencyChart } from '../../components/analytics/TokenFrequencyChart';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ChartHistogramIcon, News01Icon } from '@hugeicons/core-free-icons';
-import {
-  toMindsharePoints,
-  toTokenFrequencySignals,
-  useAnalyticsOutletContext,
-} from '../AnalyticsPage';
+import { AnalyticsUpIcon, ChartHistogramIcon, News01Icon } from '@hugeicons/core-free-icons';
+import { useAnalyticsOutletContext } from '../AnalyticsPage';
 
 export function MarketAnalytics() {
-  const { latestSnapshot, isLoading } = useAnalyticsOutletContext();
-  const mindshare = toMindsharePoints(latestSnapshot);
-  const tokenSignals = toTokenFrequencySignals(latestSnapshot);
+  const { signals, summary, isLoading } = useAnalyticsOutletContext();
 
-  if (isLoading && !latestSnapshot) {
+  if (isLoading && signals.length === 0) {
     return (
       <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
-        Loading analytics snapshots...
+        Loading signal analytics...
       </div>
     );
   }
 
-  if (!latestSnapshot) {
+  if (signals.length === 0) {
     return (
       <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-gray-400">
-        No analytics snapshots have been generated yet.
+        No signals match the selected timeframe.
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Mindshare Chart */}
-        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-cyan-500" />
-            <h3 className="text-lg font-bold text-white">Mindshare Velocity</h3>
-          </div>
-
-          {mindshare.length > 0 ? (
-            <MindshareChart data={mindshare} />
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-gray-500">
-              No mindshare data in the latest snapshot.
-            </div>
-          )}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+          <div className="text-gray-400 text-sm mb-1">Top Asset</div>
+          <div className="text-2xl font-bold text-white">{summary.mostFrequentAsset ?? 'N/A'}</div>
         </div>
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+          <div className="text-gray-400 text-sm mb-1">Long Signals</div>
+          <div className="text-2xl font-bold text-emerald-400">{summary.longSignals}</div>
+        </div>
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
+          <div className="text-gray-400 text-sm mb-1">Short Signals</div>
+          <div className="text-2xl font-bold text-red-400">{summary.shortSignals}</div>
+        </div>
+      </div>
 
-        {/* Top Tokens */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-6">
             <HugeiconsIcon icon={News01Icon} className="w-5 h-5 text-purple-500" />
-            <h3 className="text-lg font-bold text-white">Top Tokens by Frequency</h3>
+            <h3 className="text-lg font-bold text-white">Top Signal Assets</h3>
           </div>
-          {tokenSignals.length > 0 ? (
-            <TokenFrequencyChart signals={tokenSignals} />
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-gray-500">
-              No token-frequency data in the latest snapshot.
-            </div>
-          )}
+          <TokenFrequencyChart signals={signals} />
+        </div>
+
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <HugeiconsIcon icon={AnalyticsUpIcon} className="w-5 h-5 text-cyan-500" />
+            <h3 className="text-lg font-bold text-white">Direction Mix</h3>
+          </div>
+          <DirectionBreakdownChart signals={signals} />
+        </div>
+
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 lg:col-span-2">
+          <div className="flex items-center gap-2 mb-6">
+            <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-lg font-bold text-white">Asset Performance</h3>
+          </div>
+          <AssetPerformanceTable signals={signals} />
+        </div>
+
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 lg:col-span-2">
+          <div className="flex items-center gap-2 mb-6">
+            <HugeiconsIcon icon={ChartHistogramIcon} className="w-5 h-5 text-cyan-500" />
+            <h3 className="text-lg font-bold text-white">Confidence Distribution</h3>
+          </div>
+          <SignalConfidenceChart signals={signals} />
         </div>
       </div>
     </div>

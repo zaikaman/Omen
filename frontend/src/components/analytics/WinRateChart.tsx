@@ -11,11 +11,7 @@ const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#6b7280'];
 export function WinRateChart({ signals }: Props) {
   const data = useMemo(() => {
     if (!signals || signals.length === 0) {
-      return [
-        { name: 'Wins', value: 65 },
-        { name: 'Losses', value: 25 },
-        { name: 'Pending', value: 10 },
-      ];
+      return [];
     }
 
     const wins = signals.filter((s) => s.content.status === 'tp_hit').length;

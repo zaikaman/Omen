@@ -9,13 +9,7 @@ interface Props {
 export function SignalConfidenceChart({ signals }: Props) {
   const data = useMemo(() => {
     if (!signals || signals.length === 0) {
-      return [
-        { name: '90-100%', count: 12, color: '#10b981' },
-        { name: '80-89%', count: 25, color: '#06b6d4' },
-        { name: '70-79%', count: 18, color: '#8b5cf6' },
-        { name: '60-69%', count: 8, color: '#f59e0b' },
-        { name: '<60%', count: 4, color: '#ef4444' },
-      ];
+      return [];
     }
 
     const groups = [
