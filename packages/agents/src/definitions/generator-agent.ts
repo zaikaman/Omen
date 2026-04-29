@@ -65,9 +65,14 @@ const lowerProseKeepTickers = (value: string) =>
     .join("");
 
 const GENERATED_TWEET_MAX_LENGTH = 270;
+const X_TWEET_MAX_LENGTH = 280;
+const MAX_GENERATOR_ATTEMPTS = 2;
 
 const normalizeTweetWhitespace = (value: string) =>
   value.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+
+const extractResponseTweetText = (response: z.infer<typeof rawGeneratorContentSchema>) =>
+  normalizeTweetWhitespace(response.tweetText ?? response.tweet_text ?? "");
 
 const trimLine = (value: string, maxLength: number) => {
   const normalized = value.replace(/\s+/g, " ").trim();
@@ -245,26 +250,43 @@ export class GeneratorAgentFactory {
     }
 
     try {
-      const response = await this.llmClient.completeJson({
-        schema: rawGeneratorContentSchema,
-        systemPrompt: buildGeneratorSystemPrompt(parsed.context),
-        userPrompt: [
-          "Generate content for this INTEL REPORT.",
-          "",
-          `I need a 'tweetText' at ${GENERATED_TWEET_MAX_LENGTH.toString()} characters or fewer, a 'blogPost' markdown article, an 'imagePrompt' for a relevant cover image with no visible text, a 'formattedContent' value, and a short 'logMessage'.`,
-          "",
-          `Report: ${JSON.stringify(parsed.report, null, 2)}`,
-        ].join("\n"),
-      });
-      const responseTweetText = response.tweetText ?? response.tweet_text ?? "";
+      let lastResponse: z.infer<typeof rawGeneratorContentSchema> | null = null;
 
-      if (responseTweetText.trim().length === 0) {
-        throw new Error("Generator LLM response did not include tweetText.");
+      for (let attempt = 1; attempt <= MAX_GENERATOR_ATTEMPTS; attempt += 1) {
+        const response: z.infer<typeof rawGeneratorContentSchema> =
+          await this.llmClient.completeJson({
+          schema: rawGeneratorContentSchema,
+          systemPrompt: buildGeneratorSystemPrompt(parsed.context),
+          userPrompt: [
+            attempt === 1
+              ? "Generate content for this INTEL REPORT."
+              : "Regenerate the content for this INTEL REPORT because the previous tweetText was too long for X.",
+            "",
+            `I need a 'tweetText' at ${GENERATED_TWEET_MAX_LENGTH.toString()} characters or fewer, a 'blogPost' markdown article, an 'imagePrompt' for a relevant cover image with no visible text, a 'formattedContent' value, and a short 'logMessage'.`,
+            attempt === 1
+              ? ""
+              : `The previous tweetText was ${extractResponseTweetText(lastResponse ?? {}).length.toString()} characters. Return a complete tweetText under ${X_TWEET_MAX_LENGTH.toString()} characters. Do not truncate mid-sentence or mid-phrase.`,
+            "",
+            `Report: ${JSON.stringify(parsed.report, null, 2)}`,
+          ].join("\n"),
+        });
+        const responseTweetText = extractResponseTweetText(response);
+        lastResponse = response;
+
+        if (responseTweetText.length === 0) {
+          throw new Error("Generator LLM response did not include tweetText.");
+        }
+
+        if (responseTweetText.length < X_TWEET_MAX_LENGTH) {
+          return generatorOutputSchema.parse({
+            content: normalizeGeneratorContent(response, parsed.report),
+          });
+        }
       }
 
-      return generatorOutputSchema.parse({
-        content: normalizeGeneratorContent(response, parsed.report),
-      });
+      throw new Error(
+        `Generator LLM tweetText exceeded ${X_TWEET_MAX_LENGTH.toString()} characters after ${MAX_GENERATOR_ATTEMPTS.toString()} attempts.`,
+      );
     } catch (error) {
       console.warn("[omen-generator] LLM generation failed; refusing fallback tweet publication.", {
         runId: parsed.context.runId,

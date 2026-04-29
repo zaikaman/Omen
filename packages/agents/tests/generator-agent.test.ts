@@ -181,6 +181,78 @@ describe("generator agent", () => {
     expect(result.content.tweetText).toMatch(/\bawaiting$/i);
   });
 
+  it("asks the generator to retry when tweet output is too long", async () => {
+    const calls: string[] = [];
+    const tooLongTweet = [
+      "bitcoin pressure and institutional signals are becoming a longer form macro note",
+      "",
+      "- bitcoin has broken below $76,000 amid broader underperformance narratives, with high-signal chatter highlighting eth's 5-year lag versus nvda and cautious positioning from traders like pentosh1 awaiting clearer confirmation",
+      "- regulatory and stablecoin headlines remain constructive but not enough to offset risk-off liquidity yet",
+      "",
+      "watch $BTC $ETH if macro liquidity confirms after the fed",
+    ].join("\n");
+    const validTweet =
+      "bitcoin pressure builds into fed week\n\n- btc holds below 76k as risk appetite thins\n- policy tailwinds need liquidity confirmation\n\nwatch $BTC $ETH if macro flows turn";
+    const agent = createGeneratorAgent({
+      llmClient: {
+        completeJson: async (input: { userPrompt: string }) => {
+          calls.push(input.userPrompt);
+
+          return calls.length === 1
+            ? {
+                topic: "Bitcoin Pressure",
+                tweetText: tooLongTweet,
+                blogPost: "# Bitcoin Pressure\n\n## Executive Summary\nBTC is weak.",
+                imagePrompt: "Cyberpunk BTC pressure cover art.",
+                formattedContent: tooLongTweet,
+                logMessage: "INTEL LOCKED: BTC pressure.",
+              }
+            : {
+                topic: "Bitcoin Pressure",
+                tweetText: validTweet,
+                blogPost: "# Bitcoin Pressure\n\n## Executive Summary\nBTC is weak.",
+                imagePrompt: "Cyberpunk BTC pressure cover art.",
+                formattedContent: validTweet,
+                logMessage: "INTEL LOCKED: BTC pressure.",
+              };
+        },
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generator-retry-too-long",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "Bitcoin Pressure",
+          insight:
+            "Bitcoin has broken below $76,000 while high-signal accounts frame the move as a patience trade. Institutional optimism remains in the background through stablecoin and regulatory headlines.",
+          importanceScore: 7,
+          category: "market_update",
+          title: "Bitcoin Pressure and Institutional Signals",
+          summary:
+            "Bitcoin has broken below $76,000 while traders wait for higher-timeframe reclaim levels. Regulatory and stablecoin adoption headlines are still constructive.",
+          confidence: 70,
+          symbols: ["BTC", "ETH"],
+          imagePrompt: null,
+        },
+        evidence: [],
+      },
+      createInitialSwarmState({ run, config }),
+    );
+
+    expect(tooLongTweet.length).toBeGreaterThanOrEqual(280);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toContain("previous tweetText was too long for X");
+    expect(result.content.tweetText).toBe(validTweet);
+    expect(result.content.tweetText ?? "").toHaveLength(validTweet.length);
+    expect(validTweet.length).toBeLessThan(280);
+  });
+
   it("preserves model tweet output with broken parentheticals instead of retrying", async () => {
     const calls: string[] = [];
     const brokenTweet = [
