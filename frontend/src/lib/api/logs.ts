@@ -1,7 +1,6 @@
 import { logFeedResponseSchema, type LogFeedResponse } from '@omen/shared';
 
 import { apiRequest } from './client';
-import { getSeededLogs, withSeededFallback } from './seededFallback';
 
 export type GetLogsOptions = {
   runId?: string | null;
@@ -26,7 +25,4 @@ export const getLiveLogs = async (
 };
 
 export const getLogs = (options: GetLogsOptions = {}): Promise<LogFeedResponse> =>
-  withSeededFallback(
-    () => getLiveLogs(options),
-    () => getSeededLogs(options),
-  );
+  getLiveLogs(options);

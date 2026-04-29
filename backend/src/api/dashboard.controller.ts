@@ -1,13 +1,12 @@
 import type { Request, Response } from "express";
 
-import { demoSchedulerStatus } from "@omen/db";
 import { schedulerStatusSchema } from "@omen/shared";
 
 import type { BackendEnv } from "../bootstrap/env.js";
 import { buildDashboardSummaryReadModel } from "../read-models/dashboard-summary.js";
 
 const resolveSchedulerStatus = (getSchedulerStatus?: () => unknown) =>
-  schedulerStatusSchema.parse(getSchedulerStatus?.() ?? demoSchedulerStatus);
+  getSchedulerStatus ? schedulerStatusSchema.parse(getSchedulerStatus()) : null;
 
 export const createDashboardSummaryController =
   (context: {
@@ -16,6 +15,15 @@ export const createDashboardSummaryController =
   }) =>
   async (_req: Request, res: Response) => {
     const scheduler = resolveSchedulerStatus(context.getSchedulerStatus);
+
+    if (!scheduler) {
+      res.status(503).json({
+        success: false,
+        error: "Scheduler status is not available from the live runtime.",
+      });
+      return;
+    }
+
     const summary = await buildDashboardSummaryReadModel({
       env: context.env,
       scheduler,
@@ -34,8 +42,18 @@ export const createDashboardSummaryController =
 
 export const createDashboardSchedulerController =
   (getSchedulerStatus?: () => unknown) => (_req: Request, res: Response) => {
+    const scheduler = resolveSchedulerStatus(getSchedulerStatus);
+
+    if (!scheduler) {
+      res.status(503).json({
+        success: false,
+        error: "Scheduler status is not available from the live runtime.",
+      });
+      return;
+    }
+
     res.json({
       success: true,
-      data: resolveSchedulerStatus(getSchedulerStatus),
+      data: scheduler,
     });
   };

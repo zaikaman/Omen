@@ -6,13 +6,13 @@ import { intelFeedResponseSchema } from "@omen/shared";
 import type { BackendEnv } from "../bootstrap/env.js";
 import { presentIntelDetail, presentIntelFeed } from "../presenters/intel.presenter.js";
 
-const parseLimit = (value: unknown, fallback: number) => {
+const parseLimit = (value: unknown, defaultLimit: number) => {
   if (typeof value !== "string") {
-    return fallback;
+    return defaultLimit;
   }
 
   const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : defaultLimit;
 };
 
 const createRepository = (env: BackendEnv) => {

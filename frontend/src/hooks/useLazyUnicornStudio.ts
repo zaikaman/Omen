@@ -94,12 +94,12 @@ function loadUnicornScript(): Promise<UnicornStudioAPI> {
     };
 
     // Use requestIdleCallback for non-blocking load
-    // Falls back to setTimeout for Safari
+    // Uses setTimeout for Safari.
     if ('requestIdleCallback' in window) {
       (window as Window & { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number })
         .requestIdleCallback(loadScript, { timeout: 2000 });
     } else {
-      // Fallback: use setTimeout with 0 delay to defer execution
+      // Defer execution without requestIdleCallback.
       setTimeout(loadScript, 0);
     }
   });
@@ -197,7 +197,7 @@ export function useLazyUnicornStudio(
         (window as Window & { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number })
           .requestIdleCallback(() => initScene(), { timeout: 1000 });
       } else {
-        // Use requestAnimationFrame as fallback for smoother init
+        // Use requestAnimationFrame without requestIdleCallback.
         requestAnimationFrame(() => {
           requestAnimationFrame(() => initScene());
         });

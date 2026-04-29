@@ -5,7 +5,6 @@ import { RunsRepository, createSupabaseServiceRoleClient } from "@omen/db";
 import { createBackendEnv } from "../bootstrap/env.js";
 import { createLogger } from "../bootstrap/logger.js";
 import { DefaultRunCoordinator } from "../coordinator/run-coordinator.js";
-import { DefaultDemoRunPipeline } from "../pipelines/demo-run-pipeline.js";
 import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline.js";
 import { getRuntimeModeFlags } from "../scheduler/runtime-mode.js";
 
@@ -13,9 +12,7 @@ const runScheduledCycle = async () => {
   const env = createBackendEnv();
   const logger = createLogger(env);
   const mode = getRuntimeModeFlags(env.runtimeMode);
-  const pipeline = mode.usesMockData
-    ? new DefaultDemoRunPipeline()
-    : new DefaultLiveSwarmRunPipeline({ env });
+  const pipeline = new DefaultLiveSwarmRunPipeline({ env });
   const runsRepository =
     env.supabase.url && env.supabase.serviceRoleKey
       ? new RunsRepository(

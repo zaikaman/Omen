@@ -3,7 +3,6 @@ import type { Request, Response } from "express";
 import {
   OutboundPostsRepository,
   createSupabaseServiceRoleClient,
-  demoRunBundles,
 } from "@omen/db";
 import {
   postFeedResponseSchema,
@@ -12,13 +11,13 @@ import {
 
 import type { BackendEnv } from "../bootstrap/env.js";
 
-const parseLimit = (value: unknown, fallback: number) => {
+const parseLimit = (value: unknown, defaultLimit: number) => {
   if (typeof value !== "string") {
-    return fallback;
+    return defaultLimit;
   }
 
   const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : defaultLimit;
 };
 
 const createRepository = (env: Pick<BackendEnv, "supabase">) => {
@@ -47,16 +46,9 @@ export const createPostsFeedController =
     const repository = createRepository(env);
 
     if (!repository) {
-      const items = demoRunBundles
-        .flatMap((bundle) => bundle.outboundPosts)
-        .filter((post) => !runId || post.runId === runId)
-        .filter((post) => !signalId || post.signalId === signalId)
-        .filter((post) => !intelId || post.intelId === intelId)
-        .slice(0, limit);
-
-      res.json({
-        success: true,
-        data: postFeedResponseSchema.parse({ items }),
+      res.status(503).json({
+        success: false,
+        error: "Posts require a configured Supabase persistence backend.",
       });
       return;
     }
@@ -85,19 +77,9 @@ export const createPostStatusController =
     const repository = createRepository(env);
 
     if (!repository) {
-      const post =
-        demoRunBundles
-          .flatMap((bundle) => bundle.outboundPosts)
-          .find((entry) => entry.id === postId) ?? null;
-
-      if (!post) {
-        res.status(404).json({ success: false, error: "Post not found." });
-        return;
-      }
-
-      res.json({
-        success: true,
-        data: postStatusResponseSchema.parse({ item: post }),
+      res.status(503).json({
+        success: false,
+        error: "Post status requires a configured Supabase persistence backend.",
       });
       return;
     }

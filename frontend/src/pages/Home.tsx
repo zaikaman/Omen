@@ -243,7 +243,7 @@ export default function Home() {
                         zIndex: 0,
                     }}
                 >
-                    {/* Elegant placeholder shown while UnicornStudio loads */}
+                    {/* Loading state shown while UnicornStudio initializes */}
                     <AnimatePresence>
                         {!unicornReady && (
                             <motion.div
@@ -279,7 +279,7 @@ export default function Home() {
                     </AnimatePresence>
                 </div>
 
-                {/* Animated Background Elements - Fallback/Additional */}
+                {/* Animated background elements */}
                 <div className="absolute inset-0 -z-20 overflow-hidden pointer-events-none">
                     <motion.div
                         style={{ y: y1, x: -100 }}

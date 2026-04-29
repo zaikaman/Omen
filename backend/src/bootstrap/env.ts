@@ -105,17 +105,17 @@ export type BackendEnv = {
   };
 };
 
-const parseBoolean = (value: string | undefined, fallback: boolean) => {
+const parseBoolean = (value: string | undefined, defaultValue: boolean) => {
   if (value === undefined) {
-    return fallback;
+    return defaultValue;
   }
 
   return value.toLowerCase() === "true";
 };
 
-const parsePort = (value: string | undefined, fallback: number) => {
+const parsePort = (value: string | undefined, defaultValue: number) => {
   const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
 };
 
 const parseApiKeyArray = (

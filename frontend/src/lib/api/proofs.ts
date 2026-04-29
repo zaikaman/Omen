@@ -10,11 +10,6 @@ import {
 } from '@omen/shared';
 
 import { apiRequest } from './client';
-import {
-  getSeededProofDetail,
-  getSeededProofFeed,
-  withSeededFallback,
-} from './seededFallback';
 
 export type ProofSummary = {
   runId: string;
@@ -99,10 +94,7 @@ export const getLiveProofFeed = (limit = 20): Promise<ProofFeedResponse> =>
   apiRequest(`/proofs?limit=${limit.toString()}`, proofFeedResponseSchema);
 
 export const getProofFeed = (limit = 20): Promise<ProofFeedResponse> =>
-  withSeededFallback(
-    () => getLiveProofFeed(limit),
-    () => getSeededProofFeed(limit),
-  );
+  getLiveProofFeed(limit);
 
 export const getLiveProofDetail = (
   runId: string,
@@ -110,7 +102,4 @@ export const getLiveProofDetail = (
   apiRequest(`/proofs/${encodeURIComponent(runId)}`, proofDetailResponseSchema);
 
 export const getProofDetail = (runId: string): Promise<ProofDetailResponse> =>
-  withSeededFallback(
-    () => getLiveProofDetail(runId),
-    () => getSeededProofDetail(runId),
-  );
+  getLiveProofDetail(runId);

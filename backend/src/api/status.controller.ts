@@ -5,7 +5,6 @@ import {
   type RuntimeMode,
   type SchedulerStatus,
 } from "@omen/shared";
-import { demoSchedulerStatus } from "@omen/db";
 
 import type { BackendEnv } from "../bootstrap/env.js";
 import { buildRuntimeStatusReadModel } from "../read-models/runtime-status.js";
@@ -19,9 +18,15 @@ export type RuntimeStatusControllerContext = {
 export const createStatusController = (
   context: RuntimeStatusControllerContext,
 ) => async (_req: Request, res: Response) => {
-  const scheduler = schedulerStatusSchema.parse(
-    context.getSchedulerStatus?.() ?? demoSchedulerStatus,
-  );
+  if (!context.getSchedulerStatus) {
+    res.status(503).json({
+      success: false,
+      error: "Runtime status requires a live scheduler.",
+    });
+    return;
+  }
+
+  const scheduler = schedulerStatusSchema.parse(context.getSchedulerStatus());
   const runtimeStatus = await buildRuntimeStatusReadModel({
     env: context.env,
     runtimeMode: context.runtimeMode,
@@ -33,11 +38,11 @@ export const createStatusController = (
     return;
   }
 
-    res.json({
-      success: true,
-      data: {
-        ...runtimeStatus.value,
-        activeRunId: runtimeStatus.value.activeRun?.id ?? null,
-      },
-    });
-  };
+  res.json({
+    success: true,
+    data: {
+      ...runtimeStatus.value,
+      activeRunId: runtimeStatus.value.activeRun?.id ?? null,
+    },
+  });
+};

@@ -109,9 +109,9 @@ const roleClassName: Partial<Record<AgentRole, string>> = {
   publisher: 'border-green-500/40 bg-green-500/10 text-green-200',
 };
 
-const formatLabel = (value: string | null | undefined, fallback = 'UNKNOWN') => {
+const formatLabel = (value: string | null | undefined, defaultLabel = 'UNKNOWN') => {
   if (!value) {
-    return fallback;
+    return defaultLabel;
   }
 
   return value.replace(/_/g, ' ').toUpperCase();
@@ -303,7 +303,7 @@ export function SwarmTracePage() {
 
       {(runStatus.error || logs.error || proofDetail.error || topology.error) && (
         <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
-          Some live telemetry is unavailable. Omen may be showing seeded fallback data for missing backend sources.
+          Some live telemetry is unavailable.
         </div>
       )}
 

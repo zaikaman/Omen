@@ -4,8 +4,6 @@ import {
   AgentNodesRepository,
   ServiceRegistrySnapshotsRepository,
   createSupabaseServiceRoleClient,
-  demoAgentNodes,
-  demoRunBundles,
 } from "@omen/db";
 import {
   agentNodeSchema,
@@ -70,15 +68,15 @@ const buildServicesFromNodes = (nodes: AgentNode[]) =>
 
     return services.map((service) =>
       axlRegisteredServiceSchema.parse({
-        registrationId: `${node.peerId ?? node.id}:${service}:demo`,
+        registrationId: `${node.peerId ?? node.id}:${service}`,
         service,
-        version: "demo",
+        version: "live",
         peerId: node.peerId,
         role: node.role,
         description: `${node.role} service`,
         methods: [service],
         tools: [],
-        tags: ["demo"],
+        tags: [],
         status: node.status === "starting" ? "degraded" : node.status,
         registeredAt: node.lastHeartbeatAt ?? new Date().toISOString(),
         lastSeenAt: node.lastHeartbeatAt ?? new Date().toISOString(),
@@ -86,63 +84,12 @@ const buildServicesFromNodes = (nodes: AgentNode[]) =>
     );
   });
 
-const buildDemoTopologyResponse = () => {
-  const nodes = demoAgentNodes;
-  const nodeIndex = new Map(nodes.map((node) => [node.id, node] as const));
-
-  return {
-    nodes: nodes.map((node) => agentNodeSchema.parse(node)),
-    snapshot: axlServiceRegistrySnapshotSchema.parse({
-      capturedAt:
-        nodes
-          .map((node) => node.lastHeartbeatAt)
-          .filter((value): value is string => value !== null)
-          .sort()
-          .at(-1) ?? new Date().toISOString(),
-      source: "demo-seed",
-      peers: nodes
-        .map((node) => toPeerStatus(node))
-        .filter((peer): peer is AxlPeerStatus => peer !== null),
-      services: buildServicesFromNodes(nodes),
-      routes: demoRunBundles
-        .flatMap((bundle) => bundle.axlMessages)
-        .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
-        .map((message) => {
-          const targetNode =
-            (message.toAgentId ? nodeIndex.get(message.toAgentId) : null) ?? null;
-          const sourceNode = nodeIndex.get(message.fromAgentId) ?? null;
-
-          return {
-            kind: message.transportKind,
-            peerId:
-              targetNode?.peerId ??
-              sourceNode?.peerId ??
-              message.toAgentId ??
-              message.fromAgentId,
-            service: message.topic,
-            operation: message.messageType,
-            runId: message.runId,
-            correlationId: message.correlationId,
-            deliveryStatus: message.deliveryStatus,
-            observedAt: message.timestamp,
-            metadata: {
-              fromAgentId: message.fromAgentId,
-              toAgentId: message.toAgentId,
-              durableRefId: message.durableRefId,
-            },
-          };
-        }),
-      metadata: { mode: "demo" },
-    }),
-  };
-};
-
 export const createTopologyController =
   (env: Pick<BackendEnv, "supabase">) => async (_req: Request, res: Response) => {
     if (!isPersistenceConfigured(env)) {
-      res.json({
-        success: true,
-        data: buildDemoTopologyResponse(),
+      res.status(503).json({
+        success: false,
+        error: "Topology requires a configured Supabase persistence backend.",
       });
       return;
     }
@@ -163,22 +110,19 @@ export const createTopologyController =
       return;
     }
 
-    const fallbackSnapshot = axlServiceRegistrySnapshotSchema.parse({
-        capturedAt: new Date().toISOString(),
-        source: "agent-nodes-fallback",
-        peers: nodes.value
-          .map((node) => toPeerStatus(node))
-          .filter((peer): peer is AxlPeerStatus => peer !== null),
-        services: buildServicesFromNodes(nodes.value),
-        routes: [],
-        metadata: { synthesized: true },
-    });
+    if (snapshot.value === null) {
+      res.status(503).json({
+        success: false,
+        error: "No live AXL service registry snapshot is available.",
+      });
+      return;
+    }
 
     res.json({
       success: true,
       data: {
         nodes: nodes.value.map((node) => agentNodeSchema.parse(node)),
-        snapshot: snapshot.value ?? fallbackSnapshot,
+        snapshot: snapshot.value,
       },
     });
   };

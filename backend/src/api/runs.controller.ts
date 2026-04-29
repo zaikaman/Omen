@@ -1,31 +1,60 @@
 import type { Request, Response } from "express";
 
-import { runListItemSchema } from "@omen/shared";
-import { demoRunBundles } from "@omen/db";
+import { RunsRepository, createSupabaseServiceRoleClient } from "@omen/db";
 
-export const listRuns = (_req: Request, res: Response) => {
-  const runs = demoRunBundles.map(({ run }) =>
-    runListItemSchema.parse({
-      id: run.id,
-      mode: run.mode,
-      status: run.status,
-      marketBias: run.marketBias,
-      startedAt: run.startedAt,
-      completedAt: run.completedAt,
-      triggeredBy: run.triggeredBy,
-      finalSignalId: run.finalSignalId,
-      finalIntelId: run.finalIntelId,
-      failureReason: run.failureReason,
-      outcome: run.outcome,
-    }),
-  );
+import type { BackendEnv } from "../bootstrap/env.js";
+import { presentRunListItem } from "../presenters/dashboard.presenter.js";
 
-  res.json({
-    success: true,
-    data: {
-      runs,
-      nextCursor: null,
-      total: runs.length,
-    },
-  });
+const parseLimit = (value: unknown, defaultLimit: number) => {
+  if (typeof value !== "string") {
+    return defaultLimit;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 100) : defaultLimit;
 };
+
+const createRepository = (env: Pick<BackendEnv, "supabase">) => {
+  if (!env.supabase.url || !env.supabase.serviceRoleKey) {
+    return null;
+  }
+
+  const client = createSupabaseServiceRoleClient({
+    url: env.supabase.url,
+    anonKey: env.supabase.anonKey ?? env.supabase.serviceRoleKey,
+    serviceRoleKey: env.supabase.serviceRoleKey,
+    schema: env.supabase.schema,
+  });
+
+  return new RunsRepository(client);
+};
+
+export const createRunsController =
+  (env: Pick<BackendEnv, "supabase">) => async (req: Request, res: Response) => {
+    const repository = createRepository(env);
+
+    if (!repository) {
+      res.status(503).json({
+        success: false,
+        error: "Runs require a configured Supabase persistence backend.",
+      });
+      return;
+    }
+
+    const limit = parseLimit(req.query.limit, 20);
+    const listed = await repository.listRecentRuns(limit);
+
+    if (!listed.ok) {
+      res.status(500).json({ success: false, error: listed.error.message });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        runs: listed.value.map((run) => presentRunListItem(run)),
+        nextCursor: null,
+        total: listed.value.length,
+      },
+    });
+  };

@@ -74,9 +74,9 @@ export class PeerFailover {
       });
     }
 
-    const fallback = candidates[0];
+    const selected = candidates[0];
 
-    if (!fallback?.peerId) {
+    if (!selected?.peerId) {
       return err(
         new Error(`Resolved AXL service ${input.service} does not have a peer binding.`),
       );
@@ -84,8 +84,8 @@ export class PeerFailover {
 
     this.peerRegistry.recordRoute({
       kind: input.kind ?? "a2a",
-      peerId: fallback.peerId,
-      service: fallback.service,
+      peerId: selected.peerId,
+      service: selected.service,
       operation: input.operation,
       runId: input.runId ?? null,
       correlationId: input.correlationId ?? null,
@@ -99,10 +99,10 @@ export class PeerFailover {
     });
 
     return ok({
-      peerId: fallback.peerId,
+      peerId: selected.peerId,
       rerouted: true,
       reason: "rerouted",
-      service: fallback,
+      service: selected,
     });
   }
 

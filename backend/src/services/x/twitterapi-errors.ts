@@ -43,7 +43,7 @@ export class TwitterApiProviderError extends Error {
   }
 }
 
-const extractMessage = (body: unknown, fallback: string) => {
+const extractMessage = (body: unknown, defaultMessage: string) => {
   if (typeof body === "string" && body.trim()) {
     return body;
   }
@@ -72,7 +72,7 @@ const extractMessage = (body: unknown, fallback: string) => {
     }
   }
 
-  return fallback;
+  return defaultMessage;
 };
 
 export const normalizeTwitterApiHttpError = (input: {
@@ -80,8 +80,8 @@ export const normalizeTwitterApiHttpError = (input: {
   body: unknown;
   resetAt?: string | null;
 }) => {
-  const fallback = `twitterapi returned HTTP ${input.statusCode.toString()}.`;
-  const message = extractMessage(input.body, fallback);
+  const defaultMessage = `twitterapi returned HTTP ${input.statusCode.toString()}.`;
+  const message = extractMessage(input.body, defaultMessage);
 
   if (input.statusCode === 401 || input.statusCode === 403) {
     return new TwitterApiProviderError(message, {

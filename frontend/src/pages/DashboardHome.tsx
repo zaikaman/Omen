@@ -90,9 +90,9 @@ const formatRunStatus = (status: string | undefined) => {
     return status.replace(/_/g, ' ').toUpperCase();
 };
 
-const formatLabel = (value: string | null | undefined, fallback = 'UNKNOWN') => {
+const formatLabel = (value: string | null | undefined, defaultLabel = 'UNKNOWN') => {
     if (!value) {
-        return fallback;
+        return defaultLabel;
     }
 
     return value.replace(/_/g, ' ').toUpperCase();
@@ -184,7 +184,7 @@ export function DashboardHome() {
 
             {hasRunStatusError && (
                 <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
-                    Live runtime status is unavailable. Seeded dashboard fallback data may be shown.
+                    Live runtime status is unavailable.
                 </div>
             )}
 

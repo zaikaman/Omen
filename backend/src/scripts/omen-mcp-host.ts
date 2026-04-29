@@ -14,9 +14,9 @@ type HostedService = {
   handle: (request: unknown) => Promise<unknown>;
 };
 
-const parsePort = (value: string | undefined, fallback: number) => {
+const parsePort = (value: string | undefined, defaultValue: number) => {
   const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
 };
 
 const env = {

@@ -4,7 +4,6 @@ import {
   RunsRepository,
   ZeroGRefsRepository,
   createSupabaseServiceRoleClient,
-  demoRunBundles,
 } from "@omen/db";
 import {
   type ProofArtifact,
@@ -14,13 +13,13 @@ import { RunManifestBuilder, zeroGManifestableProofArtifactSchema } from "@omen/
 
 import type { BackendEnv } from "../bootstrap/env.js";
 
-const parseLimit = (value: unknown, fallback: number) => {
+const parseLimit = (value: unknown, defaultLimit: number) => {
   if (typeof value !== "string") {
-    return fallback;
+    return defaultLimit;
   }
 
   const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : defaultLimit;
 };
 
 type ProofSummary = {
@@ -115,14 +114,9 @@ export const createProofFeedController =
     const limit = parseLimit(req.query.limit, 20);
 
     if (!isPersistenceConfigured(env)) {
-      const items = [...demoRunBundles]
-        .reverse()
-        .slice(0, limit)
-        .map((bundle) => buildProofSummary(bundle.run, bundle.proofs));
-
-      res.json({
-        success: true,
-        data: { items, nextCursor: null },
+      res.status(503).json({
+        success: false,
+        error: "Proofs require a configured Supabase persistence backend.",
       });
       return;
     }
@@ -172,16 +166,9 @@ export const createProofDetailController =
     const runId = typeof req.params.runId === "string" ? req.params.runId : "";
 
     if (!isPersistenceConfigured(env)) {
-      const bundle = demoRunBundles.find((entry) => entry.run.id === runId);
-
-      if (!bundle) {
-        res.status(404).json({ success: false, error: "Proof bundle not found." });
-        return;
-      }
-
-      res.json({
-        success: true,
-        data: buildProofDetail(bundle.run, bundle.proofs, env.nodeEnv),
+      res.status(503).json({
+        success: false,
+        error: "Proof detail requires a configured Supabase persistence backend.",
       });
       return;
     }

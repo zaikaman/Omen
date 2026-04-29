@@ -25,7 +25,7 @@ import {
   createPostsFeedController,
   createPostStatusController,
 } from "./posts.controller.js";
-import { listRuns } from "./runs.controller.js";
+import { createRunsController } from "./runs.controller.js";
 import {
   createSignalDetailController,
   createSignalFeedController,
@@ -46,7 +46,7 @@ export const createApiRouter = (context: {
   const router = Router();
 
   router.get("/health", healthCheck);
-  router.get("/runs", listRuns);
+  router.get("/runs", createRunsController(context.env));
   router.get("/dashboard/summary", createDashboardSummaryController(context));
   router.get(
     "/dashboard/scheduler",

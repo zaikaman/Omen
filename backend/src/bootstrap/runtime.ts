@@ -7,7 +7,6 @@ import { createLogger, type Logger } from "./logger.js";
 import { registerGracefulShutdown } from "./shutdown.js";
 import { createServer } from "../server.js";
 import { DefaultRunCoordinator } from "../coordinator/run-coordinator.js";
-import { DefaultDemoRunPipeline } from "../pipelines/demo-run-pipeline.js";
 import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline.js";
 import { HourlyScheduler } from "../scheduler/hourly-scheduler.js";
 import { RunLock } from "../scheduler/run-lock.js";
@@ -36,9 +35,7 @@ export const startBackendRuntime = (): BackendRuntime => {
           }),
         )
       : null;
-  const pipeline = runtimeMode.usesMockData
-    ? new DefaultDemoRunPipeline()
-    : new DefaultLiveSwarmRunPipeline({ env });
+  const pipeline = new DefaultLiveSwarmRunPipeline({ env });
   const coordinator = new DefaultRunCoordinator({
     logger,
     pipeline,
@@ -75,7 +72,7 @@ export const startBackendRuntime = (): BackendRuntime => {
     logger.info(`Environment: ${env.nodeEnv}`);
     logger.info(`Runtime mode: ${runtimeMode.label}`);
     logger.info(
-      `Runtime flags: mock=${runtimeMode.usesMockData.toString()} reads=${runtimeMode.allowsExternalReads.toString()} writes=${runtimeMode.allowsExternalWrites.toString()}`,
+      `Runtime flags: reads=${runtimeMode.allowsExternalReads.toString()} writes=${runtimeMode.allowsExternalWrites.toString()}`,
     );
 
     if (env.schedulerEnabled) {

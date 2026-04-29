@@ -4,11 +4,11 @@ import {
   RunsRepository,
   SignalsRepository,
   createSupabaseServiceRoleClient,
-  demoAnalyticsSnapshots,
   type RepositoryError,
 } from "@omen/db";
 import {
   analyticsSnapshotSchema,
+  err,
   ok,
   type AnalyticsSnapshot,
   type Intel,
@@ -238,7 +238,12 @@ export const buildAnalyticsSnapshotsReadModel = async (
   input: AnalyticsSnapshotsReadModelInput,
 ): Promise<Result<AnalyticsSnapshot[], RepositoryError>> => {
   if (!isPersistenceConfigured(input.env)) {
-    return ok(demoAnalyticsSnapshots);
+    return err({
+      code: "PERSISTENCE_NOT_CONFIGURED",
+      details: null,
+      hint: "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+      message: "Analytics snapshots require a configured Supabase persistence backend.",
+    });
   }
 
   const repositories = createRepositories(input.env);

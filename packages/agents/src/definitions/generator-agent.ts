@@ -333,7 +333,7 @@ export class GeneratorAgentFactory {
         ),
       });
     } catch (error) {
-      console.warn("[omen-generator] LLM generation failed; refusing fallback tweet publication.", {
+      console.warn("[omen-generator] LLM generation failed; refusing synthetic tweet publication.", {
         runId: parsed.context.runId,
         error: error instanceof Error ? error.message : "Unknown generator error.",
       });

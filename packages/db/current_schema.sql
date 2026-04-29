@@ -51,7 +51,7 @@ CREATE TABLE public.analytics_snapshots (
 );
 CREATE TABLE public.app_config (
   id text NOT NULL DEFAULT 'default'::text,
-  mode text NOT NULL CHECK (mode = ANY (ARRAY['mocked'::text, 'live'::text, 'production_like'::text])),
+  mode text NOT NULL CHECK (mode = ANY (ARRAY['live'::text, 'production_like'::text])),
   market_universe jsonb NOT NULL DEFAULT '[]'::jsonb,
   quality_thresholds jsonb NOT NULL DEFAULT '{}'::jsonb,
   providers jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -132,7 +132,7 @@ CREATE TABLE public.outbound_posts (
 );
 CREATE TABLE public.runs (
   id text NOT NULL DEFAULT (gen_random_uuid())::text,
-  mode text NOT NULL CHECK (mode = ANY (ARRAY['mocked'::text, 'live'::text, 'production_like'::text])),
+  mode text NOT NULL CHECK (mode = ANY (ARRAY['live'::text, 'production_like'::text])),
   status text NOT NULL CHECK (status = ANY (ARRAY['queued'::text, 'starting'::text, 'running'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])),
   market_bias text NOT NULL DEFAULT 'UNKNOWN'::text CHECK (market_bias = ANY (ARRAY['LONG'::text, 'SHORT'::text, 'NEUTRAL'::text, 'UNKNOWN'::text])),
   triggered_by text NOT NULL CHECK (triggered_by = ANY (ARRAY['dashboard'::text, 'scheduler'::text, 'system'::text])),

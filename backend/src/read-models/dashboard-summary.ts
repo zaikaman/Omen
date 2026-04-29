@@ -4,11 +4,9 @@ import {
   RunsRepository,
   SignalsRepository,
   createSupabaseServiceRoleClient,
-  demoAnalyticsSnapshots,
-  demoRunBundles,
   type RepositoryError,
 } from "@omen/db";
-import { ok, type DashboardSummary, type Result, type SchedulerStatus } from "@omen/shared";
+import { err, ok, type DashboardSummary, type Result, type SchedulerStatus } from "@omen/shared";
 
 import type { BackendEnv } from "../bootstrap/env.js";
 import { presentDashboardSummary } from "../presenters/dashboard.presenter.js";
@@ -40,37 +38,16 @@ const createRepositories = (env: DashboardSummaryReadModelEnv) => {
   };
 };
 
-const buildDemoDashboardSummary = (scheduler: SchedulerStatus): DashboardSummary => {
-  const latestRunBundle = demoRunBundles[demoRunBundles.length - 1] ?? null;
-  const latestSignalBundle = [...demoRunBundles]
-    .reverse()
-    .find((bundle) => bundle.signal !== null);
-  const latestIntelBundle = [...demoRunBundles]
-    .reverse()
-    .find((bundle) => bundle.intel !== null);
-  const latestPost =
-    [...demoRunBundles]
-      .flatMap((bundle) => bundle.outboundPosts)
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null;
-  const latestAnalytics =
-    demoAnalyticsSnapshots[demoAnalyticsSnapshots.length - 1] ?? null;
-
-  return presentDashboardSummary({
-    activeRun: null,
-    latestRun: latestRunBundle?.run ?? null,
-    latestSignalId: latestSignalBundle?.signal?.id ?? null,
-    latestIntelId: latestIntelBundle?.intel?.id ?? null,
-    scheduler,
-    latestPost,
-    analytics: latestAnalytics,
-  });
-};
-
 export const buildDashboardSummaryReadModel = async (
   input: DashboardSummaryReadModelInput,
 ): Promise<Result<DashboardSummary, RepositoryError>> => {
   if (!isPersistenceConfigured(input.env)) {
-    return ok(buildDemoDashboardSummary(input.scheduler));
+    return err({
+      code: "PERSISTENCE_NOT_CONFIGURED",
+      details: null,
+      hint: "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+      message: "Dashboard summary requires a configured Supabase persistence backend.",
+    });
   }
 
   const repositories = createRepositories(input.env);

@@ -33,10 +33,10 @@ export type OpenAiCompatibleClientConfig = z.infer<
 
 const ensureTrailingSlashRemoved = (value: string) => value.replace(/\/+$/, "");
 
-const parseTimeoutMs = (value: string | undefined, fallback: number) => {
+const parseTimeoutMs = (value: string | undefined, defaultValue: number) => {
   const parsed = Number(value);
 
-  return Number.isFinite(parsed) && parsed >= 1000 ? parsed : fallback;
+  return Number.isFinite(parsed) && parsed >= 1000 ? parsed : defaultValue;
 };
 
 export const buildTemperaturePayload = (

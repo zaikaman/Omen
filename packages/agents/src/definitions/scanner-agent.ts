@@ -30,17 +30,8 @@ const scannerLlmResponseSchema = z.object({
   rejectedSymbols: z.array(z.string().min(1)).default([]),
 });
 
-const seededChangePercent = (symbol: string) => {
-  const seed = symbol
-    .toUpperCase()
-    .split("")
-    .reduce((sum, character) => sum + character.charCodeAt(0), 0);
-
-  return ((seed % 17) - 8) * 0.8;
-};
-
 const resolveSnapshotScore = (snapshot: MarketSnapshot) =>
-  snapshot.change24hPercent ?? seededChangePercent(snapshot.symbol);
+  snapshot.change24hPercent;
 
 const toDirectionHint = (
   score: number,
@@ -137,6 +128,10 @@ export class ScannerAgentFactory {
         snapshot,
         score: resolveSnapshotScore(snapshot),
       }))
+      .filter(
+        (item): item is { snapshot: MarketSnapshot; score: number } =>
+          item.score !== null,
+      )
       .sort((left, right) =>
         parsed.bias.marketBias === "SHORT" ? left.score - right.score : right.score - left.score,
       );
@@ -268,8 +263,10 @@ export class ScannerAgentFactory {
           ),
         ),
       });
-    } catch {
-      return null;
+    } catch (error) {
+      throw new Error(
+        `Scanner model selection failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -299,21 +296,7 @@ export class ScannerAgentFactory {
     }
 
     if (bySymbol.size === 0) {
-      append(
-        symbols.map((symbol) =>
-          marketSnapshotSchema.parse({
-            symbol: symbol.toUpperCase(),
-            provider: "scanner-fallback",
-            price: 0,
-            change24hPercent: seededChangePercent(symbol),
-            volume24h: null,
-            fundingRate: null,
-            openInterest: null,
-            candles: [],
-            capturedAt: new Date().toISOString(),
-          }),
-        ),
-      );
+      throw new Error("Scanner could not collect live market snapshots from Binance or CoinGecko.");
     }
 
     return Array.from(bySymbol.values());

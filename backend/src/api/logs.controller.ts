@@ -3,19 +3,18 @@ import type { Request, Response } from "express";
 import {
   AgentEventsRepository,
   createSupabaseServiceRoleClient,
-  demoRunBundles,
 } from "@omen/db";
 
 import type { BackendEnv } from "../bootstrap/env.js";
 import { presentLogFeed } from "../presenters/logs.presenter.js";
 
-const parseLimit = (value: unknown, fallback: number) => {
+const parseLimit = (value: unknown, defaultLimit: number) => {
   if (typeof value !== "string") {
-    return fallback;
+    return defaultLimit;
   }
 
   const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 500) : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 500) : defaultLimit;
 };
 
 const isPersistenceConfigured = (env: BackendEnv) =>
@@ -38,15 +37,9 @@ export const createLogsController =
     const limit = parseLimit(req.query.limit, 100);
 
     if (!isPersistenceConfigured(env)) {
-      const items = demoRunBundles
-        .flatMap((bundle) => bundle.events)
-        .filter((event) => (runId ? event.runId === runId : true))
-        .sort((left, right) => right.timestamp.localeCompare(left.timestamp))
-        .slice(0, limit);
-
-      res.json({
-        success: true,
-        data: presentLogFeed({ items, nextCursor: null }),
+      res.status(503).json({
+        success: false,
+        error: "Logs require a configured Supabase persistence backend.",
       });
       return;
     }

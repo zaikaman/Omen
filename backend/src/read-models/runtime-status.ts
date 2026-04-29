@@ -1,10 +1,10 @@
 import {
   RunsRepository,
   createSupabaseServiceRoleClient,
-  demoRunBundles,
   type RepositoryError,
 } from "@omen/db";
 import {
+  err,
   ok,
   runtimeModeSchema,
   schedulerStatusSchema,
@@ -47,27 +47,16 @@ const createRunsRepository = (env: RuntimeStatusReadModelEnv) => {
   return new RunsRepository(client);
 };
 
-const buildDemoRuntimeStatus = (
-  runtimeMode: RuntimeMode,
-  scheduler: SchedulerStatus,
-): RuntimeStatusReadModel => {
-  const latestRunBundle = demoRunBundles[demoRunBundles.length - 1] ?? null;
-  const latestRun = presentRunListItem(latestRunBundle?.run ?? null);
-
-  return {
-    runtimeMode: runtimeModeSchema.parse(runtimeMode),
-    scheduler: schedulerStatusSchema.parse(scheduler),
-    activeRun: null,
-    latestRun,
-    lastCompletedRunId: latestRun?.id ?? null,
-  };
-};
-
 export const buildRuntimeStatusReadModel = async (
   input: RuntimeStatusReadModelInput,
 ): Promise<Result<RuntimeStatusReadModel, RepositoryError>> => {
   if (!isPersistenceConfigured(input.env)) {
-    return ok(buildDemoRuntimeStatus(input.runtimeMode, input.scheduler));
+    return err({
+      code: "PERSISTENCE_NOT_CONFIGURED",
+      details: null,
+      hint: "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+      message: "Runtime status requires a configured Supabase persistence backend.",
+    });
   }
 
   const runsRepository = createRunsRepository(input.env);

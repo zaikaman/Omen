@@ -13,13 +13,13 @@ import {
   presentSignalFeed,
 } from "../presenters/signals.presenter.js";
 
-const parseLimit = (value: unknown, fallback: number) => {
+const parseLimit = (value: unknown, defaultLimit: number) => {
   if (typeof value !== "string") {
-    return fallback;
+    return defaultLimit;
   }
 
   const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 50) : defaultLimit;
 };
 
 const SIGNAL_SORT_VALUES = [

@@ -20,10 +20,10 @@ interface DashboardLayoutProps {
 
 const REFRESH_INTERVAL_MS = 30_000;
 
-const formatLabel = (value: string | null | undefined, fallback = 'UNKNOWN') => {
-    if (!value) {
-        return fallback;
-    }
+const formatLabel = (value: string | null | undefined, defaultLabel = 'UNKNOWN') => {
+  if (!value) {
+    return defaultLabel;
+  }
 
     return value.replace(/_/g, ' ').toUpperCase();
 };

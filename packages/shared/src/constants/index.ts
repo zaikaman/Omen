@@ -11,7 +11,6 @@ export const RUN_STATUS_VALUES = [
 ] as const;
 
 export const RUNTIME_MODE_VALUES = [
-  "mocked",
   "live",
   "production_like",
 ] as const;

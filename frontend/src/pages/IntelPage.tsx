@@ -248,7 +248,7 @@ export function IntelPage() {
 
       {(feedQuery.error || detailQuery.error) && (
         <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
-          Live intel is unavailable. Seeded fallback data may be shown.
+          Live intel is unavailable.
         </div>
       )}
 

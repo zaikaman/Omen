@@ -203,7 +203,7 @@ export class ResearchAgentFactory {
       evidence.push(
         evidenceItemSchema.parse({
           category: "catalyst",
-          summary: `${symbol} retained only placeholder research coverage. Additional external reads are needed before analyst escalation.`,
+      summary: `${symbol} retained only incomplete research coverage. Additional external reads are needed before analyst escalation.`,
           sourceLabel: "Omen Research Shell",
           sourceUrl: null,
           structuredData: {

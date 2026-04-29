@@ -161,24 +161,10 @@ const isIntelOwnedEvidence = (item: EvidenceItem) =>
   item.structuredData.source === "intel-market-data" ||
   item.structuredData.source === "intel-research";
 
-const isIntelResearchEvidence = (item: EvidenceItem) =>
-  item.structuredData.source === "intel-research";
-
-const hasIntelResearchEvidence = (evidence: EvidenceItem[]) =>
-  evidence.some(isIntelResearchEvidence);
-
-const toTemplateEvidence = (
-  evidence: EvidenceItem[],
-  options: { includeDirectFixtures?: boolean } = {},
-) =>
+const toTemplateEvidence = (evidence: EvidenceItem[]) =>
   evidence.filter(
     (item) =>
-      isIntelOwnedEvidence(item) ||
-      (options.includeDirectFixtures === true &&
-        (item.category === "fundamental" ||
-          item.category === "catalyst" ||
-          item.category === "sentiment" ||
-          item.category === "liquidity")),
+      isIntelOwnedEvidence(item),
   );
 
 const extractSymbols = (text: string) => [
@@ -397,32 +383,6 @@ const buildSearchOnlyIntelRetryPrompt = (input: {
   ].join("\n");
 };
 
-const deriveTemplateIntel = (evidence: EvidenceItem[]): z.infer<typeof templateIntelSchema> => {
-  const templateEvidence = evidence;
-  const evidenceSummary = stripIntelBoilerplate(summarizeEvidence(templateEvidence));
-
-  if (!evidenceSummary) {
-    return {
-      topic: "SKIP",
-      insight: "Not enough value",
-      importance_score: 1,
-    };
-  }
-
-  const first = sortTemplateEvidence(templateEvidence)[0];
-  const topic = first
-    ? stripIntelBoilerplate(first.summary)
-        .replace(/:\s.*$/, "")
-        .trim()
-    : "Crypto Market Rotation";
-
-  return {
-    topic: titleFromTopic(topic) || "Crypto Market Rotation",
-    insight: trimToLength(evidenceSummary, 900),
-    importance_score: 7,
-  };
-};
-
 export class IntelAgentFactory {
   private readonly coinGecko: CoinGeckoMarketService;
 
@@ -460,16 +420,6 @@ export class IntelAgentFactory {
       state,
     );
     const templateEvidence = parsed.evidence;
-    const fallbackEvidence =
-      parsed.context.mode === "mocked"
-        ? templateEvidence
-        : templateEvidence.filter(isIntelResearchEvidence);
-    const fallbackReport = hasIntelResearchEvidence(templateEvidence) || parsed.context.mode === "mocked"
-      ? templateIntelToReport({
-          template: deriveTemplateIntel(fallbackEvidence),
-          evidence: fallbackEvidence,
-        })
-      : null;
     const prompt = buildIntelSystemPrompt({
       runId: parsed.context.runId,
       hasCandidates: false,
@@ -478,11 +428,7 @@ export class IntelAgentFactory {
     });
 
     if (this.llmClient === null) {
-      return intelOutputSchema.parse({
-        action: fallbackReport === null ? "skip" : "ready",
-        report: fallbackReport,
-        skipReason: fallbackReport === null ? "not_enough_value" : null,
-      });
+      throw new Error("Intel generation requires a configured LLM client.");
     }
 
     try {
@@ -525,28 +471,16 @@ export class IntelAgentFactory {
         });
       }
 
-      if (fallbackReport !== null) {
-        return intelOutputSchema.parse({
-          report: fallbackReport,
-          action: "ready",
-          skipReason: null,
-        });
-      }
-
       return intelOutputSchema.parse({
         action: "skip",
         report: null,
         skipReason: "not_enough_value",
       });
-    } catch {
-      // Fall back to deterministic intel shaping.
+    } catch (error) {
+      throw new Error(
+        `Intel generation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-
-    return intelOutputSchema.parse({
-      action: fallbackReport === null ? "skip" : "ready",
-      report: fallbackReport,
-      skipReason: fallbackReport === null ? "not_enough_value" : null,
-    });
   }
 
   private toTemplateStyleInput(
@@ -555,9 +489,7 @@ export class IntelAgentFactory {
     return intelInputSchema.parse({
       ...input,
       candidates: [],
-      evidence: toTemplateEvidence(input.evidence, {
-        includeDirectFixtures: input.context.mode === "mocked",
-      }),
+      evidence: toTemplateEvidence(input.evidence),
       chartVisionSummary: null,
       thesis: null,
       review: null,
@@ -569,10 +501,6 @@ export class IntelAgentFactory {
     state: SwarmState,
   ): Promise<z.infer<typeof intelInputSchema>> {
     const parsed = intelInputSchema.parse(input);
-
-    if (parsed.context.mode === "mocked") {
-      return parsed;
-    }
 
     if (parsed.evidence.some(isIntelOwnedEvidence)) {
       return parsed;

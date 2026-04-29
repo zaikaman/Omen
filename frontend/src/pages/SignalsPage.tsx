@@ -184,7 +184,7 @@ export function SignalsPage() {
 
       {(latestQuery.error || historyQuery.error) && (
         <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
-          Live signal history is unavailable. Seeded fallback data may be shown.
+          Live signal history is unavailable.
         </div>
       )}
 

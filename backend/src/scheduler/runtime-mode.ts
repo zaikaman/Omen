@@ -1,5 +1,4 @@
 export const RUNTIME_MODE_VALUES = [
-  "mocked",
   "live",
   "production_like",
 ] as const;
@@ -8,7 +7,6 @@ export type RuntimeMode = (typeof RUNTIME_MODE_VALUES)[number];
 
 export type RuntimeModeFlags = {
   mode: RuntimeMode;
-  usesMockData: boolean;
   allowsExternalReads: boolean;
   allowsExternalWrites: boolean;
   label: string;
@@ -19,10 +17,6 @@ export const isRuntimeMode = (value: string | undefined): value is RuntimeMode =
   (RUNTIME_MODE_VALUES as readonly string[]).includes(value);
 
 export const normalizeRuntimeMode = (value: string | undefined): RuntimeMode => {
-  if (value === "mocked-demo") {
-    return "mocked";
-  }
-
   if (value === "production-like") {
     return "production_like";
   }
@@ -31,7 +25,7 @@ export const normalizeRuntimeMode = (value: string | undefined): RuntimeMode => 
     return value;
   }
 
-  return "mocked";
+  return "live";
 };
 
 export const getRuntimeModeFlags = (mode: RuntimeMode): RuntimeModeFlags => {
@@ -39,7 +33,6 @@ export const getRuntimeModeFlags = (mode: RuntimeMode): RuntimeModeFlags => {
     case "live":
       return {
         mode,
-        usesMockData: false,
         allowsExternalReads: true,
         allowsExternalWrites: true,
         label: "Live",
@@ -47,19 +40,16 @@ export const getRuntimeModeFlags = (mode: RuntimeMode): RuntimeModeFlags => {
     case "production_like":
       return {
         mode,
-        usesMockData: false,
         allowsExternalReads: true,
         allowsExternalWrites: false,
         label: "Production-like",
       };
-    case "mocked":
     default:
       return {
-        mode: "mocked",
-        usesMockData: true,
-        allowsExternalReads: false,
-        allowsExternalWrites: false,
-        label: "Mocked demo",
+        mode: "live",
+        allowsExternalReads: true,
+        allowsExternalWrites: true,
+        label: "Live",
       };
   }
 };

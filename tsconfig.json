@@ -16,6 +16,8 @@
     "axl",
     "0g-doc",
     "0g-ts-sdk",
-    "langgraphjs"
+    "langgraphjs",
+    "tests",
+    "packages/*/tests"
   ]
 }

@@ -12,4 +12,3 @@ export * from "./repositories/runs-repository.js";
 export * from "./repositories/service-registry-snapshots-repository.js";
 export * from "./repositories/signals-repository.js";
 export * from "./repositories/zero-g-refs-repository.js";
-export * from "./seeds/index.js";

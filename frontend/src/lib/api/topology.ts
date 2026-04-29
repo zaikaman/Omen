@@ -9,10 +9,6 @@ import {
 } from '@omen/shared';
 
 import { apiRequest } from './client';
-import {
-  getSeededTopology,
-  withSeededFallback,
-} from './seededFallback';
 
 export type RegisteredServiceStatus = 'online' | 'degraded' | 'offline';
 
@@ -186,5 +182,4 @@ const topologyResponseSchema = {
 export const getLiveTopology = (): Promise<TopologyResponse> =>
   apiRequest('/topology', topologyResponseSchema);
 
-export const getTopology = (): Promise<TopologyResponse> =>
-  withSeededFallback(getLiveTopology, getSeededTopology);
+export const getTopology = getLiveTopology;

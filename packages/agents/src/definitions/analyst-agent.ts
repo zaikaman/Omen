@@ -798,12 +798,12 @@ const normalizeTradingStyle = (value: unknown) => {
 
 const normalizeAnalystModelThesis = (input: {
   rawThesis: Record<string, unknown>;
-  fallback: z.infer<typeof analystOutputSchema>;
+  baseline: z.infer<typeof analystOutputSchema>;
   candidateId: string;
   symbol: string;
 }) => {
   const raw = input.rawThesis;
-  const fallback = input.fallback.thesis;
+  const baseline = input.baseline.thesis;
   const confidence = coerceNumber(raw.confidence);
   const riskReward = coerceNullableNumber(raw.riskReward);
   const direction = normalizeDirection(raw.direction);
@@ -813,7 +813,7 @@ const normalizeAnalystModelThesis = (input: {
   const confluences = coerceStringArray(raw.confluences);
 
   return thesisDraftSchema.parse({
-    ...fallback,
+    ...baseline,
     candidateId: input.candidateId,
     asset: input.symbol.toUpperCase(),
     ...(direction ? { direction } : {}),
@@ -960,10 +960,10 @@ export class AnalystAgentFactory {
   private async analyze(input: z.input<typeof analystInputSchema>, state: SwarmState) {
     const parsed = analystInputSchema.parse(input);
     const enrichedInput = await this.enrichInputWithAnalystTools(parsed, state);
-    const fallback = deriveAnalystThesis(enrichedInput);
+    const baseline = deriveAnalystThesis(enrichedInput);
 
     if (this.llmClient === null) {
-      return fallback;
+      throw new Error("Analyst thesis generation requires a configured LLM client.");
     }
 
     try {
@@ -995,7 +995,7 @@ export class AnalystAgentFactory {
       const mergedThesis = enforceTemplateTradeRules(
         normalizeAnalystModelThesis({
           rawThesis: rawResponse.thesis,
-          fallback,
+          baseline,
           candidateId: enrichedInput.research.candidate.id,
           symbol: enrichedInput.research.candidate.symbol,
         }),
@@ -1009,8 +1009,10 @@ export class AnalystAgentFactory {
           `Model-backed analyst path: ${this.llmClient.config.model}`,
         ],
       });
-    } catch {
-      return fallback;
+    } catch (error) {
+      throw new Error(
+        `Analyst thesis generation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -1019,10 +1021,6 @@ export class AnalystAgentFactory {
     state: SwarmState,
   ): Promise<z.input<typeof analystInputSchema>> {
     const parsed = analystInputSchema.parse(input);
-
-    if (parsed.context.mode === "mocked") {
-      return parsed;
-    }
 
     const symbol = parsed.research.candidate.symbol.toUpperCase();
     const tradeableToken = getTradeableToken(symbol);
