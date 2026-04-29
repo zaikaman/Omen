@@ -17,6 +17,8 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useLazyUnicornStudio } from '../hooks/useLazyUnicornStudio'
 
+const telegramUrl = import.meta.env.VITE_TELEGRAM_URL || '#launch';
+
 export default function Home() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     // Static stats for Omen
@@ -159,7 +161,9 @@ export default function Home() {
                         </nav>
                         <div className="hidden md:flex items-center gap-4">
                             <a
-                                href="#launch"
+                                href={telegramUrl}
+                                target={telegramUrl.startsWith('http') ? '_blank' : undefined}
+                                rel={telegramUrl.startsWith('http') ? 'noreferrer' : undefined}
                                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#2AABEE]/10 border border-[#2AABEE]/20 text-[#2AABEE] hover:bg-[#2AABEE]/20 transition-colors group"
                             >
                                 <Send className="w-4 h-4 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
@@ -197,8 +201,11 @@ export default function Home() {
                             <Link className="text-white/80 hover:text-white py-3 px-4 rounded-lg hover:bg-white/5 font-medium" to="/app" onClick={() => setIsMobileMenuOpen(false)}>Terminal</Link>
                             <Link className="text-white/80 hover:text-white py-3 px-4 rounded-lg hover:bg-white/5 font-medium" to="/docs" onClick={() => setIsMobileMenuOpen(false)}>Docs</Link>
                             <a
-                                href="#launch"
+                                href={telegramUrl}
+                                target={telegramUrl.startsWith('http') ? '_blank' : undefined}
+                                rel={telegramUrl.startsWith('http') ? 'noreferrer' : undefined}
                                 className="flex items-center gap-2 px-4 py-3 rounded-lg bg-[#2AABEE]/10 border border-[#2AABEE]/20 text-[#2AABEE] hover:bg-[#2AABEE]/20 transition-colors group font-medium"
+                                onClick={() => setIsMobileMenuOpen(false)}
                             >
                                 <Send className="w-4 h-4 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
                                 <span>Telegram Bot</span>
@@ -800,7 +807,16 @@ export default function Home() {
                             <h4 className="text-white font-bold mb-6">Community</h4>
                             <ul className="space-y-4 text-sm text-gray-500">
                                 <li><a href="#top" className="hover:text-teal-glow transition-colors">X (Twitter)</a></li>
-                                <li><a href="#launch" className="hover:text-teal-glow transition-colors">Telegram</a></li>
+                                <li>
+                                    <a
+                                        href={telegramUrl}
+                                        target={telegramUrl.startsWith('http') ? '_blank' : undefined}
+                                        rel={telegramUrl.startsWith('http') ? 'noreferrer' : undefined}
+                                        className="hover:text-teal-glow transition-colors"
+                                    >
+                                        Telegram
+                                    </a>
+                                </li>
                                 <li><a href="#features" className="hover:text-teal-glow transition-colors">GitHub</a></li>
                             </ul>
                         </div>
