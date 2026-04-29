@@ -114,8 +114,7 @@ const hasSupabasePersistenceConfig = (env: BackendEnv) =>
 
 const hasAxlTransportConfig = (env: BackendEnv) => Boolean(env.axl.nodeBaseUrl);
 
-const hasConfiguredAxlServicePeer = (env: BackendEnv) =>
-  Boolean(env.axl.servicePeerId?.trim());
+const hasConfiguredAxlServicePeer = (env: BackendEnv) => Boolean(env.axl.servicePeerId?.trim());
 
 const hasZeroGStorageConfig = (env: BackendEnv) =>
   Boolean(env.zeroG.indexerUrl && env.zeroG.rpcUrl && env.zeroG.privateKey);
@@ -162,8 +161,16 @@ const buildIntelImagePrompt = (report: SwarmState["intelReports"][number]) =>
   [
     "strictly visual-only full-bleed scene with no title card, no banner, no header strip, no lower third, no text panel, no article layout, no news card, no readable or pseudo-readable text",
     "single cinematic abstract market-intelligence illustration, not a poster, not an infographic, not a presentation slide, not a webpage, not an article thumbnail",
-    `depict ${replaceImagePromptSymbolMentions(report.title, report.symbols).replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset").toLowerCase()} as visual metaphor only`,
-    `the scene should be driven by ${replaceImagePromptSymbolMentions(report.summary || report.insight, report.symbols).replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset").slice(0, 180).toLowerCase()}`,
+    `depict ${replaceImagePromptSymbolMentions(report.title, report.symbols)
+      .replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset")
+      .toLowerCase()} as visual metaphor only`,
+    `the scene should be driven by ${replaceImagePromptSymbolMentions(
+      report.summary || report.insight,
+      report.symbols,
+    )
+      .replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset")
+      .slice(0, 180)
+      .toLowerCase()}`,
     report.symbols.length > 0
       ? "depict the specific named-asset thesis as unmarked color-coded asset forms, directional liquidity streams, protocol-scale architecture, wallet-node clusters, and risk/attention pressure matching the report"
       : "depict the specific market thesis through macro pressure, liquidity depth, narrative attention, and risk rotation matching the report",
@@ -1393,9 +1400,7 @@ class LivePipelineExecutionContext {
       return false;
     }
 
-    this.axlPeerRegistry.updatePeerStatuses(
-      toAxlPeerStatuses(topology.value, observedAt),
-    );
+    this.axlPeerRegistry.updatePeerStatuses(toAxlPeerStatuses(topology.value, observedAt));
     this.axlServicePeerId = topology.value.our_public_key;
 
     return true;
@@ -1463,6 +1468,16 @@ class LivePipelineExecutionContext {
     }
 
     try {
+      const finalArtifacts = [...this.artifacts];
+      const appendRecordedArtifacts = async (artifacts: ProofArtifact[]) => {
+        for (const artifact of artifacts) {
+          await this.safeRecordArtifact(artifact);
+
+          if (!finalArtifacts.some((entry) => entry.id === artifact.id)) {
+            finalArtifacts.push(artifact);
+          }
+        }
+      };
       const reportPrompt = [
         `Run ${finalState.run.id} completed with outcome ${finalState.run.outcome?.outcomeType ?? "no_conviction"}.`,
         `Market bias: ${finalState.run.marketBias}.`,
@@ -1477,15 +1492,23 @@ class LivePipelineExecutionContext {
         reportPrompt: hasZeroGComputeConfig(this.input.env) ? reportPrompt : null,
         reportModel: this.input.env.zeroG.computeModel,
       });
-      const finalArtifacts = [...this.artifacts, ...runArtifacts.artifacts];
+
+      await appendRecordedArtifacts(runArtifacts.artifacts);
 
       if (this.evidenceBundlePublisher) {
-        const evidenceBundle = await this.evidenceBundlePublisher.publish({
-          environment: this.environment,
-          state: finalState,
-        });
+        try {
+          const evidenceBundle = await this.evidenceBundlePublisher.publish({
+            environment: this.environment,
+            state: finalState,
+          });
 
-        finalArtifacts.push(...evidenceBundle.artifacts);
+          await appendRecordedArtifacts(evidenceBundle.artifacts);
+        } catch (error) {
+          this.logger.warn(
+            "0G evidence bundle publish failed; continuing with final run artifacts.",
+            error,
+          );
+        }
       }
 
       let evidenceBundleArtifact =
@@ -1494,15 +1517,22 @@ class LivePipelineExecutionContext {
           .find((artifact) => artifact.metadata?.artifactType === "evidence_pack") ?? null;
 
       if (this.reportBundlePublisher) {
-        const reportBundle = await this.reportBundlePublisher.publish({
-          environment: this.environment,
-          state: finalState,
-          reportText: runArtifacts.computeOutput,
-          computeArtifact: runArtifacts.computeArtifact,
-          evidenceBundleArtifact,
-        });
+        try {
+          const reportBundle = await this.reportBundlePublisher.publish({
+            environment: this.environment,
+            state: finalState,
+            reportText: runArtifacts.computeOutput,
+            computeArtifact: runArtifacts.computeArtifact,
+            evidenceBundleArtifact,
+          });
 
-        finalArtifacts.push(...reportBundle.artifacts);
+          await appendRecordedArtifacts(reportBundle.artifacts);
+        } catch (error) {
+          this.logger.warn(
+            "0G report bundle publish failed; continuing with available final artifacts.",
+            error,
+          );
+        }
       }
 
       evidenceBundleArtifact =
@@ -1511,34 +1541,36 @@ class LivePipelineExecutionContext {
           .find((artifact) => artifact.metadata?.artifactType === "evidence_pack") ?? null;
 
       if (this.runManifestPublisher) {
-        const manifestBundle = await this.runManifestPublisher.publish({
-          environment: this.environment,
-          run: finalState.run,
-          artifacts: finalArtifacts,
-        });
-
-        finalArtifacts.push(manifestBundle.manifestArtifact);
-
-        if (this.zeroGProofAnchor) {
-          const anchored = await this.zeroGProofAnchor.anchorManifest({
-            runId: finalState.run.id,
-            manifestRoot: deriveManifestAnchorRoot(manifestBundle.manifestArtifact),
-            locator: manifestBundle.manifestArtifact.locator,
-            metadata: {
-              manifestArtifactId: manifestBundle.manifestArtifact.id,
-              manifestLocator: manifestBundle.manifestArtifact.locator,
-              manifestKey: manifestBundle.manifestArtifact.key,
-            },
+        try {
+          const manifestBundle = await this.runManifestPublisher.publish({
+            environment: this.environment,
+            run: finalState.run,
+            artifacts: finalArtifacts,
           });
 
-          if (anchored.ok && anchored.value) {
-            finalArtifacts.push(anchored.value.artifact);
-          }
-        }
-      }
+          await appendRecordedArtifacts([manifestBundle.manifestArtifact]);
 
-      for (const artifact of finalArtifacts) {
-        await this.safeRecordArtifact(artifact);
+          if (this.zeroGProofAnchor) {
+            const anchored = await this.zeroGProofAnchor.anchorManifest({
+              runId: finalState.run.id,
+              signalId: finalState.run.finalSignalId,
+              intelId: finalState.run.finalIntelId,
+              manifestRoot: deriveManifestAnchorRoot(manifestBundle.manifestArtifact),
+              locator: manifestBundle.manifestArtifact.locator,
+              metadata: {
+                manifestArtifactId: manifestBundle.manifestArtifact.id,
+                manifestLocator: manifestBundle.manifestArtifact.locator,
+                manifestKey: manifestBundle.manifestArtifact.key,
+              },
+            });
+
+            if (anchored.ok && anchored.value) {
+              await appendRecordedArtifacts([anchored.value.artifact]);
+            }
+          }
+        } catch (error) {
+          this.logger.warn("0G run manifest publish or chain anchor failed.", error);
+        }
       }
 
       return {

@@ -17,6 +17,8 @@ export class ZeroGProofAnchor {
 
   async anchorManifest(input: {
     runId: string;
+    signalId?: string | null;
+    intelId?: string | null;
     manifestRoot: string;
     locator?: string | null;
     metadata?: Record<string, unknown>;
@@ -38,8 +40,8 @@ export class ZeroGProofAnchor {
       artifact: proofArtifactSchema.parse({
         id: `${input.runId}:chain-anchor`,
         runId: input.runId,
-        signalId: null,
-        intelId: null,
+        signalId: input.signalId ?? null,
+        intelId: input.intelId ?? null,
         refType: "chain_proof",
         key: input.manifestRoot,
         locator:

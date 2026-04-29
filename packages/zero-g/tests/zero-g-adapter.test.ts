@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ok, type Result } from "@omen/shared";
+import { err, ok, type Result } from "@omen/shared";
 
 import {
   createZeroGArtifactLink,
@@ -23,6 +23,24 @@ type SignerQueueHarness = {
     blockchainRpcUrl: string,
     operation: () => Promise<Result<T, Error>>,
   ): Promise<Result<T, Error>>;
+};
+
+type UploadRetryHarness = ZeroGSdkClient & {
+  uploadObjectWithWorker(bytes: Uint8Array): Promise<
+    Result<
+      {
+        locator: string;
+        rootHash: string;
+        rootHashes: string[];
+        txHash: string | null;
+        txHashes: string[];
+        txSeq: number | null;
+        txSeqs: number[];
+      },
+      Error
+    >
+  >;
+  delay(delayMs: number): Promise<void>;
 };
 
 describe("zero-g adapter", () => {
@@ -152,6 +170,39 @@ describe("zero-g adapter", () => {
       "second:start",
       "second:end",
     ]);
+  });
+
+  it("retries 0G file uploads three times before surfacing success", async () => {
+    const client = new ZeroGSdkClient({
+      indexerUrl: "https://indexer-storage-testnet.0g.ai",
+      blockchainRpcUrl: "https://evmrpc-testnet.0g.ai",
+      privateKey: `0x${"1".repeat(64)}`,
+    }) as UploadRetryHarness;
+    const uploadObjectWithWorker = vi
+      .spyOn(client, "uploadObjectWithWorker")
+      .mockResolvedValueOnce(err(new Error("first upload failure")))
+      .mockResolvedValueOnce(err(new Error("second upload failure")))
+      .mockResolvedValueOnce(
+        ok({
+          locator: "0g://file/retried",
+          rootHash: "0xretried",
+          rootHashes: ["0xretried"],
+          txHash: "0xtx",
+          txHashes: ["0xtx"],
+          txSeq: 1,
+          txSeqs: [1],
+        }),
+      );
+    const delay = vi.spyOn(client, "delay").mockResolvedValue(undefined);
+
+    const result = await client.uploadObject({
+      logicalName: "retried.json",
+      bytes: new Uint8Array([1, 2, 3]),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(uploadObjectWithWorker).toHaveBeenCalledTimes(3);
+    expect(delay).toHaveBeenCalledTimes(2);
   });
 
   it("creates proof artifacts for log appends", async () => {

@@ -53,27 +53,28 @@ export class ZeroGPublisher {
         },
       }),
     );
-    const logArtifact = input.logUploadsEnabled
-      ? await this.requireArtifact(
-          this.logStore.appendRunLog({
-            environment: input.environment,
-            runId: input.state.run.id,
-            stream: input.logStream ?? "runtime-trace",
-            content:
-              input.state.notes.length > 0 ? input.state.notes : ["run-completed"],
-            signalId: input.state.run.finalSignalId,
-            intelId: input.state.run.finalIntelId,
-            metadata: {
-              noteCount: input.state.notes.length,
-              errorCount: input.state.errors.length,
-            },
-          }),
-        )
-      : null;
-    const baseArtifacts =
-      logArtifact === null
-        ? [checkpointArtifact]
-        : [checkpointArtifact, logArtifact];
+    const artifacts = [checkpointArtifact];
+    let logArtifact: ProofArtifact | null = null;
+
+    if (input.logUploadsEnabled) {
+      const appendedLog = await this.logStore.appendRunLog({
+        environment: input.environment,
+        runId: input.state.run.id,
+        stream: input.logStream ?? "runtime-trace",
+        content: input.state.notes.length > 0 ? input.state.notes : ["run-completed"],
+        signalId: input.state.run.finalSignalId,
+        intelId: input.state.run.finalIntelId,
+        metadata: {
+          noteCount: input.state.notes.length,
+          errorCount: input.state.errors.length,
+        },
+      });
+
+      if (appendedLog.ok) {
+        logArtifact = appendedLog.value;
+        artifacts.push(appendedLog.value);
+      }
+    }
 
     if (!input.reportPrompt) {
       return {
@@ -82,7 +83,7 @@ export class ZeroGPublisher {
         computeArtifact: null,
         computeOutput: null,
         computeError: null,
-        artifacts: baseArtifacts,
+        artifacts,
       };
     }
 
@@ -104,9 +105,11 @@ export class ZeroGPublisher {
         computeArtifact: null,
         computeOutput: null,
         computeError: computeResult.error.message,
-        artifacts: baseArtifacts,
+        artifacts,
       };
     }
+
+    artifacts.push(computeResult.value.artifact);
 
     return {
       checkpointArtifact,
@@ -114,7 +117,7 @@ export class ZeroGPublisher {
       computeArtifact: computeResult.value.artifact,
       computeOutput: computeResult.value.output,
       computeError: null,
-      artifacts: [...baseArtifacts, computeResult.value.artifact],
+      artifacts,
     };
   }
 

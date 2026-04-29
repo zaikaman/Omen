@@ -9,6 +9,7 @@ const DEFAULT_NAMESPACE_SEED = "omen-zero-g-kv-v1";
 const ZERO_G_UPLOAD_RESULT_PREFIX = "__ZERO_G_UPLOAD_RESULT__";
 const ZERO_G_CHILD_UPLOAD_TIMEOUT_MS = 180_000;
 const ZERO_G_WRITE_RETRY_DELAYS_MS = [2_000, 5_000];
+const ZERO_G_UPLOAD_RETRY_DELAYS_MS = [2_000, 5_000, 10_000];
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -220,13 +221,24 @@ export class ZeroGSdkClient {
 
     return this.withSerializedSignerResult(blockchainRpcUrl.value, async () => {
       try {
-        const uploaded = await this.uploadObjectWithWorker(input.bytes);
+        const retryDelays: Array<number | null> = [...ZERO_G_UPLOAD_RETRY_DELAYS_MS, null];
+        let lastError: Error | null = null;
 
-        if (!uploaded.ok) {
-          return uploaded;
+        for (const delayMs of retryDelays) {
+          const uploaded = await this.uploadObjectWithWorker(input.bytes);
+
+          if (uploaded.ok) {
+            return ok(uploaded.value);
+          }
+
+          lastError = uploaded.error;
+
+          if (delayMs !== null) {
+            await this.delay(delayMs);
+          }
         }
 
-        return ok(uploaded.value);
+        return err(lastError ?? new Error("0G file upload failed."));
       } catch (error) {
         return err(error instanceof Error ? error : new Error("0G file upload failed."));
       }
