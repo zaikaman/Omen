@@ -31,6 +31,8 @@ export type HourlySchedulerOptions = {
   intervalMs?: number;
   loadLastRunAt?: () => Promise<string | null>;
   task: (context: SchedulerTaskContext) => Promise<void>;
+  onTaskFailure?: (context: SchedulerTaskContext, error: unknown) => Promise<void>;
+  pauseOnTaskFailure?: boolean;
 };
 
 export class HourlyScheduler {
@@ -96,15 +98,16 @@ export class HourlyScheduler {
   private async resolveNextDelayMs() {
     if (!this.options.loadLastRunAt) {
       this.options.logger.info("No persisted scheduler run store configured. Running soon.");
-      return 5000;
+      return this.resolveSoonDelayMs();
     }
 
     try {
-      const lastRunAt = (await this.options.loadLastRunAt()) ?? this.lastRunAt;
+      const persistedLastRunAt = await this.options.loadLastRunAt();
+      const lastRunAt = this.resolveLatestRunAt(persistedLastRunAt, this.lastRunAt);
 
       if (!lastRunAt) {
         this.options.logger.info("No previous runs found. Running swarm soon.");
-        return 5000;
+        return this.resolveSoonDelayMs();
       }
 
       this.lastRunAt = lastRunAt;
@@ -117,7 +120,10 @@ export class HourlyScheduler {
       }
 
       const timeSinceLastRun = Date.now() - lastRunTime;
-      const delayMs = Math.min(this.intervalMs, Math.max(5000, this.intervalMs - timeSinceLastRun));
+      const delayMs = Math.min(
+        this.intervalMs,
+        Math.max(this.resolveSoonDelayMs(), this.intervalMs - timeSinceLastRun),
+      );
 
       if (timeSinceLastRun < this.intervalMs) {
         this.options.logger.info(
@@ -171,6 +177,28 @@ export class HourlyScheduler {
       }
 
       this.options.logger.error("Scheduler tick failed.", error);
+      this.lastRunAt = triggeredAt;
+
+      if (this.options.onTaskFailure) {
+        try {
+          await this.options.onTaskFailure(
+            {
+              runId,
+              trigger,
+              triggeredAt,
+              mode: this.options.mode,
+            },
+            error,
+          );
+        } catch (notificationError) {
+          this.options.logger.error("Scheduler failure notification failed.", notificationError);
+        }
+      }
+
+      if (this.options.pauseOnTaskFailure) {
+        await this.stop();
+        this.options.logger.warn("Hourly scheduler paused after swarm failure.");
+      }
     } finally {
       this.isRunning = false;
 
@@ -178,5 +206,32 @@ export class HourlyScheduler {
         await this.scheduleNextTick();
       }
     }
+  }
+
+  private resolveLatestRunAt(left: string | null, right: string | null) {
+    if (!left) {
+      return right;
+    }
+
+    if (!right) {
+      return left;
+    }
+
+    const leftTime = new Date(left).getTime();
+    const rightTime = new Date(right).getTime();
+
+    if (Number.isNaN(leftTime)) {
+      return right;
+    }
+
+    if (Number.isNaN(rightTime)) {
+      return left;
+    }
+
+    return rightTime > leftTime ? right : left;
+  }
+
+  private resolveSoonDelayMs() {
+    return Math.min(5000, this.intervalMs);
   }
 }

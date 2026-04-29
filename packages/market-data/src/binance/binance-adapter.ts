@@ -41,7 +41,9 @@ export class BinanceAdapter {
 
     const marketSymbol = this.normalizeMarketSymbol(normalized);
     const [ticker, funding, openInterest] = await Promise.all([
-      this.requestJson(`/api/v3/ticker/24hr?symbol=${encodeURIComponent(marketSymbol)}`),
+      this.requestJson(
+        `${this.config.futuresBaseUrl}/fapi/v1/ticker/24hr?symbol=${encodeURIComponent(marketSymbol)}`,
+      ),
       this.requestJson(
         `${this.config.futuresBaseUrl}/fapi/v1/premiumIndex?symbol=${encodeURIComponent(marketSymbol)}`,
       ),

@@ -55,7 +55,7 @@ describe("hourly scheduler", () => {
     expect(taskCalls).toHaveLength(1);
     expect(taskCalls[0]).toMatchObject({
       trigger: "interval",
-      modeLabel: "Mocked demo",
+      modeLabel: "Live",
     });
 
     const status = scheduler.getStatus();
@@ -87,14 +87,15 @@ describe("hourly scheduler", () => {
       },
     });
 
-    scheduler.start();
-
-    await vi.advanceTimersByTimeAsync(1_000);
+    const schedulerTick = scheduler as unknown as {
+      tick: (trigger: "interval") => Promise<void>;
+    };
+    const activeTick = schedulerTick.tick("interval");
     await flushAsync();
     expect(taskCalls).toBe(1);
     expect(scheduler.getStatus().isRunning).toBe(true);
 
-    await vi.advanceTimersByTimeAsync(1_000);
+    await schedulerTick.tick("interval");
     await flushAsync();
 
     expect(taskCalls).toBe(1);
@@ -102,6 +103,7 @@ describe("hourly scheduler", () => {
     expect(logger.warn).toHaveBeenCalledTimes(1);
 
     resolveTask();
+    await activeTick;
     await flushAsync();
 
     expect(scheduler.getStatus().isRunning).toBe(false);
@@ -136,6 +138,73 @@ describe("hourly scheduler", () => {
     await flushAsync();
 
     expect(taskCalls).toBe(2);
+
+    await scheduler.stop();
+  });
+
+  it("backs off from the latest failed attempt instead of the older persisted run", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-25T09:00:00.000Z"));
+
+    const logger = createMockLogger();
+    const scheduler = new HourlyScheduler({
+      logger,
+      runLock: new RunLock(false),
+      mode: getRuntimeModeFlags("mocked"),
+      intervalMs: 60_000,
+      loadLastRunAt: async () => "2026-04-25T08:00:00.000Z",
+      task: async () => {
+        throw new Error("provider unavailable");
+      },
+    });
+
+    await scheduler.start();
+
+    expect(scheduler.getStatus().nextRunAt).toBe("2026-04-25T09:00:05.000Z");
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await flushAsync();
+
+    const status = scheduler.getStatus();
+
+    expect(status.lastRunAt).toBe("2026-04-25T09:00:05.000Z");
+    expect(status.nextRunAt).toBe("2026-04-25T09:01:05.000Z");
+
+    await scheduler.stop();
+  });
+
+  it("runs failure hooks and pauses when configured to pause on task failure", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-25T10:00:00.000Z"));
+
+    const logger = createMockLogger();
+    const failures: string[] = [];
+    const scheduler = new HourlyScheduler({
+      logger,
+      runLock: new RunLock(false),
+      mode: getRuntimeModeFlags("live"),
+      intervalMs: 60_000,
+      task: async () => {
+        throw new Error("scanner unavailable");
+      },
+      onTaskFailure: async (context, error) => {
+        failures.push(`${context.runId}:${error instanceof Error ? error.message : String(error)}`);
+      },
+      pauseOnTaskFailure: true,
+    });
+
+    await scheduler.start();
+    await vi.advanceTimersByTimeAsync(5_000);
+    await flushAsync();
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toContain("scanner unavailable");
+    expect(scheduler.getStatus()).toMatchObject({
+      enabled: false,
+      isRunning: false,
+      nextRunAt: null,
+    });
+    expect(logger.warn).toHaveBeenCalledWith("Hourly scheduler paused after swarm failure.");
 
     await scheduler.stop();
   });

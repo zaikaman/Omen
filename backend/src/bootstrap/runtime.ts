@@ -7,6 +7,8 @@ import { createLogger, type Logger } from "./logger.js";
 import { registerGracefulShutdown } from "./shutdown.js";
 import { createServer } from "../server.js";
 import { DefaultRunCoordinator } from "../coordinator/run-coordinator.js";
+import { HerokuLogFetcher } from "../notifications/heroku-log-fetcher.js";
+import { TelegramNotifier } from "../notifications/telegram-notifier.js";
 import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline.js";
 import { HourlyScheduler } from "../scheduler/hourly-scheduler.js";
 import { RunLock } from "../scheduler/run-lock.js";
@@ -36,6 +38,8 @@ export const startBackendRuntime = (): BackendRuntime => {
         )
       : null;
   const pipeline = new DefaultLiveSwarmRunPipeline({ env });
+  const herokuLogFetcher = new HerokuLogFetcher({ env, logger });
+  const telegramNotifier = new TelegramNotifier({ env, logger });
   const coordinator = new DefaultRunCoordinator({
     logger,
     pipeline,
@@ -60,6 +64,18 @@ export const startBackendRuntime = (): BackendRuntime => {
     task: async (context) => {
       await runtimeWorker.execute(context);
     },
+    onTaskFailure: async (context, error) => {
+      let herokuLogs: string | null = null;
+
+      try {
+        herokuLogs = await herokuLogFetcher.fetchRecentLogs();
+      } catch (logError) {
+        logger.error("Failed to fetch Heroku logs for swarm failure notification.", logError);
+      }
+
+      await telegramNotifier.sendSwarmFailure({ context, error, herokuLogs });
+    },
+    pauseOnTaskFailure: true,
   });
   const app = createServer({
     env,

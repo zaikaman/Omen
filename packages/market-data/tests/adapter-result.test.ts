@@ -133,6 +133,52 @@ describe("market-data provider results", () => {
     expect(requestedTickerUrl).toContain("symbol=1000PEPEUSDT");
   });
 
+  it("uses the futures Binance ticker endpoint for normalized futures symbols", async () => {
+    const requestedUrls: string[] = [];
+
+    vi.stubGlobal(
+      "fetch",
+      async (input: string | URL) =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () => {
+            const url = input.toString();
+            requestedUrls.push(url);
+
+            if (url.includes("/ticker/24hr")) {
+              return {
+                lastPrice: "0.00123",
+                priceChangePercent: "4.5",
+                quoteVolume: "25000000",
+              };
+            }
+
+            if (url.includes("/premiumIndex")) {
+              return {
+                lastFundingRate: "0.0002",
+              };
+            }
+
+            return {
+              openInterest: "1250000",
+            };
+          },
+        }) as Response,
+    );
+
+    const adapter = new BinanceAdapter();
+    const result = await adapter.getMarketSnapshot("shib");
+
+    expect(result.ok).toBe(true);
+    expect(requestedUrls.find((url) => url.includes("/ticker/24hr"))).toContain(
+      "fapi.binance.com",
+    );
+    expect(requestedUrls.find((url) => url.includes("/ticker/24hr"))).toContain(
+      "symbol=1000SHIBUSDT",
+    );
+  });
+
   it("builds normalized market snapshot and movers service views", async () => {
     vi.stubGlobal(
       "fetch",
@@ -189,6 +235,100 @@ describe("market-data provider results", () => {
     if (movers.ok) {
       expect(movers.value).toHaveLength(2);
     }
+  });
+
+  it("keeps successful snapshots when a batch contains unsupported symbols", async () => {
+    vi.stubGlobal(
+      "fetch",
+      async (input: string | URL) => {
+        const url = input.toString();
+        const isUnsupported = url.toUpperCase().includes("UNSUPPORTED");
+
+        return {
+          ok: !isUnsupported,
+          status: isUnsupported ? 404 : 200,
+          json: async () => {
+            if (url.includes("/coins/markets")) {
+              return [
+                {
+                  current_price: 64000,
+                  price_change_percentage_24h: 2.1,
+                  total_volume: 1000000,
+                },
+              ];
+            }
+
+            if (url.includes("/ticker/24hr")) {
+              return {
+                lastPrice: "65000",
+                priceChangePercent: "3.2",
+                quoteVolume: "120000000",
+              };
+            }
+
+            if (url.includes("premiumIndex")) {
+              return {
+                lastFundingRate: "0.0005",
+              };
+            }
+
+            return {
+              openInterest: "4500000",
+            };
+          },
+        } as Response;
+      },
+    );
+
+    const binance = new BinanceMarketService();
+    const coinGecko = new CoinGeckoMarketService();
+
+    const [binanceSnapshots, coinGeckoSnapshots] = await Promise.all([
+      binance.getSnapshots(["BTC", "UNSUPPORTED"]),
+      coinGecko.getAssetSnapshots(["BTC", "UNSUPPORTED"]),
+    ]);
+
+    expect(binanceSnapshots.ok).toBe(true);
+    expect(coinGeckoSnapshots.ok).toBe(true);
+
+    if (binanceSnapshots.ok) {
+      expect(binanceSnapshots.value).toHaveLength(1);
+      expect(binanceSnapshots.health.notes.some((note) => note.includes("Skipped"))).toBe(true);
+    }
+
+    if (coinGeckoSnapshots.ok) {
+      expect(coinGeckoSnapshots.value).toHaveLength(1);
+      expect(coinGeckoSnapshots.health.notes.some((note) => note.includes("Skipped"))).toBe(true);
+    }
+  });
+
+  it("requests CoinGecko markets by configured token ids", async () => {
+    let requestedUrl = "";
+
+    vi.stubGlobal(
+      "fetch",
+      async (input: string | URL) =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () => {
+            requestedUrl = input.toString();
+            return [
+              {
+                current_price: 100,
+                price_change_percentage_24h: 12.3,
+                total_volume: 1000000,
+              },
+            ];
+          },
+        }) as Response,
+    );
+
+    const coinGecko = new CoinGeckoMarketService();
+    const result = await coinGecko.getAssetSnapshot("BTC");
+
+    expect(result.ok).toBe(true);
+    expect(requestedUrl).toContain("ids=bitcoin");
   });
 
   it("builds template-style CoinGecko, Birdeye, and CMC views", async () => {

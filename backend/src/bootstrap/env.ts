@@ -83,6 +83,13 @@ export type BackendEnv = {
     chatId: string | null;
     baseUrl: string;
   };
+  heroku: {
+    apiToken: string | null;
+    appName: string | null;
+    apiBaseUrl: string;
+    logLineCount: number;
+    requestTimeoutMs: number;
+  };
   deferred: {
     futuresEncryptionKey: string | null;
     internalWebhookKey: string | null;
@@ -297,6 +304,13 @@ export const createBackendEnv = (
       botToken: env.TELEGRAM_BOT_TOKEN ?? null,
       chatId: env.TELEGRAM_CHAT_ID ?? env.TELEGRAM_CHANNEL_ID ?? null,
       baseUrl: env.TELEGRAM_API_BASE_URL ?? "https://api.telegram.org",
+    },
+    heroku: {
+      apiToken: env.HEROKU_API_TOKEN ?? env.HEROKU_API_KEY ?? null,
+      appName: env.HEROKU_APP_NAME ?? env.HEROKU_APP_ID ?? null,
+      apiBaseUrl: env.HEROKU_API_BASE_URL ?? "https://api.heroku.com",
+      logLineCount: parsePort(env.HEROKU_LOG_LINE_COUNT, 80),
+      requestTimeoutMs: parsePort(env.HEROKU_LOG_REQUEST_TIMEOUT_MS, 5000),
     },
     deferred: {
       futuresEncryptionKey: env.FUTURES_ENCRYPTION_KEY ?? null,

@@ -45,29 +45,34 @@ export class BinanceMarketService {
       parsed.symbols.map((symbol) => this.adapter.getMarketSnapshot(symbol)),
     );
     const snapshots: MarketSnapshot[] = [];
+    const failures: string[] = [];
 
     for (const result of results) {
       if (!result.ok) {
-        return createProviderFailure({
-          provider: "binance",
-          code: "BINANCE_SNAPSHOT_BATCH_FAILED",
-          message: `Failed to fetch Binance snapshots in the requested batch: ${result.error.message}`,
-          retryable: result.error.retryable,
-          notes: results.map((item) =>
-            item.ok
-              ? `Snapshot ready for ${item.value.symbol}.`
-              : `${item.error.code}: ${item.error.message}`,
-          ),
-        });
+        failures.push(`${result.error.code}: ${result.error.message}`);
+        continue;
       }
 
       snapshots.push(result.value);
     }
 
+    if (snapshots.length === 0) {
+      return createProviderFailure({
+        provider: "binance",
+        code: "BINANCE_SNAPSHOT_BATCH_FAILED",
+        message: `Failed to fetch Binance snapshots in the requested batch: ${failures.join("; ")}`,
+        retryable: results.some((item) => !item.ok && item.error.retryable),
+        notes: failures,
+      });
+    }
+
     return createProviderSuccess({
       provider: "binance",
       value: snapshots,
-      notes: [`Prepared ${snapshots.length.toString()} Binance market snapshots.`],
+      notes: [
+        `Prepared ${snapshots.length.toString()} Binance market snapshots.`,
+        ...failures.map((failure) => `Skipped Binance snapshot: ${failure}`),
+      ],
     });
   }
 

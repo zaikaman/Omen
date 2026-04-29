@@ -96,7 +96,7 @@ export const TRADEABLE_TOKENS: TradeableToken[] = [
   { symbol: "PHA", coingeckoId: "pha", category: "ai", binanceSymbol: "PHAUSDT", hyperliquidSymbol: "PHA" },
   { symbol: "SWARMS", coingeckoId: "swarms", category: "ai", binanceSymbol: "SWARMSUSDT", hyperliquidSymbol: "SWARMS" },
   { symbol: "PEPE", coingeckoId: "pepe", category: "meme", binanceSymbol: "1000PEPEUSDT", hyperliquidSymbol: "kPEPE" },
-  { symbol: "SHIB", coingeckoId: "shiba-inu", category: "meme", binanceSymbol: "1000SHIBUSD", hyperliquidSymbol: "kSHIB" },
+  { symbol: "SHIB", coingeckoId: "shiba-inu", category: "meme", binanceSymbol: "1000SHIBUSDT", hyperliquidSymbol: "kSHIB" },
   { symbol: "WIF", coingeckoId: "dogwifcoin", category: "meme", binanceSymbol: "WIFUSDT", hyperliquidSymbol: "WIF" },
   { symbol: "POPCAT", coingeckoId: "popcat", category: "meme", binanceSymbol: "POPCATUSDT", hyperliquidSymbol: "POPCAT" },
   { symbol: "BONK", coingeckoId: "bonk", category: "meme", binanceSymbol: "1000BONKUSDT", hyperliquidSymbol: "kBONK" },

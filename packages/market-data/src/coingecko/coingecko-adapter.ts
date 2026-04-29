@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { getTradeableToken } from "@omen/shared";
+
 import {
   createProviderFailure,
   createProviderSuccess,
@@ -196,9 +198,11 @@ export class CoinGeckoAdapter {
     | { ok: true; value: Record<string, unknown>[]; status: number }
     | { ok: false; error: Error; status: number | null }
   > {
+    const coingeckoId = getTradeableToken(symbol)?.coingeckoId;
+
     return this.requestMarketsByParams({
       vs_currency: "usd",
-      symbols: symbol.toLowerCase(),
+      ...(coingeckoId ? { ids: coingeckoId } : { symbols: symbol.toLowerCase() }),
       price_change_percentage: "24h",
     });
   }

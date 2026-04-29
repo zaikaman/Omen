@@ -37,24 +37,34 @@ export class CoinGeckoMarketService {
       parsed.symbols.map((symbol) => this.adapter.getAssetSnapshot(symbol)),
     );
     const snapshots: MarketSnapshot[] = [];
+    const failures: string[] = [];
 
     for (const result of results) {
       if (!result.ok) {
-        return createProviderFailure({
-          provider: "coingecko",
-          code: "COINGECKO_SNAPSHOT_BATCH_FAILED",
-          message: `Failed to fetch CoinGecko snapshots in the requested batch: ${result.error.message}`,
-          retryable: result.error.retryable,
-        });
+        failures.push(`${result.error.code}: ${result.error.message}`);
+        continue;
       }
 
       snapshots.push(result.value);
     }
 
+    if (snapshots.length === 0) {
+      return createProviderFailure({
+        provider: "coingecko",
+        code: "COINGECKO_SNAPSHOT_BATCH_FAILED",
+        message: `Failed to fetch CoinGecko snapshots in the requested batch: ${failures.join("; ")}`,
+        retryable: results.some((item) => !item.ok && item.error.retryable),
+        notes: failures,
+      });
+    }
+
     return createProviderSuccess({
       provider: "coingecko",
       value: snapshots,
-      notes: [`Prepared ${snapshots.length.toString()} CoinGecko asset snapshots.`],
+      notes: [
+        `Prepared ${snapshots.length.toString()} CoinGecko asset snapshots.`,
+        ...failures.map((failure) => `Skipped CoinGecko snapshot: ${failure}`),
+      ],
     });
   }
 
