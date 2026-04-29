@@ -89,7 +89,7 @@ describe("generator agent", () => {
     expect(result.content.imagePrompt).not.toContain("$SUI");
   });
 
-  it("falls back when model tweet output is generic headline spam", async () => {
+  it("preserves model tweet output without quality fallback", async () => {
     const agent = createGeneratorAgent({
       llmClient: {
         completeJson: async () => ({
@@ -131,12 +131,12 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(result.content.tweetText).toContain("- ");
-    expect(result.content.tweetText).toContain("$SUI");
-    expect(result.content.tweetText).not.toMatch(/pepeto|price prediction/i);
+    expect(result.content.tweetText).toBe(
+      "crypto news: pepeto announces investment growth while the bitcoin price prediction bulls targets $150,000",
+    );
   });
 
-  it("falls back when model tweet output is cut off mid-thought", async () => {
+  it("preserves model tweet output without truncation checks", async () => {
     const agent = createGeneratorAgent({
       llmClient: {
         completeJson: async () => ({
@@ -178,95 +178,16 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(result.content.tweetText).toContain("- ");
-    expect(result.content.tweetText).not.toMatch(/\bawaiting$/i);
-    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
+    expect(result.content.tweetText).toMatch(/\bawaiting$/i);
   });
 
-  it("asks the model to retry when generated tweet text is over 270 characters", async () => {
-    const calls: string[] = [];
-    const tooLongTweet = [
-      "l2 launchpad momentum: fluent blend + pump.fun pump surge",
-      "",
-      "- fresh ethereum l2 mainnet activation for fluent with $50m day-one liquidity and expanding ecosystem incentives that keep stretching this line",
-      "- concurrently, $PUMP maintains heavy birdeye trending and volume as the market rotates into launchpad narratives",
-      "",
-      "watch $BLEND $PUMP $BTC if confirmation follows",
-    ].join("\n");
-    const validTweet = [
-      "l2 launchpad momentum: fluent blend + pump.fun surge",
-      "",
-      "- fluent launches ethereum l2 mainnet with $50m day-one liquidity",
-      "- $PUMP keeps birdeye trend + launchpad volume while majors range",
-      "",
-      "watch $BLEND $PUMP $BTC if confirmation follows",
-    ].join("\n");
-    const agent = createGeneratorAgent({
-      llmClient: {
-        completeJson: async (input: { userPrompt: string }) => {
-          calls.push(input.userPrompt);
-
-          return {
-            topic: "L2 Launchpad Momentum",
-            tweetText: calls.length === 1 ? tooLongTweet : validTweet,
-            blogPost: "# L2 Launchpad Momentum\n\n## Executive Summary\nLaunchpads are rotating.",
-            imagePrompt: "Cyberpunk launchpad liquidity cover art.",
-            formattedContent: "l2 launchpad momentum",
-            logMessage: "INTEL LOCKED: launchpads.",
-          };
-        },
-      } as never,
-    });
-
-    const result = await agent.invoke(
-      {
-        context: {
-          runId: run.id,
-          threadId: "thread-generator-retry-too-long",
-          mode: "mocked",
-          triggeredBy: "scheduler",
-        },
-        report: {
-          topic: "L2 Launchpad Momentum",
-          insight:
-            "Fluent launched its Ethereum L2 mainnet with reported day-one liquidity while PUMP stayed high in launchpad attention.",
-          importanceScore: 8,
-          category: "narrative_shift",
-          title: "L2 Launchpad Momentum",
-          summary:
-            "Fluent launched its Ethereum L2 mainnet with reported day-one liquidity. PUMP stayed high in launchpad attention while majors ranged.",
-          confidence: 80,
-          symbols: ["BLEND", "PUMP", "BTC"],
-          imagePrompt: null,
-        },
-        evidence: [],
-      },
-      createInitialSwarmState({ run, config }),
-    );
-
-    expect(tooLongTweet.length).toBeGreaterThan(270);
-    expect(calls).toHaveLength(2);
-    expect(calls[1]).toContain("Previous tweet failed validation");
-    expect(result.content.tweetText).toBe(validTweet);
-    expect(result.content.tweetText ?? "").toHaveLength(validTweet.length);
-    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
-  });
-
-  it("asks the model to retry when generated tweet text has a broken parenthetical bullet", async () => {
+  it("preserves model tweet output with broken parentheticals instead of retrying", async () => {
     const calls: string[] = [];
     const brokenTweet = [
       "interoperability and launchpad momentum in thin liquidity",
       "",
       "- blend (fluent) surges into trending lists on coingecko and birdeye following its mainnet launch, tge.",
       "- concurrently, pump (pump.",
-      "",
-      "watch $MON $HYPE $BTC $ETH if confirmation follows",
-    ].join("\n");
-    const validTweet = [
-      "interoperability and launchpad momentum in thin liquidity",
-      "",
-      "- blend trends after fluent mainnet launch and tge attention",
-      "- $PUMP holds birdeye volume as launchpad rotation stays active",
       "",
       "watch $MON $HYPE $BTC $ETH if confirmation follows",
     ].join("\n");
@@ -277,7 +198,7 @@ describe("generator agent", () => {
 
           return {
             topic: "Launchpad Momentum",
-            tweetText: calls.length === 1 ? brokenTweet : validTweet,
+            tweetText: brokenTweet,
             blogPost: "# Launchpad Momentum\n\n## Executive Summary\nLaunchpad flows are rotating.",
             imagePrompt: "Cyberpunk launchpad liquidity cover art.",
             formattedContent: "launchpad momentum",
@@ -313,13 +234,11 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(calls).toHaveLength(2);
-    expect(calls[1]).toContain("broken bullet fragment");
-    expect(result.content.tweetText).toBe(validTweet);
-    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
+    expect(calls).toHaveLength(1);
+    expect(result.content.tweetText).toBe(brokenTweet);
   });
 
-  it("falls back when model tweet repeats the same bullet", async () => {
+  it("preserves repeated model tweet lines", async () => {
     const agent = createGeneratorAgent({
       llmClient: {
         completeJson: async () => ({
@@ -361,11 +280,12 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(result.content.tweetText).toContain("- ");
-    expect(result.content.tweetText).not.toMatch(/btc slipped under \$76k.*btc slipped under \$76k/is);
+    expect(result.content.tweetText).toBe(
+      "bitcoin testing support\n\n- btc slipped under $76k while policy tailwinds build\n- btc slipped under $76k while policy tailwinds build",
+    );
   });
 
-  it("falls back when model tweet has no closing take", async () => {
+  it("preserves model tweet output without a closing take", async () => {
     const agent = createGeneratorAgent({
       llmClient: {
         completeJson: async () => ({
@@ -407,10 +327,9 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(result.content.tweetText ?? "").toContain("watch $PROS");
-    expect(
-      (result.content.tweetText ?? "").split("\n").filter((line) => line.startsWith("- ")).length,
-    ).toBeGreaterThanOrEqual(2);
+    expect(result.content.tweetText).toBe(
+      "pharos $PROS coinbase listing catalyst\n\n- pharos network is trending after a coinbase spot listing",
+    );
   });
 
   it("wraps model image prompts with the intel thesis and no-text constraints", async () => {
