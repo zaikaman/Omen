@@ -256,12 +256,21 @@ export class GeneratorAgentFactory {
           `Report: ${JSON.stringify(parsed.report, null, 2)}`,
         ].join("\n"),
       });
+      const responseTweetText = response.tweetText ?? response.tweet_text ?? "";
+
+      if (responseTweetText.trim().length === 0) {
+        throw new Error("Generator LLM response did not include tweetText.");
+      }
 
       return generatorOutputSchema.parse({
         content: normalizeGeneratorContent(response, parsed.report),
       });
-    } catch {
-      return generatorOutputSchema.parse({ content: fallbackContent });
+    } catch (error) {
+      console.warn("[omen-generator] LLM generation failed; refusing fallback tweet publication.", {
+        runId: parsed.context.runId,
+        error: error instanceof Error ? error.message : "Unknown generator error.",
+      });
+      throw error;
     }
   }
 }

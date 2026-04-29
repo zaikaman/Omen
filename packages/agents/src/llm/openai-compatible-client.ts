@@ -24,7 +24,7 @@ export const openAiCompatibleClientConfigSchema = z.object({
   apiKey: z.string().min(1),
   baseUrl: z.string().url(),
   model: z.string().min(1),
-  timeoutMs: z.number().int().min(1000).default(30_000),
+  timeoutMs: z.number().int().min(1000).default(300_000),
 });
 
 export type OpenAiCompatibleClientConfig = z.infer<
@@ -32,6 +32,12 @@ export type OpenAiCompatibleClientConfig = z.infer<
 >;
 
 const ensureTrailingSlashRemoved = (value: string) => value.replace(/\/+$/, "");
+
+const parseTimeoutMs = (value: string | undefined, fallback: number) => {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) && parsed >= 1000 ? parsed : fallback;
+};
 
 export const buildTemperaturePayload = (
   model: string,
@@ -74,6 +80,17 @@ const extractJsonString = (content: string) => {
   throw new Error("The model response did not contain a parseable JSON object.");
 };
 
+const rawLlmLoggingEnabled = () =>
+  process.env.OMEN_LLM_RAW_LOG === "1" || process.env.OMEN_LLM_RAW_LOG === "full";
+
+const logRawLlmPayload = (label: string, payload: unknown) => {
+  if (!rawLlmLoggingEnabled()) {
+    return;
+  }
+
+  console.log(`[omen-llm-raw] ${label} ${JSON.stringify(payload)}`);
+};
+
 export type JsonCompletionInput<T> = {
   systemPrompt: string;
   userPrompt: string;
@@ -113,6 +130,10 @@ export class OpenAiCompatibleJsonClient {
       apiKey,
       baseUrl,
       model,
+      timeoutMs:
+        role === "scanner"
+          ? parseTimeoutMs(env.SCANNER_TIMEOUT_MS ?? env.OPENAI_TIMEOUT_MS, 300_000)
+          : parseTimeoutMs(env.OPENAI_TIMEOUT_MS, 300_000),
     });
   }
 
@@ -121,6 +142,13 @@ export class OpenAiCompatibleJsonClient {
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
 
     try {
+      logRawLlmPayload("request", {
+        model: this.config.model,
+        baseUrl: this.config.baseUrl,
+        systemPrompt: input.systemPrompt,
+        userPrompt: input.userPrompt,
+      });
+
       const response = await fetch(
         `${ensureTrailingSlashRemoved(this.config.baseUrl)}/chat/completions`,
         {
@@ -156,7 +184,17 @@ export class OpenAiCompatibleJsonClient {
 
       const payload = openAiCompatibleResponseSchema.parse(await response.json());
       const rawMessage = extractMessageText(payload.choices[0].message.content);
+      logRawLlmPayload("raw-response", {
+        model: this.config.model,
+        rawMessage,
+      });
       const json = JSON.parse(extractJsonString(rawMessage));
+
+      logRawLlmPayload("response", {
+        model: this.config.model,
+        rawMessage,
+        parsedJson: json,
+      });
 
       return input.schema.parse(json);
     } finally {
