@@ -96,4 +96,25 @@ describe("post formatter", () => {
     expect(post.text).toBe(generatedTweetText);
     expect(post.text.length).toBeLessThanOrEqual(280);
   });
+
+  it("keeps generated intel tweets below the provider-safe posting budget", () => {
+    const generatedTweetText = [
+      "meme launchpad capital rotation & supply shock in $PUMP",
+      "",
+      "- pump.fun's aggressive tokenomics overhaul--burning ~36% of circulating $PUMP supply",
+      "- this coincides with $PUMP trending heavily on birdeye/coingecko alongside solana",
+      "",
+      "watch $PUMP $BLEND $BTC if confirmation follows",
+    ].join("\n");
+    const post = formatIntelPost({
+      title: "PUMP supply shock",
+      summary: "Fallback summary should not be used.",
+      symbols: ["PUMP", "BLEND", "BTC"],
+      generatedTweetText,
+    });
+
+    expect(generatedTweetText.length).toBeGreaterThan(270);
+    expect(post.text.length).toBeLessThanOrEqual(270);
+    expect(post.text).toContain("watch $PUMP $BLEND $BTC if confirmation follows");
+  });
 });

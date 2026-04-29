@@ -15,6 +15,7 @@ type IntelPostInput = Pick<Intel, "title" | "summary" | "symbols"> & {
 };
 
 const STANDARD_X_POST_LIMIT = 280;
+const GENERATED_INTEL_X_POST_LIMIT = 270;
 const MAX_HOOK_LENGTH = 72;
 const MAX_BULLET_LENGTH = 82;
 const MAX_TAKE_LENGTH = 92;
@@ -279,6 +280,48 @@ const compactPostLines = (lines: string[], maxLength = STANDARD_X_POST_LIMIT) =>
   return trimToLength(compacted.join("\n"), maxLength);
 };
 
+const normalizeGeneratedTweetLines = (value: string) => {
+  const lines = value
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim());
+
+  return lines.filter((line, index, allLines) => {
+    if (line.length > 0) {
+      return true;
+    }
+
+    return allLines[index - 1]?.length && allLines[index + 1]?.length;
+  });
+};
+
+const compactGeneratedIntelTweet = (value: string) => {
+  const lines = normalizeGeneratedTweetLines(value);
+  const normalized = lines.join("\n");
+
+  if (normalized.length <= GENERATED_INTEL_X_POST_LIMIT) {
+    return normalized;
+  }
+
+  const nonEmptyLines = lines.filter((line) => line.length > 0);
+  const closingLine = [...nonEmptyLines]
+    .reverse()
+    .find((line) => /^(?:watch|take|expect)\b/i.test(line));
+
+  if (!closingLine) {
+    return compactPostLines(lines, GENERATED_INTEL_X_POST_LIMIT);
+  }
+
+  const hook = trimLineToLength(nonEmptyLines[0] ?? "market intel", MAX_HOOK_LENGTH);
+  const bullets = nonEmptyLines
+    .filter((line) => line.startsWith("- "))
+    .slice(0, 2)
+    .map((line) => trimLineToLength(line, MAX_BULLET_LENGTH));
+  const take = trimLineToLength(closingLine, MAX_TAKE_LENGTH);
+
+  return compactPostLines([hook, "", ...bullets, "", take], GENERATED_INTEL_X_POST_LIMIT);
+};
+
 const compactSignalPostLines = (input: {
   fixedLines: string[];
   thesisText: string;
@@ -359,7 +402,7 @@ export const formatSignalPost = (
 export const formatIntelPost = (intel: IntelPostInput): XPostDraft => {
   if (intel.generatedTweetText) {
     return xPostDraftSchema.parse({
-      text: trimToLength(intel.generatedTweetText.trim(), 280),
+      text: compactGeneratedIntelTweet(intel.generatedTweetText),
       replyToTweetId: null,
       quoteTweetId: null,
       attachmentUrl: null,

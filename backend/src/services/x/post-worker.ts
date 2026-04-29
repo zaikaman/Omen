@@ -89,6 +89,11 @@ export class PostWorker {
     } catch (error) {
       const timestamp = new Date().toISOString();
       const attemptCount = getAttemptCount(postingPost) + 1;
+      const retryable = error instanceof TwitterApiProviderError ? error.retryable : true;
+      const nextRetryAt =
+        retryable && attemptCount < DEFAULT_POST_RETRY_POLICY.maxAttempts
+          ? new Date(Date.now() + DEFAULT_POST_RETRY_POLICY.baseDelayMs * attemptCount).toISOString()
+          : null;
       const failed = transitionPost(postingPost, "fail", {
         lastError: toErrorMessage(error),
         updatedAt: timestamp,
@@ -97,21 +102,22 @@ export class PostWorker {
           metadata: {
             ...post.payload.metadata,
             attemptCount,
-            retryable: error instanceof TwitterApiProviderError ? error.retryable : true,
-            nextRetryAt:
-              attemptCount < DEFAULT_POST_RETRY_POLICY.maxAttempts
-                ? new Date(
-                    Date.now() + DEFAULT_POST_RETRY_POLICY.baseDelayMs * attemptCount,
-                  ).toISOString()
-                : null,
+            retryable,
+            nextRetryAt,
           },
         },
       });
       const updated = await this.input.posts.updatePost(post.id, failed);
 
-      if (error instanceof TwitterApiProviderError && error.kind === "rate_limited") {
-        this.input.logger.warn(`twitterapi rate limited until ${error.resetAt ?? "unknown"}.`);
-      }
+      this.input.logger.warn("twitterapi post failed.", {
+        postId: post.id,
+        status: failed.status,
+        error: toErrorMessage(error),
+        retryable,
+        nextRetryAt,
+        providerKind: error instanceof TwitterApiProviderError ? error.kind : "unknown",
+        resetAt: error instanceof TwitterApiProviderError ? error.resetAt : null,
+      });
 
       if (!updated.ok) {
         throw new Error(`Failed to mark post failed: ${updated.error.message}`);
