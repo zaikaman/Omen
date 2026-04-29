@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { ChartSignal } from '../../types/ui-models';
+import {
+  analyticsTooltipContentStyle,
+  analyticsTooltipItemStyle,
+  analyticsTooltipLabelStyle,
+} from './chartTooltip';
 
 interface Props {
   signals: ChartSignal[];
@@ -72,11 +77,9 @@ export function ConfidenceOutcomeChart({ signals }: Props) {
           />
           <Tooltip
             cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-            contentStyle={{
-              backgroundColor: '#111827',
-              border: '1px solid #374151',
-              borderRadius: '8px',
-            }}
+            contentStyle={analyticsTooltipContentStyle}
+            labelStyle={analyticsTooltipLabelStyle}
+            itemStyle={analyticsTooltipItemStyle}
           />
           <Legend />
           <Bar dataKey="Wins" stackId="outcome" fill="#10b981" radius={[4, 4, 0, 0]} />

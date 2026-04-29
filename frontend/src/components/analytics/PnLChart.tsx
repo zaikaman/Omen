@@ -1,5 +1,10 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import type { ChartSignal } from '../../types/ui-models';
+import {
+  analyticsTooltipContentStyle,
+  analyticsTooltipItemStyle,
+  analyticsTooltipLabelStyle,
+} from './chartTooltip';
 
 interface Props {
   signals: ChartSignal[];
@@ -47,11 +52,9 @@ export function PnLChart({ signals }: Props) {
             tickFormatter={(value) => `${value}%`}
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: '#111827',
-              border: '1px solid #374151',
-              borderRadius: '8px'
-            }}
+            contentStyle={analyticsTooltipContentStyle}
+            labelStyle={analyticsTooltipLabelStyle}
+            itemStyle={analyticsTooltipItemStyle}
           />
           <Line
             type="monotone"

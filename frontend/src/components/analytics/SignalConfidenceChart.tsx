@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { ChartSignal } from '../../types/ui-models';
+import {
+  analyticsTooltipContentStyle,
+  analyticsTooltipItemStyle,
+  analyticsTooltipLabelStyle,
+} from './chartTooltip';
 
 interface Props {
   signals: ChartSignal[];
@@ -45,11 +50,9 @@ export function SignalConfidenceChart({ signals }: Props) {
           />
           <Tooltip
             cursor={{ fill: 'transparent' }}
-            contentStyle={{
-              backgroundColor: '#111827',
-              border: '1px solid #374151',
-              borderRadius: '8px'
-            }}
+            contentStyle={analyticsTooltipContentStyle}
+            labelStyle={analyticsTooltipLabelStyle}
+            itemStyle={analyticsTooltipItemStyle}
           />
           <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
             {data.map((entry, index) => (

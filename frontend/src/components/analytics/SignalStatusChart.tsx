@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import type { ChartSignal } from '../../types/ui-models';
+import {
+  analyticsTooltipContentStyle,
+  analyticsTooltipItemStyle,
+  analyticsTooltipLabelStyle,
+} from './chartTooltip';
 
 interface Props {
   signals: ChartSignal[];
@@ -47,11 +52,9 @@ export function SignalStatusChart({ signals }: Props) {
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{
-              backgroundColor: '#111827',
-              border: '1px solid #374151',
-              borderRadius: '8px',
-            }}
+            contentStyle={analyticsTooltipContentStyle}
+            labelStyle={analyticsTooltipLabelStyle}
+            itemStyle={analyticsTooltipItemStyle}
           />
           <Legend verticalAlign="bottom" height={36} />
         </PieChart>

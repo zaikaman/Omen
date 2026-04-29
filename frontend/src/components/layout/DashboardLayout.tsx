@@ -10,7 +10,6 @@ import {
     Home01Icon,
     Menu01Icon,
     Cancel01Icon,
-    NewTwitterIcon,
     News01Icon,
 } from '@hugeicons/core-free-icons';
 import { useRunStatus } from '../../hooks/useRunStatus';
@@ -40,22 +39,6 @@ const formatDateTime = (value: string | null | undefined) => {
         hour: '2-digit',
         minute: '2-digit',
     }).format(new Date(value));
-};
-
-const getPostStateClassName = (status: string | undefined) => {
-    switch (status) {
-        case 'posted':
-            return 'text-green-400';
-        case 'failed':
-            return 'text-red-400';
-        case 'formatting':
-        case 'posting':
-        case 'queued':
-        case 'ready':
-            return 'text-yellow-300';
-        default:
-            return 'text-gray-400';
-    }
 };
 
 const telegramUrl = import.meta.env.VITE_TELEGRAM_URL as string | undefined;
@@ -93,7 +76,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
     const currentTitle = pageTitles[location.pathname] || 'SYSTEM OVERVIEW';
     const currentRun = runStatus.activeRun ?? runStatus.latestRun;
-    const latestPost = runStatus.dashboardSummary?.latestPost ?? null;
 
     return (
         <div className="min-h-screen bg-black text-gray-300 font-sans selection:bg-cyan-500/30 flex">
@@ -192,13 +174,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                             <HugeiconsIcon icon={Activity01Icon} className="h-4 w-4 text-purple-300" />
                             <span>Mode</span>
                             <span className="text-gray-300">{formatLabel(currentRun?.mode)}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-gray-500">
-                            <HugeiconsIcon icon={NewTwitterIcon} className="h-4 w-4 text-gray-400" />
-                            <span>Post</span>
-                            <span className={getPostStateClassName(latestPost?.status)}>
-                                {formatLabel(latestPost?.status, 'NONE')}
-                            </span>
                         </div>
                     </div>
                 </header>

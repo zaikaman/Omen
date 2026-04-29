@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import type { ChartSignal } from '../../types/ui-models';
+import {
+  analyticsTooltipContentStyle,
+  analyticsTooltipItemStyle,
+  analyticsTooltipLabelStyle,
+} from './chartTooltip';
 
 interface Props {
   signals: ChartSignal[];
@@ -43,11 +48,9 @@ export function WinRateChart({ signals }: Props) {
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{
-              backgroundColor: '#111827',
-              border: '1px solid #374151',
-              borderRadius: '8px'
-            }}
+            contentStyle={analyticsTooltipContentStyle}
+            labelStyle={analyticsTooltipLabelStyle}
+            itemStyle={analyticsTooltipItemStyle}
           />
           <Legend verticalAlign="bottom" height={36} />
         </PieChart>
