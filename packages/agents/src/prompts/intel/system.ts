@@ -57,6 +57,8 @@ export const buildIntelSystemPrompt = (input: z.input<typeof intelPromptContextS
     '  "insight": "Capital is rotating from major L1s into AI infrastructure plays following the NVIDIA earnings report. We are seeing strength in render and compute tokens.",',
     '  "importance_score": 9',
     "}",
+    "Skip JSON example:",
+    '{"topic":"SKIP","insight":"Not enough value","importance_score":1}',
     "",
     'Return only the template fields: {"topic":"...","insight":"...","importance_score":7}. Do not return action, report, skipReason, title, summary, confidence, symbols, or imagePrompt.',
     `Current run: ${parsed.runId}.`,

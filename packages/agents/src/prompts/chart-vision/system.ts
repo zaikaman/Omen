@@ -28,6 +28,10 @@ export const buildChartVisionSystemPrompt = (
     `Current symbol: ${parsed.symbol.toUpperCase()}.`,
     `Direction hint: ${parsed.directionHint ?? "none"}.`,
     `Timeframes: ${parsed.timeframes.join(", ")}.`,
+    "Valid JSON example:",
+    '{"candidate":{"id":"candidate-ETC","symbol":"ETC","reason":"Selected for watchlist review.","directionHint":"WATCHLIST","status":"pending","sourceUniverse":"default","dedupeKey":"ETC-watchlist","missingDataNotes":[]},"frames":[{"timeframe":"15m","analysis":"Price is compressing near local resistance with no clean breakout.","chartDescription":"Candles are range-bound with repeated rejection near the upper band.","imageMimeType":"image/png","imageWidth":1280,"imageHeight":720}],"chartSummary":"The visible chart structure is range-bound and does not confirm a directional trade.","evidence":[{"category":"chart","summary":"15m chart shows range-bound consolidation near resistance.","sourceLabel":"Omen chart vision","sourceUrl":null,"structuredData":{"timeframe":"15m"}}],"missingDataNotes":[]}',
+    "Every frame must include timeframe, analysis, chartDescription, imageMimeType, imageWidth, and imageHeight.",
+    "Every evidence item must include category, summary, sourceLabel, sourceUrl, and structuredData.",
     "Return valid JSON only.",
   ].join(" ");
 };

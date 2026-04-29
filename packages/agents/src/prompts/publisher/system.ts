@@ -43,6 +43,11 @@ export const buildPublisherSystemPrompt = (
     `Thesis available: ${parsed.hasThesis ? "yes" : "no"}.`,
     `Critic decision: ${parsed.reviewDecision ?? "none"}.`,
     `Intel summary available: ${parsed.hasIntelSummary ? "yes" : "no"}.`,
+    "Valid JSON example:",
+    '{"drafts":[{"kind":"intel_summary","headline":"ETC range stays unresolved","summary":"ETC is still range-bound and lacks enough confirmation for a directional call.","text":"etc remains a watchlist setup\\n\\n- price is range-bound near resistance\\n- catalyst confirmation is still missing\\n\\nwatch $ETC only if volume confirms"}]}',
+    "Return exactly one top-level key: drafts.",
+    "Each draft must include kind, headline, summary, and text.",
+    "kind must be signal_alert, intel_summary, intel_thread, or no_conviction.",
     "Return valid JSON only.",
   ].join(" ");
 };

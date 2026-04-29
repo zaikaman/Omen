@@ -23,6 +23,10 @@ export const buildMarketBiasSystemPrompt = (
     `Tracked universe: ${parsed.universe.map((symbol) => symbol.toUpperCase()).join(", ")}.`,
     `Snapshots available: ${parsed.snapshotCount.toString()}.`,
     `Narratives available: ${parsed.narrativeCount.toString()}.`,
+    "Valid JSON example:",
+    '{"marketBias":"NEUTRAL","reasoning":"BTC and majors are mixed with no clean confluence between price action and narrative sentiment.","confidence":65}',
+    "Use exactly these top-level keys: marketBias, reasoning, confidence.",
+    "Do not use snake_case keys such as market_bias or bias_reasoning.",
     "Return valid JSON only.",
   ].join("\n");
 };

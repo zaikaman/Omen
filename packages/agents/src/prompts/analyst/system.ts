@@ -28,6 +28,12 @@ export const buildAnalystSystemPrompt = (input: z.input<typeof analystPromptCont
     `Current symbol: ${parsed.symbol.toUpperCase()}.`,
     `Direction hint: ${parsed.directionHint ?? "none"}.`,
     `Evidence items available: ${parsed.evidenceCount.toString()}.`,
+    "Valid JSON example:",
+    '{"thesis":{"candidateId":"candidate-ETC","asset":"ETC","direction":"WATCHLIST","confidence":68,"orderType":null,"tradingStyle":null,"expectedDuration":null,"currentPrice":8.42,"entryPrice":null,"targetPrice":null,"stopLoss":null,"riskReward":0,"whyNow":"ETC has enough range and attention to monitor, but the evidence does not justify a directional trade yet.","confluences":["market snapshot is stable","chart structure is range-bound"],"uncertaintyNotes":"No strong catalyst or liquidity confirmation is present.","missingDataNotes":"No additional missing-data flags."},"analystNotes":["Watchlist only until price confirms direction."]}',
+    "The top-level JSON object must contain thesis and analystNotes.",
+    "thesis must be an object, never a string.",
+    "If direction is WATCHLIST or NONE, set orderType, tradingStyle, expectedDuration, entryPrice, targetPrice, and stopLoss to null, and riskReward to 0.",
+    "Always include candidateId, asset, direction, confidence, riskReward, whyNow, confluences, uncertaintyNotes, and missingDataNotes.",
     "Return valid JSON only.",
   ].join("\n");
 };

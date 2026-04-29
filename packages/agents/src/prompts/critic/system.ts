@@ -25,6 +25,12 @@ export const buildCriticSystemPrompt = (
     `Current symbol: ${parsed.symbol.toUpperCase()}.`,
     `Evidence items available: ${parsed.evidenceCount.toString()}.`,
     `Proposed confidence: ${parsed.confidence.toString()}.`,
+    "Valid JSON example:",
+    '{"review":{"candidateId":"candidate-ETC","decision":"watchlist_only","objections":["Evidence is mixed and does not yet support a directional entry."],"forcedOutcomeReason":"Range-bound structure requires confirmation before publication."},"blockingReasons":["No confirmed breakout or high-conviction catalyst."]}',
+    "Top-level keys must be review and blockingReasons.",
+    "review must include candidateId, decision, objections, and forcedOutcomeReason.",
+    "decision must be approved, rejected, or watchlist_only.",
+    "Use forcedOutcomeReason:null only when no forced reason applies.",
     "Return valid JSON only.",
   ].join("\n");
 };
