@@ -185,6 +185,51 @@ describe("publisher agent", () => {
     expect(result.packet?.drafts.map((draft) => draft.kind)).toEqual(["intel_summary"]);
   });
 
+  it("preserves generated intel tweet text without publisher truncation", async () => {
+    const generatedTweetText = [
+      "interoperability and launchpad momentum in thin liquidity",
+      "",
+      "- blend (fluent) surges into trending lists on coingecko and birdeye following its mainnet launch, tge.",
+      "- concurrently, pump (pump.",
+      "",
+      "watch $MON $HYPE $BTC $ETH if confirmation follows",
+    ].join("\n");
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generated-intel-preserve",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        thesis: null,
+        review: null,
+        intelSummary: {
+          topic: "Launchpad momentum",
+          insight: "Generated tweet should be passed through unchanged.",
+          importanceScore: 8,
+          category: "narrative_shift",
+          title: "Launchpad momentum",
+          summary: "Generated tweet should be passed through unchanged.",
+          confidence: 74,
+          symbols: ["MON", "HYPE", "BTC", "ETH"],
+        },
+        generatedContent: {
+          topic: "Launchpad momentum",
+          tweetText: generatedTweetText,
+          blogPost: null,
+          imagePrompt: null,
+          formattedContent: null,
+          logMessage: null,
+        },
+      },
+      state,
+    );
+
+    expect(result.outcome).toBe("intel_ready");
+    expect(result.packet?.drafts[0]?.text).toBe(generatedTweetText);
+  });
+
   it("keeps rejected outcomes off the publishing packet", async () => {
     const result = await agent.invoke(
       {

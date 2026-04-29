@@ -169,6 +169,36 @@ const hasRepeatedTweetLines = (value: string) => {
   return false;
 };
 
+const hasUnbalancedDelimiters = (value: string) => {
+  const pairs = [
+    ["(", ")"],
+    ["[", "]"],
+    ["{", "}"],
+  ] as const;
+
+  return pairs.some(([open, close]) => {
+    const openCount = value.split(open).length - 1;
+    const closeCount = value.split(close).length - 1;
+
+    return openCount !== closeCount;
+  });
+};
+
+const hasBrokenBulletFragment = (value: string) =>
+  value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "))
+    .some((line) => {
+      const cleaned = line.replace(/^-\s+/, "").trim();
+
+      return (
+        hasUnbalancedDelimiters(cleaned) ||
+        /\([^)]*$/.test(cleaned) ||
+        /\([a-z0-9$.\s-]{1,24}\.?$/i.test(cleaned)
+      );
+    });
+
 const countBulletLines = (value: string) =>
   value
     .split("\n")
@@ -194,6 +224,7 @@ const isTemplateStyleTweet = (value: string) => {
     countBulletLines(normalized) >= 2 &&
     hasClosingTake(normalized) &&
     !looksTruncatedTweet(normalized) &&
+    !hasBrokenBulletFragment(normalized) &&
     !hasRepeatedTweetLines(normalized) &&
     !lowSignalTweetPatterns.some((pattern) => pattern.test(normalized))
   );
@@ -224,6 +255,10 @@ const getTweetValidationError = (value: string) => {
 
   if (looksTruncatedTweet(normalized)) {
     return "tweetText appears cut off mid-thought";
+  }
+
+  if (hasBrokenBulletFragment(normalized)) {
+    return "tweetText contains a broken bullet fragment or unmatched parentheses";
   }
 
   if (hasRepeatedTweetLines(normalized)) {

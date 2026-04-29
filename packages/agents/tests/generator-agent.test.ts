@@ -252,6 +252,73 @@ describe("generator agent", () => {
     expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
   });
 
+  it("asks the model to retry when generated tweet text has a broken parenthetical bullet", async () => {
+    const calls: string[] = [];
+    const brokenTweet = [
+      "interoperability and launchpad momentum in thin liquidity",
+      "",
+      "- blend (fluent) surges into trending lists on coingecko and birdeye following its mainnet launch, tge.",
+      "- concurrently, pump (pump.",
+      "",
+      "watch $MON $HYPE $BTC $ETH if confirmation follows",
+    ].join("\n");
+    const validTweet = [
+      "interoperability and launchpad momentum in thin liquidity",
+      "",
+      "- blend trends after fluent mainnet launch and tge attention",
+      "- $PUMP holds birdeye volume as launchpad rotation stays active",
+      "",
+      "watch $MON $HYPE $BTC $ETH if confirmation follows",
+    ].join("\n");
+    const agent = createGeneratorAgent({
+      llmClient: {
+        completeJson: async (input: { userPrompt: string }) => {
+          calls.push(input.userPrompt);
+
+          return {
+            topic: "Launchpad Momentum",
+            tweetText: calls.length === 1 ? brokenTweet : validTweet,
+            blogPost: "# Launchpad Momentum\n\n## Executive Summary\nLaunchpad flows are rotating.",
+            imagePrompt: "Cyberpunk launchpad liquidity cover art.",
+            formattedContent: "launchpad momentum",
+            logMessage: "INTEL LOCKED: launchpads.",
+          };
+        },
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generator-retry-broken-parenthetical",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "Launchpad Momentum",
+          insight:
+            "Blend is trending after Fluent mainnet and TGE attention while PUMP keeps launchpad liquidity in focus.",
+          importanceScore: 8,
+          category: "narrative_shift",
+          title: "Launchpad Momentum",
+          summary:
+            "Blend is trending after Fluent mainnet and TGE attention. PUMP keeps launchpad liquidity in focus while majors range.",
+          confidence: 80,
+          symbols: ["MON", "HYPE", "BTC", "ETH"],
+          imagePrompt: null,
+        },
+        evidence: [],
+      },
+      createInitialSwarmState({ run, config }),
+    );
+
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toContain("broken bullet fragment");
+    expect(result.content.tweetText).toBe(validTweet);
+    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
+  });
+
   it("falls back when model tweet repeats the same bullet", async () => {
     const agent = createGeneratorAgent({
       llmClient: {

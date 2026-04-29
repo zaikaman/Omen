@@ -97,7 +97,7 @@ describe("post formatter", () => {
     expect(post.text.length).toBeLessThanOrEqual(280);
   });
 
-  it("keeps generated intel tweets below the provider-safe posting budget", () => {
+  it("preserves generated intel tweets instead of cutting them to the provider-safe budget", () => {
     const generatedTweetText = [
       "meme launchpad capital rotation & supply shock in $PUMP",
       "",
@@ -114,7 +114,27 @@ describe("post formatter", () => {
     });
 
     expect(generatedTweetText.length).toBeGreaterThan(270);
-    expect(post.text.length).toBeLessThanOrEqual(270);
+    expect(post.text).toBe(generatedTweetText);
     expect(post.text).toContain("watch $PUMP $BLEND $BTC if confirmation follows");
+  });
+
+  it("preserves under-limit generated intel tweets exactly after whitespace normalization", () => {
+    const generatedTweetText = [
+      "interoperability and launchpad momentum in thin liquidity",
+      "",
+      "- blend (fluent) surges into trending lists on coingecko and birdeye following its mainnet launch, tge.",
+      "- concurrently, pump (pump.",
+      "",
+      "watch $MON $HYPE $BTC $ETH if confirmation follows",
+    ].join("\n");
+    const post = formatIntelPost({
+      title: "Launchpad Momentum",
+      summary: "Fallback summary should not be used.",
+      symbols: ["MON", "HYPE", "BTC", "ETH"],
+      generatedTweetText,
+    });
+
+    expect(generatedTweetText.length).toBeLessThanOrEqual(270);
+    expect(post.text).toBe(generatedTweetText);
   });
 });
