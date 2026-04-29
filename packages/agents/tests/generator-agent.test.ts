@@ -81,18 +81,20 @@ describe("generator agent", () => {
     expect(result.content.tweetText ?? "").toContain("- ");
     expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
     expect(result.content.blogPost).toContain("## Executive Summary");
-    expect(result.content.imagePrompt).toContain("single cinematic abstract market-intelligence illustration");
+    expect(result.content.imagePrompt).toContain("single cinematic visual-only market-intelligence scene");
+    expect(result.content.imagePrompt).toContain("relevant, distinct, creative visual metaphor");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
     expect(result.content.imagePrompt).toContain("the scene should be driven by");
     expect(result.content.imagePrompt).toContain("no title card");
     expect(result.content.imagePrompt).toContain("no news card");
-    expect(result.content.imagePrompt).toContain("wallet-node clusters");
+    expect(result.content.imagePrompt).toContain("competing forces");
+    expect(result.content.imagePrompt).toContain("avoid defaulting to a neon trading-room");
     expect(result.content.imagePrompt).toContain("narrative shift");
     expect(result.content.imagePrompt).toContain("strictly visual-only full-bleed scene");
     expect(result.content.imagePrompt).toContain("no ticker symbols");
     expect(result.content.imagePrompt).toContain("no screens");
     expect(result.content.imagePrompt).toContain("no charts with axes or legends");
-    expect(result.content.imagePrompt).toContain("every surface blank and unmarked");
+    expect(result.content.imagePrompt).toContain("without symbols or writing");
     expect(result.content.imagePrompt).not.toContain("$SUI");
     expect(result.content.imagePrompt).not.toMatch(/cover art/i);
     expect(result.content.imagePrompt).not.toMatch(/visual thesis:/i);
@@ -557,17 +559,18 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(result.content.imagePrompt).toContain("single cinematic abstract market-intelligence illustration");
+    expect(result.content.imagePrompt).toContain("single cinematic visual-only market-intelligence scene");
+    expect(result.content.imagePrompt).toContain("relevant, distinct, creative visual metaphor");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
     expect(result.content.imagePrompt).toContain("the scene should be driven by");
     expect(result.content.imagePrompt).toContain("no title card");
-    expect(result.content.imagePrompt).toContain("directional liquidity streams");
+    expect(result.content.imagePrompt).toContain("competing forces");
     expect(result.content.imagePrompt).toContain("strictly visual-only full-bleed scene");
     expect(result.content.imagePrompt).toContain("no logos");
     expect(result.content.imagePrompt).toContain("no ticker symbols");
     expect(result.content.imagePrompt).toContain("no dashboard UI");
     expect(result.content.imagePrompt).toContain("no screens");
-    expect(result.content.imagePrompt).toContain("blank glass");
+    expect(result.content.imagePrompt).toContain("blank unmarked surfaces");
     expect(result.content.imagePrompt).not.toContain("$SUI");
     expect(result.content.imagePrompt).not.toMatch(/with the words/i);
     expect(result.content.imagePrompt).not.toMatch(/trading screen/i);

@@ -165,6 +165,9 @@ const buildFallbackBlogPost = (report: IntelReport) =>
 const imageTextExclusion =
   "strictly visual-only full-bleed scene with no title card, no banner, no header strip, no lower third, no text panel, no article layout, no news card, no readable or pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings";
 
+const creativeImageDirection =
+  "relevant, distinct, creative visual metaphor; vary the setting, subject, scale, materials, lighting, camera angle, and mood for each report; suitable styles include cinematic realism, surreal physical scenes, speculative architecture, macro material studies, symbolic environments, industrial systems, orbital scenes, underwater scenes, landscapes, or other fitting non-textual imagery";
+
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const replaceSymbolMentions = (value: string, symbols: string[]) =>
@@ -197,23 +200,25 @@ const buildImageVisualBrief = (report: IntelReport) => {
   const symbolCount = report.symbols.length;
   const assetContext =
     symbolCount > 0
-      ? "abstract representations of the tracked crypto assets through color-coded light, liquidity flows, geometric forms, and market structure, with every surface blank and unmarked"
-      : "broad crypto market structure represented through institutional liquidity, macro pressure, and social narrative signals, with every surface blank and unmarked";
+      ? "represent the tracked crypto assets as separate unmarked forces, materials, structures, weather systems, vessels, energy sources, or ecosystems; make them visually distinguishable without symbols or writing"
+      : "represent broad crypto market structure through institutional liquidity, macro pressure, social attention, risk rotation, and tension between buyers and sellers without symbols or writing";
   const visualCatalyst =
     symbolCount > 0
-      ? "depict the specific named-asset thesis as unmarked color-coded asset forms, directional liquidity streams, protocol-scale architecture, wallet-node clusters, and risk/attention pressure matching the report"
+      ? "depict the specific named-asset thesis as a visual story with unmarked competing forces, changing momentum, capital rotation, and risk/attention pressure matching the report"
       : "depict the specific market thesis through macro pressure, liquidity depth, narrative attention, and risk rotation matching the report";
 
   return [
     imageTextExclusion,
-    "single cinematic abstract market-intelligence illustration, not a poster, not an infographic, not a presentation slide, not a webpage, not an article thumbnail",
+    "single cinematic visual-only market-intelligence scene, not a poster, not an infographic, not a presentation slide, not a webpage, not an article thumbnail",
+    creativeImageDirection,
     `depict ${topic.toLowerCase()} as visual metaphor only`,
     `the scene should be driven by ${trimLine(summary, 180).toLowerCase()}`,
     `market category mood is ${category}`,
     visualCatalyst,
     assetContext,
-    "cinematic cyberpunk institutional research environment, abstract market flows as light trails and geometric depth, high-tech atmosphere, realistic lighting, 16:9",
-    "avoid any object that normally contains writing or glyphs; use blank glass, clean architecture, light, shadow, and symbolic shapes instead",
+    "avoid defaulting to a neon trading-room, holographic chart, dashboard wall, or generic light-trail market grid; pick a fresh composition tied to this report",
+    "realistic lighting, strong depth, clear focal subject, full-bleed 16:9 composition",
+    "avoid any object that normally contains writing or glyphs; use blank unmarked surfaces, materials, light, shadow, motion, scale, and symbolic shapes instead",
     imageTextExclusion,
   ].join(", ");
 };

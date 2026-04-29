@@ -244,17 +244,18 @@ const templateIntelToReport = (input: {
     symbols,
     imagePrompt: [
       "strictly visual-only full-bleed scene with no title card, no banner, no header strip, no lower third, no text panel, no article layout, no news card, no readable or pseudo-readable text",
-      "single cinematic abstract market-intelligence illustration, not a poster, not an infographic, not a presentation slide, not a webpage, not an article thumbnail",
+      "single cinematic visual-only market-intelligence scene, not a poster, not an infographic, not a presentation slide, not a webpage, not an article thumbnail",
+      "relevant, distinct, creative visual metaphor; vary the setting, subject, scale, materials, lighting, camera angle, and mood for each report; suitable styles include cinematic realism, surreal physical scenes, speculative architecture, macro material studies, symbolic environments, industrial systems, orbital scenes, underwater scenes, landscapes, or other fitting non-textual imagery",
       `depict ${replaceImagePromptSymbolMentions(title, symbols).replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset").toLowerCase()} as visual metaphor only`,
       `the scene should be driven by ${trimToLength(replaceImagePromptSymbolMentions(insight, symbols).replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset"), 180).toLowerCase()}`,
       symbols.length > 0
-        ? "depict the specific named-asset thesis as unmarked color-coded asset forms, directional liquidity streams, protocol-scale architecture, wallet-node clusters, and risk/attention pressure matching the report"
+        ? "depict the specific named-asset thesis as a visual story with unmarked competing forces, changing momentum, capital rotation, and risk/attention pressure matching the report"
         : "depict the specific market thesis through macro pressure, liquidity depth, narrative attention, and risk rotation matching the report",
       symbols.length > 0
-        ? "abstract representations of the tracked crypto assets through color-coded liquidity flows, geometric forms, and market structure, with every surface blank and unmarked"
-        : "broad crypto market narrative represented through institutional liquidity, macro pressure, and social signal flows, with every surface blank and unmarked",
-      "cinematic cyberpunk institutional research environment, abstract market flows as light trails and geometric depth",
-      "sharp composition, high contrast, 16:9",
+        ? "represent the tracked crypto assets as separate unmarked forces, materials, structures, weather systems, vessels, energy sources, or ecosystems; make them visually distinguishable without symbols or writing"
+        : "represent broad crypto market narrative through institutional liquidity, macro pressure, social attention, risk rotation, and tension between buyers and sellers without symbols or writing",
+      "avoid defaulting to a neon trading-room, holographic chart, dashboard wall, or generic light-trail market grid; pick a fresh composition tied to this report",
+      "realistic lighting, strong depth, clear focal subject, sharp composition, 16:9",
       "no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings",
     ].join(", "),
   };
