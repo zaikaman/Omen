@@ -77,6 +77,11 @@ export type BackendEnv = {
     password: string | null;
     totpSecret: string | null;
   };
+  telegram: {
+    botToken: string | null;
+    chatId: string | null;
+    baseUrl: string;
+  };
   deferred: {
     futuresEncryptionKey: string | null;
     internalWebhookKey: string | null;
@@ -285,6 +290,11 @@ export const createBackendEnv = (
       email: env.TWITTERAPI_EMAIL ?? env.TWITTER_EMAIL ?? null,
       password: env.TWITTERAPI_PASSWORD ?? env.TWITTER_PASSWORD ?? null,
       totpSecret: env.TWITTERAPI_TOTP_SECRET ?? env.TWITTER_TOTP_SECRET ?? null,
+    },
+    telegram: {
+      botToken: env.TELEGRAM_BOT_TOKEN ?? null,
+      chatId: env.TELEGRAM_CHAT_ID ?? env.TELEGRAM_CHANNEL_ID ?? null,
+      baseUrl: env.TELEGRAM_API_BASE_URL ?? "https://api.telegram.org",
     },
     deferred: {
       futuresEncryptionKey: env.FUTURES_ENCRYPTION_KEY ?? null,

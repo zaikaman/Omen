@@ -58,6 +58,16 @@ const getPostStateClassName = (status: string | undefined) => {
     }
 };
 
+const telegramUrl = import.meta.env.VITE_TELEGRAM_URL as string | undefined;
+
+function TelegramIcon({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+            <path d="M21.9 4.2 18.6 19.7c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L6 13.2 1.1 11.7c-1.1-.3-1.1-1.1.2-1.6L20.4 2.7c.9-.3 1.7.2 1.5 1.5Z" />
+        </svg>
+    );
+}
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -134,7 +144,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     })}
                 </nav>
 
-                <div className="p-2 border-t border-gray-800 bg-black">
+                <div className="p-3 border-t border-gray-800 bg-black space-y-3">
+                    {telegramUrl ? (
+                        <a
+                            href={telegramUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center justify-center gap-2 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-300 transition-colors hover:border-sky-400/40 hover:bg-sky-500/15 hover:text-sky-200"
+                        >
+                            <TelegramIcon className="h-4 w-4" />
+                            <span>Telegram</span>
+                        </a>
+                    ) : null}
                     <div className="text-[10px] text-gray-700 font-mono text-center">
                         OMEN_OS v1.0.0-alpha
                     </div>

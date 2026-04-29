@@ -55,6 +55,7 @@ import { ZeroGPublisher } from "../publishers/zero-g-publisher.js";
 import { AxlMessageRecorder } from "../publishers/axl-message-recorder.js";
 import { ZeroGRefRecorder } from "../publishers/zero-g-ref-recorder.js";
 import { hasIntelImageConfig, IntelImageService } from "../services/intel-image-service.js";
+import { TelegramService } from "../services/telegram-service.js";
 import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler.js";
 
 const DEFAULT_MARKET_UNIVERSE = TRADEABLE_SYMBOLS;
@@ -510,6 +511,8 @@ class LivePipelineExecutionContext {
 
   private readonly postResultRecorder: PostResultRecorder | null;
 
+  private readonly telegramService: TelegramService;
+
   private axlTransportAvailable = false;
 
   private axlServicePeerId: string | null = null;
@@ -556,6 +559,10 @@ class LivePipelineExecutionContext {
     this.postResultRecorder = new PostResultRecorder({
       runs: runsRepository,
       analytics: supabaseClient ? new AnalyticsSnapshotsRepository(supabaseClient) : null,
+    });
+    this.telegramService = new TelegramService({
+      env: input.env,
+      logger: this.logger,
     });
     this.eventPublisher =
       supabaseClient && agentEventsRepository
@@ -932,6 +939,12 @@ class LivePipelineExecutionContext {
     });
     await this.safePersistRun(persistedRun);
 
+    await this.safePublishTelegramPost({
+      run: persistedRun,
+      signal: persistedSignal,
+      intel: persistedIntel,
+    });
+
     const outboundPost = await this.safePublishOutboundPost({
       run: persistedRun,
       signal: persistedSignal,
@@ -1268,6 +1281,45 @@ class LivePipelineExecutionContext {
     }
 
     return result.post;
+  }
+
+  private async safePublishTelegramPost(input: {
+    run: SwarmState["run"];
+    signal: Signal | null;
+    intel: Intel | null;
+  }) {
+    const sent = input.signal
+      ? await this.telegramService.sendSignal(input.signal)
+      : input.intel
+        ? await this.telegramService.sendIntel(input.intel)
+        : false;
+
+    if (!sent || !this.eventPublisher) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const linkedRecord = input.signal ?? input.intel;
+    await this.safePublishEvent({
+      id: `event-${randomUUID()}`,
+      runId: input.run.id,
+      agentId: "agent-publisher",
+      agentRole: "publisher",
+      eventType: "post_queued",
+      status: "success",
+      summary: `Outbound Telegram ${input.signal ? "signal" : "intel"} sent to channel.`,
+      payload: {
+        provider: "telegram",
+        status: "posted",
+        recordId: linkedRecord?.id ?? null,
+      },
+      timestamp,
+      correlationId: `${input.run.id}:telegram:${linkedRecord?.id ?? "none"}`,
+      axlMessageId: null,
+      proofRefId: null,
+      signalId: input.signal?.id ?? null,
+      intelId: input.intel?.id ?? null,
+    });
   }
 
   private async probeAxlTransport(runId: string, observedAt: string) {
