@@ -78,6 +78,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         { icon: GpsSignal01Icon, label: 'Signals', path: '/app/signals' },
         { icon: News01Icon, label: 'Intel', path: '/app/intel' },
         { icon: ChartHistogramIcon, label: 'Analytics', path: '/app/analytics' },
+        { icon: Activity01Icon, label: 'Swarm Trace', path: '/app/swarm' },
         { icon: Certificate01Icon, label: '0G Evidence', path: '/app/evidence' },
     ];
 
@@ -86,6 +87,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         '/app/signals': 'SIGNAL INTERCEPT',
         '/app/intel': 'INTELLIGENCE FEED',
         '/app/analytics': 'SYSTEM ANALYTICS',
+        '/app/swarm': 'SWARM TRACE',
         '/app/evidence': '0G EVIDENCE',
     };
 

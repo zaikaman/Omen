@@ -10,6 +10,7 @@ import { PerformanceAnalytics } from "./pages/analytics/PerformanceAnalytics";
 import { MarketAnalytics } from "./pages/analytics/MarketAnalytics";
 import { SignalAnalytics } from "./pages/analytics/SignalAnalytics";
 import { EvidencePage } from "./pages/EvidencePage";
+import { SwarmTracePage } from "./pages/SwarmTracePage";
 
 export default function App() {
   return (
@@ -49,6 +50,11 @@ export default function App() {
         <Route path="/app/evidence" element={
           <DashboardLayout>
             <EvidencePage />
+          </DashboardLayout>
+        } />
+        <Route path="/app/swarm" element={
+          <DashboardLayout>
+            <SwarmTracePage />
           </DashboardLayout>
         } />
         <Route path="/docs" element={<Home />} />
