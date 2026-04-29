@@ -14,6 +14,7 @@ import {
 import {
   axlRegisteredServiceSchema,
   axlServiceRegistrySnapshotSchema,
+  type AxlServiceRegistrySnapshot,
 } from "@omen/axl";
 
 import type { BackendEnv } from "../bootstrap/env.js";
@@ -57,6 +58,11 @@ const toPeerStatus = (node: AgentNode): AxlPeerStatus | null => {
   });
 };
 
+const safeAxlMethodPattern = /^[a-zA-Z0-9._/-]+$/;
+
+const toServiceMethod = (service: string, node: AgentNode) =>
+  safeAxlMethodPattern.test(service) ? service : `${node.role}.health`;
+
 const buildServicesFromNodes = (nodes: AgentNode[]) =>
   nodes.flatMap((node) => {
     const services = Array.isArray(node.metadata.services)
@@ -74,7 +80,7 @@ const buildServicesFromNodes = (nodes: AgentNode[]) =>
         peerId: node.peerId,
         role: node.role,
         description: `${node.role} service`,
-        methods: [service],
+        methods: [toServiceMethod(service, node)],
         tools: [],
         tags: [],
         status: node.status === "starting" ? "degraded" : node.status,
@@ -82,6 +88,26 @@ const buildServicesFromNodes = (nodes: AgentNode[]) =>
         lastSeenAt: node.lastHeartbeatAt ?? new Date().toISOString(),
       }),
     );
+  });
+
+export const buildFallbackTopologySnapshot = (
+  nodes: AgentNode[],
+  capturedAt = new Date().toISOString(),
+): AxlServiceRegistrySnapshot =>
+  axlServiceRegistrySnapshotSchema.parse({
+    capturedAt,
+    source: "agent-nodes",
+    peers: nodes.flatMap((node) => {
+      const peerStatus = toPeerStatus(node);
+      return peerStatus ? [peerStatus] : [];
+    }),
+    services: buildServicesFromNodes(nodes),
+    routes: [],
+    metadata: {
+      fallback: true,
+      reason: "No live AXL service registry snapshot is available.",
+      nodeCount: nodes.length,
+    },
   });
 
 export const createTopologyController =
@@ -110,19 +136,14 @@ export const createTopologyController =
       return;
     }
 
-    if (snapshot.value === null) {
-      res.status(503).json({
-        success: false,
-        error: "No live AXL service registry snapshot is available.",
-      });
-      return;
-    }
+    const topologySnapshot =
+      snapshot.value ?? buildFallbackTopologySnapshot(nodes.value);
 
     res.json({
       success: true,
       data: {
         nodes: nodes.value.map((node) => agentNodeSchema.parse(node)),
-        snapshot: snapshot.value,
+        snapshot: topologySnapshot,
       },
     });
   };
