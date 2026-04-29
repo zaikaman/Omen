@@ -427,7 +427,7 @@ export class GeneratorAgentFactory {
               ? "Generate content for this INTEL REPORT."
               : "Rewrite only the generated assets that need correction, keeping the same facts.",
             "",
-            `The 'tweetText' field must be a complete Rogue-style tweet at ${GENERATED_TWEET_MAX_LENGTH.toString()} characters or fewer. Do not rely on downstream trimming.`,
+            `The 'tweetText' field must be a complete Omen-style tweet at ${GENERATED_TWEET_MAX_LENGTH.toString()} characters or fewer. Do not rely on downstream trimming.`,
             "It needs a hook, line breaks, at least two '-' bullets, and a final watch/take/expect line. Every line must end cleanly.",
             lastTweetError ? `Previous tweet failed validation: ${lastTweetError}.` : null,
             lastResponse?.tweetText || lastResponse?.tweet_text

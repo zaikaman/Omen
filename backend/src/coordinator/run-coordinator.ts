@@ -1,4 +1,7 @@
+import { randomUUID } from "node:crypto";
+
 import type { SwarmState } from "@omen/agents";
+import type { RunsRepository } from "@omen/db";
 
 import type { Logger } from "../bootstrap/logger.js";
 import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler.js";
@@ -29,33 +32,77 @@ export type RunCoordinator = {
   executeScheduledRun(request: RunCoordinatorRequest): Promise<RunCoordinatorResult>;
 };
 
+type FailedRunStore = Pick<RunsRepository, "deleteRunCascade">;
+
+const createRetryRunId = () => `scheduled-${Date.now().toString()}-${randomUUID()}`;
+
 export class DefaultRunCoordinator implements RunCoordinator {
   constructor(
     private readonly input: {
       logger: Logger;
       pipeline: RunPipeline;
+      failedRunStore?: FailedRunStore | null;
+      maxImmediateRetries?: number;
     },
   ) {}
 
   async executeScheduledRun(request: RunCoordinatorRequest): Promise<RunCoordinatorResult> {
-    this.input.logger.info(
-      `Run coordinator starting ${request.runId} from ${request.trigger} in ${request.mode.label} mode.`,
-    );
+    const maxImmediateRetries = this.input.maxImmediateRetries ?? 1;
+    let currentRequest = request;
 
-    try {
-      const result = await this.input.pipeline.run(request);
-
+    for (let attempt = 0; attempt <= maxImmediateRetries; attempt += 1) {
       this.input.logger.info(
-        `Run coordinator completed ${request.runId} with ${result.outcomeType} after ${result.checkpointCount.toString()} checkpoints.`,
+        `Run coordinator starting ${currentRequest.runId} from ${currentRequest.trigger} in ${currentRequest.mode.label} mode.`,
       );
 
-      return result;
-    } catch (error) {
-      this.input.logger.error(
-        `Run coordinator failed ${request.runId}: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-      throw error;
+      try {
+        const result = await this.input.pipeline.run(currentRequest);
+
+        this.input.logger.info(
+          `Run coordinator completed ${currentRequest.runId} with ${result.outcomeType} after ${result.checkpointCount.toString()} checkpoints.`,
+        );
+
+        return result;
+      } catch (error) {
+        this.input.logger.error(
+          `Run coordinator failed ${currentRequest.runId}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+
+        await this.deleteFailedRun(currentRequest.runId);
+
+        if (attempt >= maxImmediateRetries) {
+          throw error;
+        }
+
+        currentRequest = {
+          ...currentRequest,
+          runId: createRetryRunId(),
+          triggeredAt: new Date().toISOString(),
+        };
+        this.input.logger.warn(
+          `Retrying failed scheduled run immediately as ${currentRequest.runId}.`,
+        );
+      }
     }
+
+    throw new Error("Run coordinator exhausted retry attempts.");
+  }
+
+  private async deleteFailedRun(runId: string) {
+    if (!this.input.failedRunStore) {
+      this.input.logger.warn(
+        `Failed run ${runId} could not be deleted because no run store is configured.`,
+      );
+      return;
+    }
+
+    const deleted = await this.input.failedRunStore.deleteRunCascade(runId);
+
+    if (!deleted.ok) {
+      throw new Error(`Failed to delete failed run ${runId}: ${deleted.error.message}`);
+    }
+
+    this.input.logger.info(`Deleted failed run ${runId}.`);
   }
 }
 

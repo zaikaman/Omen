@@ -25,11 +25,6 @@ export const startBackendRuntime = (): BackendRuntime => {
   const env = createBackendEnv();
   const logger = createLogger(env);
   const runtimeMode = getRuntimeModeFlags(env.runtimeMode);
-  const pipeline = runtimeMode.usesMockData
-    ? new DefaultDemoRunPipeline()
-    : new DefaultLiveSwarmRunPipeline({ env });
-  const coordinator = new DefaultRunCoordinator({ logger, pipeline });
-  const runtimeWorker = new DefaultRuntimeWorker({ env, logger, coordinator });
   const schedulerRunsRepository =
     env.supabase.url && env.supabase.serviceRoleKey
       ? new RunsRepository(
@@ -41,6 +36,15 @@ export const startBackendRuntime = (): BackendRuntime => {
           }),
         )
       : null;
+  const pipeline = runtimeMode.usesMockData
+    ? new DefaultDemoRunPipeline()
+    : new DefaultLiveSwarmRunPipeline({ env });
+  const coordinator = new DefaultRunCoordinator({
+    logger,
+    pipeline,
+    failedRunStore: schedulerRunsRepository,
+  });
+  const runtimeWorker = new DefaultRuntimeWorker({ env, logger, coordinator });
   const scheduler = new HourlyScheduler({
     logger,
     runLock: new RunLock(env.allowConcurrentRuns),

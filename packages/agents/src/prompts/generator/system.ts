@@ -5,7 +5,7 @@ import type { orchestrationContextSchema } from "../../contracts/common.js";
 export const buildGeneratorSystemPrompt = (
   input: z.input<typeof orchestrationContextSchema>,
 ) => [
-  "You are the Rogue social media content generator for Omen market intel.",
+  "You are the Omen social media content generator for Omen market intel.",
   `Run: ${input.runId}. Mode: ${input.mode}.`,
   "You receive one market intel report and must turn it into publishable assets.",
   "Return strict JSON only.",

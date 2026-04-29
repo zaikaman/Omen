@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { formatIntelPost, formatSignalPost } from "./post-formatter.js";
 
 describe("post formatter", () => {
-  it("formats intel in the compact Rogue-style feed shape", () => {
+  it("formats intel in the compact Omen-style feed shape", () => {
     const post = formatIntelPost({
       title: "crypto market rotation watch",
       summary:

@@ -110,6 +110,18 @@ const toUpdateRow = (patch: Partial<Run>): RunUpdate => ({
   updated_at: patch.updatedAt,
 });
 
+const toRepositoryError = (error: {
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+}): RepositoryError => ({
+  code: error.code ?? null,
+  details: error.details ?? null,
+  hint: error.hint ?? null,
+  message: error.message,
+});
+
 export class RunsRepository extends BaseRepository<RunRow, RunInsert, RunUpdate> {
   constructor(client: OmenSupabaseClient) {
     super(client, "runs");
@@ -219,5 +231,55 @@ export class RunsRepository extends BaseRepository<RunRow, RunInsert, RunUpdate>
     }
 
     return ok(data ? toRun(data) : null);
+  }
+
+  async deleteRunCascade(runId: string): Promise<Result<void, RepositoryError>> {
+    const clearedRunRefs = await this.client
+      .from("runs")
+      .update({
+        current_checkpoint_ref_id: null,
+        final_signal_id: null,
+        final_intel_id: null,
+      } as never)
+      .eq("id", runId);
+
+    if (clearedRunRefs.error) {
+      return err(toRepositoryError(clearedRunRefs.error));
+    }
+
+    const clearedSignalRefs = await this.client
+      .from("signals")
+      .update({ final_report_ref_id: null } as never)
+      .eq("run_id", runId);
+
+    if (clearedSignalRefs.error) {
+      return err(toRepositoryError(clearedSignalRefs.error));
+    }
+
+    const dependentTables = [
+      "agent_events",
+      "analytics_snapshots",
+      "outbound_posts",
+      "axl_messages",
+      "zero_g_refs",
+      "signals",
+      "intels",
+    ];
+
+    for (const tableName of dependentTables) {
+      const deleted = await this.client.from(tableName).delete().eq("run_id", runId);
+
+      if (deleted.error) {
+        return err(toRepositoryError(deleted.error));
+      }
+    }
+
+    const deletedRun = await this.client.from("runs").delete().eq("id", runId);
+
+    if (deletedRun.error) {
+      return err(toRepositoryError(deletedRun.error));
+    }
+
+    return ok(undefined);
   }
 }

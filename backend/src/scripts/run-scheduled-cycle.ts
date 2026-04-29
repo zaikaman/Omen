@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { RunsRepository, createSupabaseServiceRoleClient } from "@omen/db";
+
 import { createBackendEnv } from "../bootstrap/env.js";
 import { createLogger } from "../bootstrap/logger.js";
 import { DefaultRunCoordinator } from "../coordinator/run-coordinator.js";
@@ -14,9 +16,21 @@ const runScheduledCycle = async () => {
   const pipeline = mode.usesMockData
     ? new DefaultDemoRunPipeline()
     : new DefaultLiveSwarmRunPipeline({ env });
+  const runsRepository =
+    env.supabase.url && env.supabase.serviceRoleKey
+      ? new RunsRepository(
+          createSupabaseServiceRoleClient({
+            url: env.supabase.url,
+            anonKey: env.supabase.anonKey ?? env.supabase.serviceRoleKey,
+            serviceRoleKey: env.supabase.serviceRoleKey,
+            schema: env.supabase.schema,
+          }),
+        )
+      : null;
   const coordinator = new DefaultRunCoordinator({
     logger,
     pipeline,
+    failedRunStore: runsRepository,
   });
 
   const runId = `scheduled-${Date.now().toString()}-${randomUUID()}`;
@@ -29,14 +43,14 @@ const runScheduledCycle = async () => {
 
   if (result.finalState.run.status !== "completed") {
     throw new Error(
-      `Scheduled cycle failed with status ${result.finalState.run.status} for run ${runId}.`,
+      `Scheduled cycle failed with status ${result.finalState.run.status} for run ${result.runId}.`,
     );
   }
 
   console.log(
     JSON.stringify(
       {
-        runId,
+        runId: result.runId,
         mode: mode.mode,
         status: result.finalState.run.status,
         outcomeType: result.outcomeType,

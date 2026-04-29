@@ -761,20 +761,22 @@ class LivePipelineExecutionContext {
       ZERO_G_MILESTONE_CHECKPOINT_STEPS.has(checkpoint.step);
 
     if (this.zeroGStateStore && shouldPublishZeroGCheckpoint) {
-      const checkpointArtifact = await this.safePublishCheckpointState(persisted);
+      const checkpointArtifact = await this.tryPublishCheckpointState(persisted);
 
-      persisted.durableRef = checkpointArtifact;
-      persisted.state = {
-        ...persisted.state,
-        run: {
-          ...persisted.state.run,
-          currentCheckpointRefId: checkpointArtifact.id,
-        },
-        latestCheckpointRefId: checkpointArtifact.id,
-      };
+      if (checkpointArtifact) {
+        persisted.durableRef = checkpointArtifact;
+        persisted.state = {
+          ...persisted.state,
+          run: {
+            ...persisted.state.run,
+            currentCheckpointRefId: checkpointArtifact.id,
+          },
+          latestCheckpointRefId: checkpointArtifact.id,
+        };
 
-      if (this.zeroGLogStore) {
-        await this.safeAppendCheckpointLog(persisted, stepSummary);
+        if (this.zeroGLogStore) {
+          await this.tryAppendCheckpointLog(persisted, stepSummary);
+        }
       }
     }
 
@@ -1481,6 +1483,18 @@ class LivePipelineExecutionContext {
     return artifact.value;
   }
 
+  private async tryPublishCheckpointState(checkpoint: SwarmCheckpoint) {
+    try {
+      return await this.safePublishCheckpointState(checkpoint);
+    } catch (error) {
+      this.logger.warn(
+        `0G checkpoint state publish failed for ${checkpoint.step}; continuing without a durable checkpoint ref.`,
+        error,
+      );
+      return null;
+    }
+  }
+
   private async safeAppendCheckpointLog(checkpoint: SwarmCheckpoint, summary: string) {
     if (!this.zeroGLogStore) {
       throw new Error("0G checkpoint log storage is not configured.");
@@ -1513,6 +1527,18 @@ class LivePipelineExecutionContext {
 
     await this.safeRecordArtifact(artifact.value);
     return artifact.value;
+  }
+
+  private async tryAppendCheckpointLog(checkpoint: SwarmCheckpoint, summary: string) {
+    try {
+      return await this.safeAppendCheckpointLog(checkpoint, summary);
+    } catch (error) {
+      this.logger.warn(
+        `0G checkpoint log publish failed for ${checkpoint.step}; continuing with checkpoint state only.`,
+        error,
+      );
+      return null;
+    }
   }
 
   private async safeRecordArtifact(artifact: ProofArtifact) {
