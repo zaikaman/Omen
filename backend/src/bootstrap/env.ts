@@ -38,6 +38,7 @@ export type BackendEnv = {
     kvNodeUrl: string | null;
     computeUrl: string | null;
     computeApiKey: string | null;
+    computeModel: string;
     privateKey: string | null;
     flowContractAddress: string | null;
     chainId: string;
@@ -250,6 +251,7 @@ export const createBackendEnv = (
       kvNodeUrl: env.ZERO_G_KV_NODE_URL ?? null,
       computeUrl: env.ZERO_G_COMPUTE_URL ?? null,
       computeApiKey: env.ZERO_G_COMPUTE_API_KEY ?? null,
+      computeModel: env.ZERO_G_COMPUTE_MODEL ?? "qwen/qwen-2.5-7b-instruct",
       privateKey: env.ZERO_G_PRIVATE_KEY ?? null,
       flowContractAddress: env.ZERO_G_FLOW_CONTRACT_ADDRESS ?? null,
       chainId: env.ZERO_G_CHAIN_ID ?? "16602",

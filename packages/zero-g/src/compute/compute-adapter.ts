@@ -69,8 +69,15 @@ export class ZeroGComputeAdapter {
       });
 
       if (!response.ok) {
+        const responseBody = await response.text().catch(() => "");
+        const responseDetail = responseBody.trim()
+          ? `: ${responseBody.trim().slice(0, 500)}`
+          : "";
+
         return err(
-          new Error(`0G compute request failed with HTTP ${response.status.toString()}.`),
+          new Error(
+            `0G compute request failed with HTTP ${response.status.toString()}${responseDetail}`,
+          ),
         );
       }
 

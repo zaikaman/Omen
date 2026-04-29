@@ -37,6 +37,7 @@ export class ZeroGPublisher {
     logStream?: string;
     logUploadsEnabled?: boolean;
     reportPrompt?: string | null;
+    reportModel?: string;
   }): Promise<ZeroGPublisherResult> {
     const checkpointArtifact = await this.requireArtifact(
       this.stateStore.writeRunCheckpoint({
@@ -86,6 +87,7 @@ export class ZeroGPublisher {
     const computeResult = await this.reportSynthesis.synthesizeRunReport({
       runId: input.state.run.id,
       prompt: input.reportPrompt,
+      model: input.reportModel,
       signalId: input.state.run.finalSignalId,
       intelId: input.state.run.finalIntelId,
       metadata: {

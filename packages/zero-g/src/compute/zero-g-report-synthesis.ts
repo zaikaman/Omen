@@ -13,7 +13,7 @@ import type { ZeroGAdapter } from "../adapters/zero-g-adapter.js";
 export const zeroGReportSynthesisInputSchema = z.object({
   runId: z.string().min(1),
   prompt: z.string().min(1),
-  model: z.string().min(1).default("glm-4.5-air"),
+  model: z.string().min(1).default("qwen/qwen-2.5-7b-instruct"),
   signalId: z.string().min(1).nullable().optional(),
   intelId: z.string().min(1).nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),

@@ -1440,6 +1440,7 @@ class LivePipelineExecutionContext {
         checkpointLabel: "final",
         logUploadsEnabled: true,
         reportPrompt: hasZeroGComputeConfig(this.input.env) ? reportPrompt : null,
+        reportModel: this.input.env.zeroG.computeModel,
       });
       const finalArtifacts = [...this.artifacts, ...runArtifacts.artifacts];
 
