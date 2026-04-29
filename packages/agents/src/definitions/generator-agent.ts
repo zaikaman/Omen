@@ -13,17 +13,17 @@ const generatorAgentOptionsSchema = zod.object({
 });
 
 const rawGeneratorContentSchema = zod.object({
-  topic: zod.string().min(1).optional(),
-  tweetText: zod.string().min(1).optional(),
-  tweet_text: zod.string().min(1).optional(),
-  blogPost: zod.string().min(1).optional(),
-  blog_post: zod.string().min(1).optional(),
-  imagePrompt: zod.string().min(1).optional(),
-  image_prompt: zod.string().min(1).optional(),
-  formattedContent: zod.string().min(1).optional(),
-  formatted_content: zod.string().min(1).optional(),
-  logMessage: zod.string().min(1).optional(),
-  log_message: zod.string().min(1).optional(),
+  topic: zod.string().optional(),
+  tweetText: zod.string().optional(),
+  tweet_text: zod.string().optional(),
+  blogPost: zod.string().optional(),
+  blog_post: zod.string().optional(),
+  imagePrompt: zod.string().optional(),
+  image_prompt: zod.string().optional(),
+  formattedContent: zod.string().optional(),
+  formatted_content: zod.string().optional(),
+  logMessage: zod.string().optional(),
+  log_message: zod.string().optional(),
 });
 
 const toDollarSymbol = (symbol: string) => `$${symbol.replace(/^\$/, "").toUpperCase()}`;
@@ -70,6 +70,9 @@ const MAX_GENERATOR_ATTEMPTS = 2;
 
 const normalizeTweetWhitespace = (value: string) =>
   value.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+
+const firstNonBlank = (...values: Array<string | null | undefined>) =>
+  values.find((value) => typeof value === "string" && value.trim().length > 0)?.trim();
 
 const extractResponseTweetText = (response: z.infer<typeof rawGeneratorContentSchema>) =>
   normalizeTweetWhitespace(response.tweetText ?? response.tweet_text ?? "");
@@ -199,7 +202,7 @@ const buildImageVisualBrief = (report: IntelReport) => {
 };
 
 const normalizeImagePrompt = (input: z.infer<typeof rawGeneratorContentSchema>, report: IntelReport) => {
-  const candidate = input.imagePrompt ?? input.image_prompt ?? "";
+  const candidate = firstNonBlank(input.imagePrompt, input.image_prompt) ?? "";
   const visualBrief = buildImageVisualBrief(report);
 
   if (!candidate.trim()) {
@@ -221,12 +224,12 @@ const normalizeGeneratorContent = (
   const tweetText = candidateTweet || buildFallbackTweet(report);
 
   return {
-    topic: input.topic ?? report.title,
+    topic: firstNonBlank(input.topic) ?? report.title,
     tweetText,
-    blogPost: input.blogPost ?? input.blog_post ?? buildFallbackBlogPost(report),
+    blogPost: firstNonBlank(input.blogPost, input.blog_post) ?? buildFallbackBlogPost(report),
     imagePrompt: normalizeImagePrompt(input, report),
-    formattedContent: input.formattedContent ?? input.formatted_content ?? tweetText,
-    logMessage: input.logMessage ?? input.log_message ?? `INTEL LOCKED: ${report.title}`,
+    formattedContent: firstNonBlank(input.formattedContent, input.formatted_content) ?? tweetText,
+    logMessage: firstNonBlank(input.logMessage, input.log_message) ?? `INTEL LOCKED: ${report.title}`,
   };
 };
 
