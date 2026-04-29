@@ -194,6 +194,18 @@ const extractSymbols = (text: string) => [
   ),
 ];
 
+const escapePromptRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const replaceImagePromptSymbolMentions = (value: string, symbols: readonly string[]) =>
+  symbols.reduce(
+    (result, symbol) =>
+      result.replace(
+        new RegExp(`\\$?\\b${escapePromptRegExp(symbol.replace(/^\$/, ""))}\\b`, "gi"),
+        "an unmarked digital asset",
+      ),
+    value,
+  );
+
 const titleFromTopic = (topic: string) =>
   stripIntelBoilerplate(topic)
     .replace(/^skip$/i, "SKIP")
@@ -231,9 +243,10 @@ const templateIntelToReport = (input: {
     confidence: Math.min(95, Math.max(60, input.template.importance_score * 10)),
     symbols,
     imagePrompt: [
-      "Premium editorial crypto market intelligence cover art",
-      `visual thesis: ${title.replace(/\$[A-Za-z0-9_]+/g, "the referenced crypto asset")}`,
-      `must visually represent this exact catalyst, not a generic crypto scene: ${trimToLength(insight.replace(/\$[A-Za-z0-9_]+/g, "the referenced crypto asset"), 180)}`,
+      "strictly visual-only full-bleed scene with no title card, no banner, no header strip, no lower third, no text panel, no article layout, no news card, no readable or pseudo-readable text",
+      "single cinematic abstract market-intelligence illustration, not a poster, not an infographic, not a presentation slide, not a webpage, not an article thumbnail",
+      `depict ${replaceImagePromptSymbolMentions(title, symbols).replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset").toLowerCase()} as visual metaphor only`,
+      `the scene should be driven by ${trimToLength(replaceImagePromptSymbolMentions(insight, symbols).replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset"), 180).toLowerCase()}`,
       symbols.length > 0
         ? "depict the specific named-asset thesis as unmarked color-coded asset forms, directional liquidity streams, protocol-scale architecture, wallet-node clusters, and risk/attention pressure matching the report"
         : "depict the specific market thesis through macro pressure, liquidity depth, narrative attention, and risk rotation matching the report",
@@ -242,7 +255,7 @@ const templateIntelToReport = (input: {
         : "broad crypto market narrative represented through institutional liquidity, macro pressure, and social signal flows, with every surface blank and unmarked",
       "cinematic cyberpunk institutional research environment, abstract market flows as light trails and geometric depth",
       "sharp composition, high contrast, 16:9",
-      "strictly visual-only image with no readable or pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings",
+      "no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings",
     ].join(", "),
   };
 };

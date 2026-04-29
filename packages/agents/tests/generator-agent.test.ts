@@ -81,18 +81,22 @@ describe("generator agent", () => {
     expect(result.content.tweetText ?? "").toContain("- ");
     expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
     expect(result.content.blogPost).toContain("## Executive Summary");
-    expect(result.content.imagePrompt).toContain("directly tied to this intel thesis");
+    expect(result.content.imagePrompt).toContain("single cinematic abstract market-intelligence illustration");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
-    expect(result.content.imagePrompt).toContain("must visually represent this exact catalyst");
-    expect(result.content.imagePrompt).toContain("not a generic crypto scene");
+    expect(result.content.imagePrompt).toContain("the scene should be driven by");
+    expect(result.content.imagePrompt).toContain("no title card");
+    expect(result.content.imagePrompt).toContain("no news card");
     expect(result.content.imagePrompt).toContain("wallet-node clusters");
     expect(result.content.imagePrompt).toContain("narrative shift");
-    expect(result.content.imagePrompt).toContain("strictly visual-only image");
+    expect(result.content.imagePrompt).toContain("strictly visual-only full-bleed scene");
     expect(result.content.imagePrompt).toContain("no ticker symbols");
     expect(result.content.imagePrompt).toContain("no screens");
     expect(result.content.imagePrompt).toContain("no charts with axes or legends");
     expect(result.content.imagePrompt).toContain("every surface blank and unmarked");
     expect(result.content.imagePrompt).not.toContain("$SUI");
+    expect(result.content.imagePrompt).not.toMatch(/cover art/i);
+    expect(result.content.imagePrompt).not.toMatch(/visual thesis:/i);
+    expect(result.content.imagePrompt).not.toMatch(/context:/i);
   });
 
   it("preserves model tweet output without quality fallback", async () => {
@@ -553,11 +557,12 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(result.content.imagePrompt).toContain("directly tied to this intel thesis");
+    expect(result.content.imagePrompt).toContain("single cinematic abstract market-intelligence illustration");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
-    expect(result.content.imagePrompt).toContain("must visually represent this exact catalyst");
+    expect(result.content.imagePrompt).toContain("the scene should be driven by");
+    expect(result.content.imagePrompt).toContain("no title card");
     expect(result.content.imagePrompt).toContain("directional liquidity streams");
-    expect(result.content.imagePrompt).toContain("strictly visual-only image");
+    expect(result.content.imagePrompt).toContain("strictly visual-only full-bleed scene");
     expect(result.content.imagePrompt).toContain("no logos");
     expect(result.content.imagePrompt).toContain("no ticker symbols");
     expect(result.content.imagePrompt).toContain("no dashboard UI");
@@ -567,5 +572,7 @@ describe("generator agent", () => {
     expect(result.content.imagePrompt).not.toMatch(/with the words/i);
     expect(result.content.imagePrompt).not.toMatch(/trading screen/i);
     expect(result.content.imagePrompt).not.toMatch(/dashboard UI, chart axes, and poster typography/i);
+    expect(result.content.imagePrompt).not.toMatch(/visual thesis:/i);
+    expect(result.content.imagePrompt).not.toMatch(/secondary style direction/i);
   });
 });

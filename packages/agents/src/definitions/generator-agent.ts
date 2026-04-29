@@ -163,11 +163,20 @@ const buildFallbackBlogPost = (report: IntelReport) =>
   ].join("\n");
 
 const imageTextExclusion =
-  "strictly visual-only image with no readable or pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings";
+  "strictly visual-only full-bleed scene with no title card, no banner, no header strip, no lower third, no text panel, no article layout, no news card, no readable or pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings";
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const replaceSymbolMentions = (value: string, symbols: string[]) =>
+  symbols.reduce(
+    (result, symbol) =>
+      result.replace(new RegExp(`\\$?\\b${escapeRegExp(symbol.replace(/^\$/, ""))}\\b`, "gi"), "an unmarked digital asset"),
+    value,
+  );
 
 const removeTextLikeTokens = (value: string) =>
   value
-    .replace(/\$[A-Za-z0-9_]+/g, "the referenced crypto asset")
+    .replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset")
     .replace(/\b(?:with|showing|displaying|featuring)?\s*the\s+words?\s+[^,.]+/gi, "")
     .replace(
       /\b(?:with|showing|displaying|featuring)?\s*(?:big\s+)?(?:glowing\s+)?(?:coin\s+)?logos?\b[^,.]*/gi,
@@ -182,8 +191,8 @@ const removeTextLikeTokens = (value: string) =>
     .trim();
 
 const buildImageVisualBrief = (report: IntelReport) => {
-  const topic = removeTextLikeTokens(report.title);
-  const summary = removeTextLikeTokens(report.summary || report.insight);
+  const topic = removeTextLikeTokens(replaceSymbolMentions(report.title, report.symbols));
+  const summary = removeTextLikeTokens(replaceSymbolMentions(report.summary || report.insight, report.symbols));
   const category = report.category.replace(/_/g, " ");
   const symbolCount = report.symbols.length;
   const assetContext =
@@ -196,11 +205,11 @@ const buildImageVisualBrief = (report: IntelReport) => {
       : "depict the specific market thesis through macro pressure, liquidity depth, narrative attention, and risk rotation matching the report";
 
   return [
-    "Premium editorial crypto market intelligence cover art directly tied to this intel thesis",
-    `visual thesis: ${topic}`,
-    `context: ${trimLine(summary, 220)}`,
-    `category: ${category}`,
-    `must visually represent this exact catalyst, not a generic crypto scene: ${trimLine(summary, 180)}`,
+    imageTextExclusion,
+    "single cinematic abstract market-intelligence illustration, not a poster, not an infographic, not a presentation slide, not a webpage, not an article thumbnail",
+    `depict ${topic.toLowerCase()} as visual metaphor only`,
+    `the scene should be driven by ${trimLine(summary, 180).toLowerCase()}`,
+    `market category mood is ${category}`,
     visualCatalyst,
     assetContext,
     "cinematic cyberpunk institutional research environment, abstract market flows as light trails and geometric depth, high-tech atmosphere, realistic lighting, 16:9",
@@ -219,7 +228,7 @@ const normalizeImagePrompt = (input: z.infer<typeof rawGeneratorContentSchema>, 
 
   return [
     visualBrief,
-    `additional visual direction: ${removeTextLikeTokens(candidate)}`,
+    `use this secondary style only as abstract visual metaphor without layout text ${removeTextLikeTokens(replaceSymbolMentions(candidate, report.symbols))}`,
     imageTextExclusion,
   ].join(", ");
 };
