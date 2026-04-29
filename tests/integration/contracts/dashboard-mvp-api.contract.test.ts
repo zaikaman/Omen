@@ -229,7 +229,7 @@ describe("dashboard mvp api contract", () => {
       data: {
         items: demoRunBundles
           .flatMap((bundle) => bundle.events)
-          .sort((left, right) => left.timestamp.localeCompare(right.timestamp)),
+          .sort((left, right) => right.timestamp.localeCompare(left.timestamp)),
         nextCursor: null,
       },
     };
@@ -239,12 +239,12 @@ describe("dashboard mvp api contract", () => {
     expect(parsed.nextCursor).toBeNull();
     expect(parsed.items).toHaveLength(10);
     expect(parsed.items[0]).toMatchObject({
-      id: "event-signal-001",
-      eventType: "run_created",
-    });
-    expect(parsed.items[parsed.items.length - 1]).toMatchObject({
       id: "event-intel-004",
       eventType: "report_published",
+    });
+    expect(parsed.items[parsed.items.length - 1]).toMatchObject({
+      id: "event-signal-001",
+      eventType: "run_created",
     });
   });
 });

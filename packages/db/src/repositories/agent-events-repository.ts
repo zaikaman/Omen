@@ -108,7 +108,7 @@ export class AgentEventsRepository extends BaseRepository<
     const { data, error } = await this.table()
       .select("*")
       .eq("run_id", runId)
-      .order("timestamp", { ascending: true })
+      .order("timestamp", { ascending: false })
       .limit(limit)
       .returns<AgentEventRow[]>();
 

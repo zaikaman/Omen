@@ -41,7 +41,7 @@ export const createLogsController =
       const items = demoRunBundles
         .flatMap((bundle) => bundle.events)
         .filter((event) => (runId ? event.runId === runId : true))
-        .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+        .sort((left, right) => right.timestamp.localeCompare(left.timestamp))
         .slice(0, limit);
 
       res.json({
@@ -61,10 +61,8 @@ export const createLogsController =
       return;
     }
 
-    const items = runId ? listed.value : [...listed.value].reverse();
-
     res.json({
       success: true,
-      data: presentLogFeed({ items, nextCursor: null }),
+      data: presentLogFeed({ items: listed.value, nextCursor: null }),
     });
   };

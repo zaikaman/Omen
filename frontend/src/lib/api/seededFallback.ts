@@ -788,7 +788,7 @@ export const getSeededLogs = (options: {
   const limit = options.limit ?? 100;
   const items = seededEvents
     .filter((event) => (options.runId ? event.runId === options.runId : true))
-    .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+    .sort((left, right) => right.timestamp.localeCompare(left.timestamp))
     .slice(0, limit);
 
   return logFeedResponseSchema.parse({
