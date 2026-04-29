@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -13,6 +13,7 @@ import {
     News01Icon,
 } from '@hugeicons/core-free-icons';
 import { useRunStatus } from '../../hooks/useRunStatus';
+import { SwarmRunModal } from '../SwarmRunModal';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -54,6 +55,8 @@ function TelegramIcon({ className }: { className?: string }) {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isSwarmModalOpen, setIsSwarmModalOpen] = useState(false);
+    const [dismissedRunId, setDismissedRunId] = useState<string | null>(null);
     const runStatus = useRunStatus({ refreshIntervalMs: REFRESH_INTERVAL_MS });
 
     const navItems = [
@@ -61,7 +64,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         { icon: GpsSignal01Icon, label: 'Signals', path: '/app/signals' },
         { icon: News01Icon, label: 'Intel', path: '/app/intel' },
         { icon: ChartHistogramIcon, label: 'Analytics', path: '/app/analytics' },
-        { icon: Activity01Icon, label: 'Swarm Trace', path: '/app/swarm' },
         { icon: Certificate01Icon, label: '0G Evidence', path: '/app/evidence' },
     ];
 
@@ -70,15 +72,43 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         '/app/signals': 'SIGNAL INTERCEPT',
         '/app/intel': 'INTELLIGENCE FEED',
         '/app/analytics': 'SYSTEM ANALYTICS',
-        '/app/swarm': 'SWARM TRACE',
         '/app/evidence': '0G EVIDENCE',
     };
 
     const currentTitle = pageTitles[location.pathname] || 'SYSTEM OVERVIEW';
     const currentRun = runStatus.activeRun ?? runStatus.latestRun;
+    const activeRunId = runStatus.activeRunId ?? runStatus.activeRun?.id ?? null;
+    const isRunActive = Boolean(
+        activeRunId &&
+        (!runStatus.activeRun?.status ||
+            ['queued', 'starting', 'running'].includes(runStatus.activeRun.status)),
+    );
+
+    useEffect(() => {
+        if (isRunActive && activeRunId && dismissedRunId !== activeRunId) {
+            setIsSwarmModalOpen(true);
+        }
+
+        if (!isRunActive) {
+            setIsSwarmModalOpen(false);
+            setDismissedRunId(null);
+        }
+    }, [activeRunId, dismissedRunId, isRunActive]);
+
+    const handleCloseSwarmModal = () => {
+        setDismissedRunId(activeRunId);
+        setIsSwarmModalOpen(false);
+    };
 
     return (
         <div className="min-h-screen bg-black text-gray-300 font-sans selection:bg-cyan-500/30 flex">
+            <SwarmRunModal
+                isOpen={isSwarmModalOpen}
+                onClose={handleCloseSwarmModal}
+                runId={activeRunId}
+                runMode={runStatus.activeRun?.mode ?? currentRun?.mode}
+                runStatus={runStatus.activeRun?.status}
+            />
             {/* Mobile Overlay */}
             {isMobileMenuOpen && (
                 <div
