@@ -22,7 +22,7 @@ const DEFAULT_RESOLUTION = "2048x1152 ( 16:9 )";
 const TARGET_IMAGE_WIDTH = 2048;
 const TARGET_IMAGE_HEIGHT = 1152;
 const NO_TEXT_IMAGE_CONSTRAINT =
-  "strictly no text, no words, no letters, no numbers, no captions, no labels, no logos, no watermarks, no UI, no ticker symbols";
+  "strictly visual-only image with no readable or pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings; avoid any object that normally contains writing or glyphs";
 
 export const hasIntelImageConfig = (env: BackendEnv) =>
   Boolean(env.r2.accountId && env.r2.accessKeyId && env.r2.secretAccessKey && env.r2.publicUrl);

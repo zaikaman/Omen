@@ -152,7 +152,7 @@ const buildFallbackBlogPost = (report: IntelReport) =>
   ].join("\n");
 
 const imageTextExclusion =
-  "strictly no text, no words, no letters, no numbers, no captions, no labels, no logos, no watermarks, no UI, no ticker symbols";
+  "strictly visual-only image with no readable or pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings";
 
 const removeTextLikeTokens = (value: string) =>
   value
@@ -160,9 +160,12 @@ const removeTextLikeTokens = (value: string) =>
     .replace(/\b(?:with|showing|displaying|featuring)?\s*the\s+words?\s+[^,.]+/gi, "")
     .replace(
       /\b(?:with|showing|displaying|featuring)?\s*(?:big\s+)?(?:glowing\s+)?(?:coin\s+)?logos?\b[^,.]*/gi,
-      "abstract symbolic forms",
+      " abstract symbolic forms",
     )
-    .replace(/\b(?:headline|caption|label|labels|watermark|ticker symbol|ticker symbols)\b/gi, "abstract detail")
+    .replace(
+      /\b(?:headline|caption|label|labels|watermark|ticker symbol|ticker symbols|lettering|typography|text overlay|poster|signage|sign|document|documents|whitepaper|interface|dashboard|ui|screen|screens|monitor|terminal|chart axes|legend|legends)\b/gi,
+      " abstract detail",
+    )
     .replace(/\s+/g, " ")
     .replace(/\s+([,.])/g, "$1")
     .trim();
@@ -171,18 +174,26 @@ const buildImageVisualBrief = (report: IntelReport) => {
   const topic = removeTextLikeTokens(report.title);
   const summary = removeTextLikeTokens(report.summary || report.insight);
   const category = report.category.replace(/_/g, " ");
+  const symbolCount = report.symbols.length;
   const assetContext =
-    report.symbols.length > 0
-      ? "abstract representations of the tracked crypto assets through color-coded light, liquidity flows, and market structure"
-      : "broad crypto market structure represented through institutional liquidity, macro pressure, and social narrative signals";
+    symbolCount > 0
+      ? "abstract representations of the tracked crypto assets through color-coded light, liquidity flows, geometric forms, and market structure, with every surface blank and unmarked"
+      : "broad crypto market structure represented through institutional liquidity, macro pressure, and social narrative signals, with every surface blank and unmarked";
+  const visualCatalyst =
+    symbolCount > 0
+      ? "depict the specific named-asset thesis as unmarked color-coded asset forms, directional liquidity streams, protocol-scale architecture, wallet-node clusters, and risk/attention pressure matching the report"
+      : "depict the specific market thesis through macro pressure, liquidity depth, narrative attention, and risk rotation matching the report";
 
   return [
     "Premium editorial crypto market intelligence cover art directly tied to this intel thesis",
     `visual thesis: ${topic}`,
     `context: ${trimLine(summary, 220)}`,
     `category: ${category}`,
+    `must visually represent this exact catalyst, not a generic crypto scene: ${trimLine(summary, 180)}`,
+    visualCatalyst,
     assetContext,
-    "cinematic cyberpunk institutional research desk, abstract market flows, high-tech atmosphere, realistic lighting, 16:9",
+    "cinematic cyberpunk institutional research environment, abstract market flows as light trails and geometric depth, high-tech atmosphere, realistic lighting, 16:9",
+    "avoid any object that normally contains writing or glyphs; use blank glass, clean architecture, light, shadow, and symbolic shapes instead",
     imageTextExclusion,
   ].join(", ");
 };

@@ -233,12 +233,16 @@ const templateIntelToReport = (input: {
     imagePrompt: [
       "Premium editorial crypto market intelligence cover art",
       `visual thesis: ${title.replace(/\$[A-Za-z0-9_]+/g, "the referenced crypto asset")}`,
+      `must visually represent this exact catalyst, not a generic crypto scene: ${trimToLength(insight.replace(/\$[A-Za-z0-9_]+/g, "the referenced crypto asset"), 180)}`,
       symbols.length > 0
-        ? "abstract representations of the tracked crypto assets through color-coded liquidity flows and market structure, without ticker glyphs"
-        : "broad crypto market narrative represented through institutional liquidity, macro pressure, and social signal flows",
-      "cinematic cyberpunk trading desk, data streams, institutional research terminal",
+        ? "depict the specific named-asset thesis as unmarked color-coded asset forms, directional liquidity streams, protocol-scale architecture, wallet-node clusters, and risk/attention pressure matching the report"
+        : "depict the specific market thesis through macro pressure, liquidity depth, narrative attention, and risk rotation matching the report",
+      symbols.length > 0
+        ? "abstract representations of the tracked crypto assets through color-coded liquidity flows, geometric forms, and market structure, with every surface blank and unmarked"
+        : "broad crypto market narrative represented through institutional liquidity, macro pressure, and social signal flows, with every surface blank and unmarked",
+      "cinematic cyberpunk institutional research environment, abstract market flows as light trails and geometric depth",
       "sharp composition, high contrast, 16:9",
-      "strictly no text, no words, no letters, no numbers, no captions, no labels, no logos, no watermarks, no UI, no ticker symbols",
+      "strictly visual-only image with no readable or pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings",
     ].join(", "),
   };
 };

@@ -83,9 +83,15 @@ describe("generator agent", () => {
     expect(result.content.blogPost).toContain("## Executive Summary");
     expect(result.content.imagePrompt).toContain("directly tied to this intel thesis");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
+    expect(result.content.imagePrompt).toContain("must visually represent this exact catalyst");
+    expect(result.content.imagePrompt).toContain("not a generic crypto scene");
+    expect(result.content.imagePrompt).toContain("wallet-node clusters");
     expect(result.content.imagePrompt).toContain("narrative shift");
-    expect(result.content.imagePrompt).toContain("strictly no text");
+    expect(result.content.imagePrompt).toContain("strictly visual-only image");
     expect(result.content.imagePrompt).toContain("no ticker symbols");
+    expect(result.content.imagePrompt).toContain("no screens");
+    expect(result.content.imagePrompt).toContain("no charts with axes or legends");
+    expect(result.content.imagePrompt).toContain("every surface blank and unmarked");
     expect(result.content.imagePrompt).not.toContain("$SUI");
   });
 
@@ -412,7 +418,8 @@ describe("generator agent", () => {
           tweetText:
             "sui tvl keeps pressing higher\n\n- lending yields pulled in new liquidity\n- wallets kept expanding\n\nwatch confirmation before chasing",
           blogPost: "# SUI TVL Surge\n\n## Executive Summary\nSUI is rotating.",
-          imagePrompt: "Big glowing $SUI logo with the words SUI TVL Surge on a trading screen.",
+          imagePrompt:
+            "Big glowing $SUI logo with the words SUI TVL Surge on a trading screen, dashboard UI, chart axes, and poster typography.",
           formattedContent: "sui tvl keeps pressing higher",
           logMessage: "INTEL LOCKED: SUI rotation.",
         }),
@@ -447,10 +454,17 @@ describe("generator agent", () => {
 
     expect(result.content.imagePrompt).toContain("directly tied to this intel thesis");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
-    expect(result.content.imagePrompt).toContain("strictly no text");
+    expect(result.content.imagePrompt).toContain("must visually represent this exact catalyst");
+    expect(result.content.imagePrompt).toContain("directional liquidity streams");
+    expect(result.content.imagePrompt).toContain("strictly visual-only image");
     expect(result.content.imagePrompt).toContain("no logos");
     expect(result.content.imagePrompt).toContain("no ticker symbols");
+    expect(result.content.imagePrompt).toContain("no dashboard UI");
+    expect(result.content.imagePrompt).toContain("no screens");
+    expect(result.content.imagePrompt).toContain("blank glass");
     expect(result.content.imagePrompt).not.toContain("$SUI");
     expect(result.content.imagePrompt).not.toMatch(/with the words/i);
+    expect(result.content.imagePrompt).not.toMatch(/trading screen/i);
+    expect(result.content.imagePrompt).not.toMatch(/dashboard UI, chart axes, and poster typography/i);
   });
 });
