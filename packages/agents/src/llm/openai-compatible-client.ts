@@ -91,7 +91,10 @@ const logRawLlmPayload = (label: string, payload: unknown) => {
   console.log(`[omen-llm-raw] ${label} ${JSON.stringify(payload)}`);
 };
 
-const MAX_JSON_COMPLETION_ATTEMPTS = 10;
+const MAX_JSON_COMPLETION_REPAIR_ATTEMPTS = 5;
+const MAX_JSON_COMPLETION_CLEAN_RESTART_ATTEMPTS = 3;
+const MAX_JSON_COMPLETION_ATTEMPTS =
+  MAX_JSON_COMPLETION_REPAIR_ATTEMPTS + MAX_JSON_COMPLETION_CLEAN_RESTART_ATTEMPTS;
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -182,11 +185,14 @@ export class OpenAiCompatibleJsonClient {
     let lastError: unknown = null;
 
     for (let attempt = 1; attempt <= MAX_JSON_COMPLETION_ATTEMPTS; attempt += 1) {
+      const isFirstAttempt = attempt === 1;
+      const isCleanRestartAttempt = attempt > MAX_JSON_COMPLETION_REPAIR_ATTEMPTS;
+
       try {
         return await this.completeJsonAttempt({
           ...input,
           userPrompt:
-            attempt === 1
+            isFirstAttempt || isCleanRestartAttempt
               ? input.userPrompt
               : buildRetryUserPrompt({
                   originalPrompt: input.userPrompt,
@@ -201,10 +207,12 @@ export class OpenAiCompatibleJsonClient {
           throw error;
         }
 
-        console.warn("[omen-llm] JSON completion failed; retrying with error context.", {
+        console.warn("[omen-llm] JSON completion failed; retrying.", {
           model: this.config.model,
           attempt,
           maxAttempts: MAX_JSON_COMPLETION_ATTEMPTS,
+          nextAttemptMode:
+            attempt >= MAX_JSON_COMPLETION_REPAIR_ATTEMPTS ? "clean_restart" : "error_context",
           error: getErrorMessage(error),
         });
       }

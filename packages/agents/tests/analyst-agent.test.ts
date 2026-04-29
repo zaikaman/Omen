@@ -206,6 +206,98 @@ describe("analyst agent", () => {
     expect((result.analystNotes ?? []).some((note) => note.includes("test-reasoner"))).toBe(true);
   });
 
+  it("normalizes common model thesis shape mistakes before strict validation", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createAnalystAgent({
+      llmClient: {
+        config: {
+          apiKey: "test-key",
+          baseUrl: "https://example.com/v1",
+          model: "test-reasoner",
+          timeoutMs: 30_000,
+        },
+        completeJson: async () => ({
+          thesis: {
+            candidateId: "ignored-by-sanitizer",
+            asset: "ignored-by-sanitizer",
+            direction: "long",
+            orderType: "LIMIT",
+            tradingStyle: "DAY_TRADING",
+            expectedDuration: "8-16 hours",
+            currentPrice: "100",
+            entryPrice: "99",
+            targetPrice: "108",
+            stopLoss: "95",
+            riskReward: "3",
+            whyNow: "AVAX is holding a constructive pullback setup.",
+            confluences: "Pullback held above local support",
+            uncertaintyNotes: ["ETF flow follow-through still needs confirmation."],
+            missingDataNotes: ["No additional missing-data flags."],
+          },
+          analystNotes: "Model returned loose enum casing.",
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-normalize-model",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        research: {
+          candidate: {
+            id: "candidate-avax-1",
+            symbol: "AVAX",
+            reason: "Testing model output normalization.",
+            directionHint: "LONG",
+            status: "researched",
+            sourceUniverse: "AVAX",
+            dedupeKey: "AVAX",
+            missingDataNotes: [],
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "AVAX outperformed the market with constructive momentum.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: {
+                price: 100,
+                currentPrice: 100,
+              },
+            },
+            {
+              category: "technical",
+              summary: "AVAX held local support with an upward chart lean.",
+              sourceLabel: "Omen Indicators",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+          narrativeSummary: "AVAX remains constructive.",
+          missingDataNotes: [],
+        },
+      },
+      state,
+    );
+
+    expect(result.thesis.candidateId).toBe("candidate-avax-1");
+    expect(result.thesis.asset).toBe("AVAX");
+    expect(result.thesis.orderType).toBe("limit");
+    expect(result.thesis.tradingStyle).toBe("day_trade");
+    expect(result.thesis.missingDataNotes).toBe("No additional missing-data flags.");
+    expect(result.thesis.uncertaintyNotes).toBe(
+      "ETF flow follow-through still needs confirmation.",
+    );
+    expect(result.thesis.confidence).toBeGreaterThan(0);
+    expect(result.analystNotes).toEqual(
+      expect.arrayContaining(["Model returned loose enum casing."]),
+    );
+  });
+
   it("rejects stale market-order entries that drift away from current price", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createAnalystAgent({

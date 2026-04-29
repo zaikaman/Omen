@@ -33,6 +33,25 @@ const analystAgentOptionsSchema = zod.object({
   llmClient: zod.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
 });
 
+const rawAnalystOutputSchema = zod
+  .object({
+    thesis: zod.record(zod.unknown()).optional().default({}),
+    analystNotes: zod
+      .preprocess((value) => {
+        if (Array.isArray(value)) {
+          return value.filter((entry): entry is string => typeof entry === "string");
+        }
+
+        if (typeof value === "string" && value.trim().length > 0) {
+          return [value];
+        }
+
+        return [];
+      }, zod.array(zod.string().min(1)))
+      .default([]),
+  })
+  .passthrough();
+
 const categoryWeight: Record<EvidenceItem["category"], number> = {
   market: 8,
   technical: 9,
@@ -672,6 +691,160 @@ const summarizeUncertainty = (missingDataNotes: string[], evidence: EvidenceItem
   return "No material uncertainty flags were raised beyond normal market volatility.";
 };
 
+const coerceNumber = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+};
+
+const coerceNullableNumber = (value: unknown) => {
+  if (value === null) {
+    return null;
+  }
+
+  return coerceNumber(value);
+};
+
+const coerceString = (value: unknown) => {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    const joined = value
+      .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+      .map((entry) => entry.trim())
+      .join(" ");
+
+    return joined.length > 0 ? joined : undefined;
+  }
+
+  return undefined;
+};
+
+const coerceStringArray = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value
+      .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+      .map((entry) => entry.trim());
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    return [value.trim()];
+  }
+
+  return undefined;
+};
+
+const normalizeDirection = (value: unknown) => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim().toUpperCase();
+
+  return normalized === "LONG" ||
+    normalized === "SHORT" ||
+    normalized === "WATCHLIST" ||
+    normalized === "NONE"
+    ? normalized
+    : undefined;
+};
+
+const normalizeOrderType = (value: unknown) => {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  return normalized === "market" || normalized === "limit" ? normalized : undefined;
+};
+
+const normalizeTradingStyle = (value: unknown) => {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const aliases: Record<string, "day_trade" | "swing_trade"> = {
+    day: "day_trade",
+    day_trade: "day_trade",
+    day_trading: "day_trade",
+    intraday: "day_trade",
+    swing: "swing_trade",
+    swing_trade: "swing_trade",
+    swing_trading: "swing_trade",
+  };
+
+  return aliases[normalized];
+};
+
+const normalizeAnalystModelThesis = (input: {
+  rawThesis: Record<string, unknown>;
+  fallback: z.infer<typeof analystOutputSchema>;
+  candidateId: string;
+  symbol: string;
+}) => {
+  const raw = input.rawThesis;
+  const fallback = input.fallback.thesis;
+  const confidence = coerceNumber(raw.confidence);
+  const riskReward = coerceNullableNumber(raw.riskReward);
+  const direction = normalizeDirection(raw.direction);
+  const orderType = normalizeOrderType(raw.orderType);
+  const tradingStyle = normalizeTradingStyle(raw.tradingStyle);
+  const expectedDuration = raw.expectedDuration === null ? null : coerceString(raw.expectedDuration);
+  const confluences = coerceStringArray(raw.confluences);
+
+  return thesisDraftSchema.parse({
+    ...fallback,
+    candidateId: input.candidateId,
+    asset: input.symbol.toUpperCase(),
+    ...(direction ? { direction } : {}),
+    ...(confidence !== undefined ? { confidence: Math.round(confidence) } : {}),
+    ...(orderType !== undefined ? { orderType } : {}),
+    ...(tradingStyle !== undefined ? { tradingStyle } : {}),
+    ...(expectedDuration !== undefined ? { expectedDuration } : {}),
+    ...(coerceNullableNumber(raw.currentPrice) !== undefined
+      ? { currentPrice: coerceNullableNumber(raw.currentPrice) }
+      : {}),
+    ...(coerceNullableNumber(raw.entryPrice) !== undefined
+      ? { entryPrice: coerceNullableNumber(raw.entryPrice) }
+      : {}),
+    ...(coerceNullableNumber(raw.targetPrice) !== undefined
+      ? { targetPrice: coerceNullableNumber(raw.targetPrice) }
+      : {}),
+    ...(coerceNullableNumber(raw.stopLoss) !== undefined
+      ? { stopLoss: coerceNullableNumber(raw.stopLoss) }
+      : {}),
+    ...(riskReward !== undefined ? { riskReward } : {}),
+    ...(coerceString(raw.whyNow) ? { whyNow: coerceString(raw.whyNow) } : {}),
+    ...(confluences ? { confluences } : {}),
+    ...(coerceString(raw.uncertaintyNotes)
+      ? { uncertaintyNotes: coerceString(raw.uncertaintyNotes) }
+      : {}),
+    ...(coerceString(raw.missingDataNotes)
+      ? { missingDataNotes: coerceString(raw.missingDataNotes) }
+      : {}),
+  });
+};
+
 export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) => {
   const parsed = analystInputSchema.parse(input);
   const direction = directionFromResearch(
@@ -800,7 +973,7 @@ export class AnalystAgentFactory {
         evidenceCount: enrichedInput.research.evidence.length,
       });
       const response = await this.llmClient.completeJson({
-        schema: analystOutputSchema,
+        schema: rawAnalystOutputSchema,
         systemPrompt: prompt,
         userPrompt: JSON.stringify(
           {
@@ -817,21 +990,22 @@ export class AnalystAgentFactory {
           2,
         ),
       });
+      const rawResponse = rawAnalystOutputSchema.parse(response);
 
       const mergedThesis = enforceTemplateTradeRules(
-        thesisDraftSchema.parse({
-          ...fallback.thesis,
-          ...response.thesis,
+        normalizeAnalystModelThesis({
+          rawThesis: rawResponse.thesis,
+          fallback,
           candidateId: enrichedInput.research.candidate.id,
-          asset: enrichedInput.research.candidate.symbol.toUpperCase(),
+          symbol: enrichedInput.research.candidate.symbol,
         }),
       );
 
       return analystOutputSchema.parse({
-        ...response,
+        ...rawResponse,
         thesis: mergedThesis,
         analystNotes: [
-          ...(response.analystNotes ?? []),
+          ...rawResponse.analystNotes,
           `Model-backed analyst path: ${this.llmClient.config.model}`,
         ],
       });

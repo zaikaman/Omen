@@ -60,7 +60,7 @@ describe("OpenAiCompatibleJsonClient", () => {
     expect(retryPrompt).toContain("Expected string");
   });
 
-  it("throws after ten failed attempts", async () => {
+  it("uses clean restarts after five repair attempts", async () => {
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(createJsonResponse({ text: 123 })));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -79,6 +79,50 @@ describe("OpenAiCompatibleJsonClient", () => {
         userPrompt: "Make a short response.",
       }),
     ).rejects.toThrow("Expected string");
-    expect(fetchMock).toHaveBeenCalledTimes(10);
+
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+
+    const repairBody = JSON.parse(fetchMock.mock.calls[4][1].body as string) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const firstCleanRestartBody = JSON.parse(fetchMock.mock.calls[5][1].body as string) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const finalCleanRestartBody = JSON.parse(fetchMock.mock.calls[7][1].body as string) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const repairPrompt = repairBody.messages.find((message) => message.role === "user")?.content;
+    const firstCleanRestartPrompt = firstCleanRestartBody.messages.find(
+      (message) => message.role === "user",
+    )?.content;
+    const finalCleanRestartPrompt = finalCleanRestartBody.messages.find(
+      (message) => message.role === "user",
+    )?.content;
+
+    expect(repairPrompt).toContain("PREVIOUS ATTEMPT 4 FAILED DUE TO SCHEMA VALIDATION ERROR.");
+    expect(firstCleanRestartPrompt).toBe("Make a short response.");
+    expect(finalCleanRestartPrompt).toBe("Make a short response.");
+  });
+
+  it("throws after eight failed attempts", async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(createJsonResponse({ text: 123 })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenAiCompatibleJsonClient({
+      apiKey: "test-key",
+      baseUrl: "https://example.com/v1",
+      model: "grok-4-fast",
+    });
+
+    await expect(
+      client.completeJson({
+        schema: z.object({
+          text: z.string(),
+        }),
+        systemPrompt: "Return a text field.",
+        userPrompt: "Make a short response.",
+      }),
+    ).rejects.toThrow("Expected string");
+    expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 });
