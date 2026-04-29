@@ -188,6 +188,54 @@ describe("generator agent", () => {
     expect(result.content.formattedContent).toBe(tweetText);
   });
 
+  it("ignores object-shaped optional formatted content from the model", async () => {
+    const tweetText =
+      "sui tvl keeps pressing higher\n\n- lending yields pulled in new liquidity\n- wallets kept expanding\n\nwatch confirmation before chasing";
+    const agent = createGeneratorAgent({
+      llmClient: {
+        completeJson: async () => ({
+          topic: "SUI TVL Surge",
+          tweetText,
+          blogPost: "# SUI TVL Surge\n\n## Executive Summary\nSUI is rotating.",
+          imagePrompt: "Cyberpunk SUI liquidity rotation cover art.",
+          formattedContent: {
+            tweet: tweetText,
+          },
+          logMessage: "INTEL LOCKED: SUI rotation.",
+        }),
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generator-object-formatted-content",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "SUI TVL Surge",
+          insight:
+            "SUI TVL is accelerating while active wallets rise and liquidity rotates from ETH pools.",
+          importanceScore: 8,
+          category: "narrative_shift",
+          title: "SUI TVL Surge",
+          summary:
+            "SUI TVL blasts higher as lending yields attract new liquidity. Active wallets are rising and ETH pool flows are rotating.",
+          confidence: 80,
+          symbols: ["SUI", "ETH"],
+          imagePrompt: null,
+        },
+        evidence: [],
+      },
+      createInitialSwarmState({ run, config }),
+    );
+
+    expect(result.content.tweetText).toBe(tweetText);
+    expect(result.content.formattedContent).toBe(tweetText);
+  });
+
   it("preserves model tweet output without truncation checks", async () => {
     const agent = createGeneratorAgent({
       llmClient: {

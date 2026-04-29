@@ -91,6 +91,47 @@ const logRawLlmPayload = (label: string, payload: unknown) => {
   console.log(`[omen-llm-raw] ${label} ${JSON.stringify(payload)}`);
 };
 
+const MAX_JSON_COMPLETION_ATTEMPTS = 10;
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
+const isSchemaLikeError = (message: string) =>
+  /schema|validation|parse|zod|invalid_type|too_small|too_big|required|expected/i.test(message);
+
+const buildRetryUserPrompt = (input: {
+  originalPrompt: string;
+  attempt: number;
+  error: unknown;
+}) => {
+  const errorMessage = getErrorMessage(input.error);
+
+  if (isSchemaLikeError(errorMessage)) {
+    return [
+      input.originalPrompt,
+      "",
+      `PREVIOUS ATTEMPT ${input.attempt.toString()} FAILED DUE TO SCHEMA VALIDATION ERROR.`,
+      "",
+      `Error: ${errorMessage}`,
+      "",
+      "CRITICAL INSTRUCTIONS TO FIX:",
+      "1. Return valid JSON that exactly matches the requested output schema.",
+      "2. Field types must match exactly. Strings must be strings, arrays must be arrays, objects must be objects.",
+      "3. Do not include empty strings for required non-empty string fields.",
+      "4. Do not include conversational text, markdown wrappers, explanations, or the error message itself.",
+      "5. Return only the corrected JSON object.",
+    ].join("\n");
+  }
+
+  return [
+    input.originalPrompt,
+    "",
+    `PREVIOUS ATTEMPT ${input.attempt.toString()} FAILED.`,
+    `Error: ${errorMessage}`,
+    "Retry and return only valid JSON matching the requested schema.",
+  ].join("\n");
+};
+
 export type JsonCompletionInput<T> = {
   systemPrompt: string;
   userPrompt: string;
@@ -138,6 +179,41 @@ export class OpenAiCompatibleJsonClient {
   }
 
   async completeJson<T>(input: JsonCompletionInput<T>) {
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= MAX_JSON_COMPLETION_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.completeJsonAttempt({
+          ...input,
+          userPrompt:
+            attempt === 1
+              ? input.userPrompt
+              : buildRetryUserPrompt({
+                  originalPrompt: input.userPrompt,
+                  attempt: attempt - 1,
+                  error: lastError,
+                }),
+        });
+      } catch (error) {
+        lastError = error;
+
+        if (attempt >= MAX_JSON_COMPLETION_ATTEMPTS) {
+          throw error;
+        }
+
+        console.warn("[omen-llm] JSON completion failed; retrying with error context.", {
+          model: this.config.model,
+          attempt,
+          maxAttempts: MAX_JSON_COMPLETION_ATTEMPTS,
+          error: getErrorMessage(error),
+        });
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error("JSON completion failed.");
+  }
+
+  private async completeJsonAttempt<T>(input: JsonCompletionInput<T>) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
 

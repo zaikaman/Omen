@@ -16,18 +16,23 @@ const generatorAgentOptionsSchema = zod.object({
   shortenerClient: zod.custom<JsonCompletionClient>().nullable().optional(),
 });
 
+const optionalModelString = zod.preprocess(
+  (value) => (typeof value === "string" ? value : undefined),
+  zod.string().optional(),
+);
+
 const rawGeneratorContentSchema = zod.object({
-  topic: zod.string().optional(),
-  tweetText: zod.string().optional(),
-  tweet_text: zod.string().optional(),
-  blogPost: zod.string().optional(),
-  blog_post: zod.string().optional(),
-  imagePrompt: zod.string().optional(),
-  image_prompt: zod.string().optional(),
-  formattedContent: zod.string().optional(),
-  formatted_content: zod.string().optional(),
-  logMessage: zod.string().optional(),
-  log_message: zod.string().optional(),
+  topic: optionalModelString,
+  tweetText: optionalModelString,
+  tweet_text: optionalModelString,
+  blogPost: optionalModelString,
+  blog_post: optionalModelString,
+  imagePrompt: optionalModelString,
+  image_prompt: optionalModelString,
+  formattedContent: optionalModelString,
+  formatted_content: optionalModelString,
+  logMessage: optionalModelString,
+  log_message: optionalModelString,
 });
 
 const toDollarSymbol = (symbol: string) => `$${symbol.replace(/^\$/, "").toUpperCase()}`;
