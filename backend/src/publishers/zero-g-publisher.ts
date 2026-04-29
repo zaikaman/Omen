@@ -13,6 +13,7 @@ export type ZeroGPublisherResult = {
   logArtifact: ProofArtifact | null;
   computeArtifact: ProofArtifact | null;
   computeOutput: string | null;
+  computeError: string | null;
   artifacts: ProofArtifact[];
 };
 
@@ -80,6 +81,7 @@ export class ZeroGPublisher {
         logArtifact,
         computeArtifact: null,
         computeOutput: null,
+        computeError: null,
         artifacts: baseArtifacts,
       };
     }
@@ -101,6 +103,7 @@ export class ZeroGPublisher {
         logArtifact,
         computeArtifact: null,
         computeOutput: null,
+        computeError: computeResult.error.message,
         artifacts: baseArtifacts,
       };
     }
@@ -110,6 +113,7 @@ export class ZeroGPublisher {
       logArtifact,
       computeArtifact: computeResult.value.artifact,
       computeOutput: computeResult.value.output,
+      computeError: null,
       artifacts: [...baseArtifacts, computeResult.value.artifact],
     };
   }

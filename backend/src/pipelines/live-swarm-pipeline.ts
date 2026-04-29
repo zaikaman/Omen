@@ -981,10 +981,11 @@ class LivePipelineExecutionContext {
     }
 
     if (this.zeroGPublisher) {
-      const zeroGArtifacts = await this.safePublishFinalArtifacts({
+      const zeroGPublishResult = await this.safePublishFinalArtifacts({
         ...finalState,
         run: persistedRun,
       });
+      const zeroGArtifacts = zeroGPublishResult.artifacts;
 
       const finalCheckpointArtifact = [...zeroGArtifacts]
         .reverse()
@@ -1008,6 +1009,24 @@ class LivePipelineExecutionContext {
             status: "success",
             payload: {
               artifactCount: zeroGArtifacts.length,
+              computeStatus: zeroGPublishResult.computeError ? "failed" : "ok",
+              computeError: zeroGPublishResult.computeError,
+            },
+          }),
+        );
+      }
+
+      if (zeroGPublishResult.computeError && this.eventPublisher) {
+        await this.safePublishEvent(
+          createRunLifecycleEvent({
+            runId: finalState.run.id,
+            timestamp: finalState.run.updatedAt,
+            summary: `0G compute proof was not recorded: ${zeroGPublishResult.computeError}`,
+            status: "warning",
+            payload: {
+              provider: "0g-compute",
+              model: this.input.env.zeroG.computeModel,
+              error: zeroGPublishResult.computeError,
             },
           }),
         );
@@ -1437,7 +1456,10 @@ class LivePipelineExecutionContext {
 
   private async safePublishFinalArtifacts(finalState: SwarmState) {
     if (!this.zeroGPublisher) {
-      return [];
+      return {
+        artifacts: [],
+        computeError: null,
+      };
     }
 
     try {
@@ -1519,9 +1541,16 @@ class LivePipelineExecutionContext {
         await this.safeRecordArtifact(artifact);
       }
 
-      return finalArtifacts;
-    } catch {
-      return [];
+      return {
+        artifacts: finalArtifacts,
+        computeError: runArtifacts.computeError,
+      };
+    } catch (error) {
+      return {
+        artifacts: [],
+        computeError:
+          error instanceof Error ? error.message : "0G final artifact publishing failed.",
+      };
     }
   }
 
