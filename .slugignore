@@ -1,0 +1,16 @@
+0g-doc/
+0g-ts-sdk/
+axl/
+frontend/
+langgraphjs/
+local/
+specs/
+template/
+tests/
+.github/
+.specify/
+.turbo/
+.vscode/
+node_modules/
+tmp-*.log
+tsconfig.tsbuildinfo

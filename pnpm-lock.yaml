@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      omen-backend:
+        specifier: workspace:*
+        version: link:backend
     devDependencies:
       '@eslint/js':
         specifier: ^9.25.1

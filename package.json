@@ -7,6 +7,9 @@
   "engines": {
     "node": "24.x"
   },
+  "dependencies": {
+    "omen-backend": "workspace:*"
+  },
   "scripts": {
     "backend": "pnpm --dir backend dev",
     "build": "turbo run build",
@@ -15,7 +18,7 @@
     "frontend": "pnpm --dir frontend dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "heroku-postbuild": "pnpm --filter omen-backend build",
+    "heroku-postbuild": "node -e \"console.log('Skipping Heroku build: backend runs TypeScript through tsx at runtime.')\"",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "start:backend": "pnpm --dir backend start",
