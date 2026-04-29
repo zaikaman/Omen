@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { PublisherOutput } from "../contracts/publisher.js";
 import type { ChartVisionOutput } from "../contracts/chart-vision.js";
+import { criticOutputSchema } from "../contracts/critic.js";
 import {
   createAnalystAgent,
   createChartVisionAgent,
@@ -575,26 +576,47 @@ export const applyOmenNodeOutput = (input: {
   }
 
   if (input.nodeKey === "analyst-agent") {
+    const rawOutput =
+      input.output && typeof input.output === "object"
+        ? (input.output as Record<string, unknown>)
+        : {};
     const output = createAnalystAgent().outputSchema.parse(input.output);
     const thesis = normalizeThesis(output.thesis);
-    const gate = runCriticGate({
-      thesis,
-      evidence: input.state.evidenceItems,
-      config: input.state.config,
-    });
+    const externalCriticOutput = criticOutputSchema.safeParse(rawOutput.axlCriticOutput);
+    const criticResult = externalCriticOutput.success
+      ? {
+          review: externalCriticOutput.data.review,
+          blockingReasons: externalCriticOutput.data.blockingReasons,
+        }
+      : (() => {
+          const localGate = runCriticGate({
+            thesis,
+            evidence: input.state.evidenceItems,
+            config: input.state.config,
+          });
+
+          return {
+            review: {
+              candidateId: thesis.candidateId,
+              decision: localGate.decision,
+              objections: localGate.objections,
+              forcedOutcomeReason: localGate.forcedOutcomeReason,
+            },
+            blockingReasons: localGate.blockingReasons,
+          };
+        })();
     const review = normalizeReview({
+      ...criticResult.review,
       candidateId: thesis.candidateId,
-      decision: gate.decision,
-      objections: gate.objections,
-      forcedOutcomeReason: gate.forcedOutcomeReason,
     });
     const stateDelta = {
       thesisDrafts: [...input.state.thesisDrafts, thesis],
       criticReviews: [...input.state.criticReviews, review],
-      errors: [...input.state.errors, ...gate.blockingReasons],
+      errors: [...input.state.errors, ...criticResult.blockingReasons],
       notes: sanitizeNotes([
         ...input.state.notes,
         ...(output.analystNotes ?? []),
+        ...(externalCriticOutput.success ? ["critic-transport:axl-a2a"] : []),
         `critic-decision:${review.decision}`,
       ]),
     };

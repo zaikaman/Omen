@@ -24,6 +24,7 @@ import {
 export const graphFactoryInputSchema = z.object({
   checkpointStore: z.custom<SwarmCheckpointStore>(),
   runtimeName: z.string().min(1),
+  nodeInvoker: z.custom<OmenSwarmNodeInvoker>().optional(),
 });
 
 export interface SwarmGraphDefinition {
@@ -40,6 +41,13 @@ export interface GraphFactory {
 }
 
 export type GraphFactoryInput = z.infer<typeof graphFactoryInputSchema>;
+
+export type OmenSwarmNodeInvoker = (input: {
+  nodeKey: OmenSwarmNodeKey;
+  nodeInput: unknown;
+  state: SwarmState;
+  threadId: string;
+}) => Promise<unknown | null>;
 
 const createCheckpointId = (input: {
   threadId: string;
@@ -267,12 +275,15 @@ class DefaultAgentRuntime implements AgentRuntime {
 
   private readonly graph: SwarmGraphDefinition;
 
+  private readonly nodeInvoker: OmenSwarmNodeInvoker | null;
+
   private readonly states = new Map<string, SwarmState>();
 
   constructor(input: GraphFactoryInput & { graph: SwarmGraphDefinition }) {
     this.checkpointStore = input.checkpointStore;
     this.runtimeName = input.runtimeName;
     this.graph = input.graph;
+    this.nodeInvoker = input.nodeInvoker ?? null;
   }
 
   async invoke(input: { threadId: string; initialState: z.infer<typeof swarmStateSchema> }) {
@@ -352,8 +363,20 @@ class DefaultAgentRuntime implements AgentRuntime {
           threadId: input.threadId,
         });
         const [researchOutput, chartVisionOutput] = await Promise.all([
-          researchNode.invoke(researchInput as never, state),
-          chartVisionNode.invoke(chartVisionInput as never, state),
+          this.invokeNodeWithOverride({
+            node: researchNode,
+            nodeKey: "research-agent",
+            nodeInput: researchInput,
+            state,
+            threadId: input.threadId,
+          }),
+          this.invokeNodeWithOverride({
+            node: chartVisionNode,
+            nodeKey: "chart-vision-agent",
+            nodeInput: chartVisionInput,
+            state,
+            threadId: input.threadId,
+          }),
         ]);
 
         const researchCheckpoint = await this.applyOutputAndCheckpoint({
@@ -404,19 +427,46 @@ class DefaultAgentRuntime implements AgentRuntime {
 
   private async invokeNodeAndCheckpoint(input: InvokeAndCheckpointInput) {
     const node = this.findNode(input.nodeKey);
-    const output = await node.invoke(
-      buildOmenNodeInput({
-        nodeKey: input.nodeKey,
-        state: input.state,
-        threadId: input.threadId,
-      }) as never,
-      input.state,
-    );
+    const nodeInput = buildOmenNodeInput({
+      nodeKey: input.nodeKey,
+      state: input.state,
+      threadId: input.threadId,
+    });
+    const output = await this.invokeNodeWithOverride({
+      node,
+      nodeKey: input.nodeKey,
+      nodeInput,
+      state: input.state,
+      threadId: input.threadId,
+    });
 
     return this.applyOutputAndCheckpoint({
       ...input,
       output,
     });
+  }
+
+  private async invokeNodeWithOverride(input: {
+    node: RuntimeNodeDefinition<unknown, unknown>;
+    nodeKey: OmenSwarmNodeKey;
+    nodeInput: unknown;
+    state: SwarmState;
+    threadId: string;
+  }) {
+    if (this.nodeInvoker) {
+      const delegated = await this.nodeInvoker({
+        nodeKey: input.nodeKey,
+        nodeInput: input.nodeInput,
+        state: input.state,
+        threadId: input.threadId,
+      });
+
+      if (delegated !== null) {
+        return delegated;
+      }
+    }
+
+    return input.node.invoke(input.nodeInput as never, input.state);
   }
 
   private async applyOutputAndCheckpoint(input: InvokeAndCheckpointInput & { output: unknown }) {

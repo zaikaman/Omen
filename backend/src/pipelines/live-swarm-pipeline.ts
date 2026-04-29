@@ -1,13 +1,18 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  analystInputSchema,
+  criticInputSchema,
   createOmenGraphFactory,
+  researchInputSchema,
+  scannerInputSchema,
   type GraphFactory,
+  type OmenSwarmNodeInvoker,
   type SwarmCheckpoint,
   type SwarmCheckpointStore,
   type SwarmState,
 } from "@omen/agents";
-import { AxlHttpNodeAdapter, toAxlPeerStatuses } from "@omen/axl";
+import { AxlA2AClient, AxlHttpNodeAdapter, toAxlPeerStatuses } from "@omen/axl";
 import {
   AgentEventsRepository,
   AgentNodesRepository,
@@ -16,6 +21,7 @@ import {
   IntelsRepository,
   OutboundPostsRepository,
   RunsRepository,
+  ServiceRegistrySnapshotsRepository,
   SignalsRepository,
   ZeroGRefsRepository,
   createSupabaseServiceRoleClient,
@@ -44,6 +50,8 @@ import type { BackendEnv } from "../bootstrap/env.js";
 import { createLogger, type Logger } from "../bootstrap/logger.js";
 import { AxlNodeManager } from "../nodes/axl-node-manager.js";
 import { AxlPeerRegistry } from "../nodes/axl-peer-registry.js";
+import { OrchestratorDelegator } from "../nodes/a2a/orchestrator-delegator.js";
+import { ServiceRegistrySync } from "../nodes/topology/service-registry-sync.js";
 import { EventPublisher } from "../publishers/event-publisher.js";
 import { EvidenceBundlePublisher } from "../publishers/evidence-bundle-publisher.js";
 import { ReportBundlePublisher } from "../publishers/report-bundle-publisher.js";
@@ -558,6 +566,8 @@ class LivePipelineExecutionContext {
 
   private readonly axlAdapter: AxlHttpNodeAdapter | null;
 
+  private readonly serviceRegistrySync: ServiceRegistrySync | null;
+
   private readonly zeroGPublisher: ZeroGPublisher | null;
 
   private readonly zeroGStateStore: ZeroGStateStore | null;
@@ -610,6 +620,9 @@ class LivePipelineExecutionContext {
       ? new OutboundPostsRepository(supabaseClient)
       : null;
     const agentEventsRepository = supabaseClient ? new AgentEventsRepository(supabaseClient) : null;
+    const serviceRegistrySnapshotsRepository = supabaseClient
+      ? new ServiceRegistrySnapshotsRepository(supabaseClient)
+      : null;
 
     this.runsRepository = runsRepository;
     this.intelsRepository = intelsRepository;
@@ -680,10 +693,15 @@ class LivePipelineExecutionContext {
           memory: input.env.axl.nodes.memory,
         },
       });
+      this.serviceRegistrySync = new ServiceRegistrySync({
+        peerRegistry: this.axlPeerRegistry,
+        repository: serviceRegistrySnapshotsRepository,
+      });
     } else {
       this.axlAdapter = null;
       this.axlPeerRegistry = null;
       this.axlNodeManager = null;
+      this.serviceRegistrySync = null;
     }
 
     const zeroGConfig = buildZeroGAdapterConfig(input.env);
@@ -846,6 +864,13 @@ class LivePipelineExecutionContext {
       }
 
       this.axlTransportAvailable = await this.probeAxlTransport(run.id, run.createdAt);
+      await this.safeCaptureAxlSnapshot({
+        source: "live-swarm-prepare",
+        metadata: {
+          runId: run.id,
+          transportAvailable: this.axlTransportAvailable,
+        },
+      });
     }
   }
 
@@ -1126,6 +1151,160 @@ class LivePipelineExecutionContext {
 
   async listRecordedArtifacts() {
     return [...this.artifacts];
+  }
+
+  createAxlNodeInvoker(): OmenSwarmNodeInvoker | null {
+    if (
+      !this.axlTransportAvailable ||
+      !this.axlAdapter ||
+      !this.axlPeerRegistry ||
+      !this.axlServicePeerId
+    ) {
+      return null;
+    }
+
+    const delegator = new OrchestratorDelegator({
+      client: new AxlA2AClient(this.axlAdapter),
+      peerRegistry: this.axlPeerRegistry,
+    });
+    const fromPeerId = this.axlServicePeerId;
+    const preferredPeerId = this.axlServicePeerId;
+
+    return async ({ nodeKey, nodeInput, state, threadId }) => {
+      const context = {
+        runId: state.run.id,
+        correlationId: `${state.run.id}:${nodeKey}`,
+        fromPeerId,
+        timeoutMs: this.input.env.axl.requestTimeoutMs,
+        routeHints: [threadId],
+      };
+
+      try {
+        if (nodeKey === "scanner-agent") {
+          const payload = scannerInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateScanner({
+            context,
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "scanner",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (delegated.ok) {
+            return delegated.value.output;
+          }
+
+          this.logger.warn(
+            `AXL A2A scanner delegation failed; falling back to local scanner: ${delegated.error.message}`,
+          );
+          return null;
+        }
+
+        if (nodeKey === "research-agent") {
+          const payload = researchInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateResearch({
+            context,
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "research",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (delegated.ok) {
+            return delegated.value.output;
+          }
+
+          this.logger.warn(
+            `AXL A2A research delegation failed; falling back to local research: ${delegated.error.message}`,
+          );
+          return null;
+        }
+
+        if (nodeKey === "analyst-agent") {
+          const payload = analystInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateAnalyst({
+            context,
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "analyst",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (!delegated.ok) {
+            this.logger.warn(
+              `AXL A2A analyst delegation failed; falling back to local analyst: ${delegated.error.message}`,
+            );
+            return null;
+          }
+
+          const criticInput = criticInputSchema.parse({
+            context: payload.context,
+            evaluation: {
+              thesis: delegated.value.output.thesis,
+              evidence: payload.research.evidence,
+            },
+          });
+          const criticDelegated = await delegator.delegateCritic({
+            context: {
+              ...context,
+              correlationId: `${state.run.id}:critic-agent`,
+            },
+            payload: criticInput,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey: "critic-agent",
+              role: "critic",
+              status: criticDelegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (!criticDelegated.ok) {
+            this.logger.warn(
+              `AXL A2A critic delegation failed; local critic gate will review analyst output: ${criticDelegated.error.message}`,
+            );
+            return delegated.value.output;
+          }
+
+          return {
+            ...delegated.value.output,
+            axlCriticOutput: criticDelegated.value.output,
+          };
+        }
+      } catch (error) {
+        this.logger.warn(
+          `AXL A2A node invocation failed for ${nodeKey}; falling back locally.`,
+          error,
+        );
+        return null;
+      }
+
+      return null;
+    };
   }
 
   private async safePersistRun(run: SwarmState["run"]) {
@@ -1787,6 +1966,24 @@ class LivePipelineExecutionContext {
     }
   }
 
+  private async safeCaptureAxlSnapshot(input: {
+    source: string;
+    metadata?: Record<string, unknown>;
+  }) {
+    if (!this.serviceRegistrySync) {
+      return;
+    }
+
+    const captured = await this.serviceRegistrySync.captureSnapshot(input);
+
+    if (!captured.ok) {
+      this.logger.warn(
+        `Failed to capture AXL service registry snapshot for ${input.source}.`,
+        captured.error,
+      );
+    }
+  }
+
   private toPersistableRun(run: SwarmState["run"]): SwarmState["run"] {
     const latestCheckpointArtifact = [...this.artifacts]
       .reverse()
@@ -1901,11 +2098,13 @@ export class DefaultLiveSwarmRunPipeline implements LiveSwarmPipeline {
 
     await executionContext.prepareRun(initialState.run);
 
+    const nodeInvoker = executionContext.createAxlNodeInvoker();
     const checkpointStore =
       this.input.checkpointStoreFactory?.() ?? executionContext.createCheckpointStore();
     const runtime = graphFactory.createRuntime({
       checkpointStore,
       runtimeName: this.input.runtimeName ?? "backend-live-swarm-pipeline",
+      ...(nodeInvoker ? { nodeInvoker } : {}),
     });
     try {
       const finalState = await runtime.invoke({
