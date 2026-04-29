@@ -33,10 +33,17 @@
     "supabase:reset": "pnpm dlx supabase db reset",
     "axl:help": "node -e \"console.log('Root AXL helpers are wired through package.json. Phase 6 will replace these placeholders with scripts/axl/*.ps1 helpers.')\"",
     "axl:start:orchestrator": "node -e \"console.log('Planned helper: scripts/axl/start-orchestrator-node.ps1')\"",
+    "axl:start:market-bias": "node -e \"console.log('Planned helper: scripts/axl/start-market-bias-node.ps1')\"",
     "axl:start:scanner": "node -e \"console.log('Planned helper: scripts/axl/start-scanner-node.ps1')\"",
     "axl:start:research": "node -e \"console.log('Planned helper: scripts/axl/start-research-node.ps1')\"",
+    "axl:start:chart-vision": "node -e \"console.log('Planned helper: scripts/axl/start-chart-vision-node.ps1')\"",
     "axl:start:analyst": "node -e \"console.log('Planned helper: scripts/axl/start-analyst-node.ps1')\"",
-    "axl:start:critic": "node -e \"console.log('Planned helper: scripts/axl/start-critic-node.ps1')\""
+    "axl:start:critic": "node -e \"console.log('Planned helper: scripts/axl/start-critic-node.ps1')\"",
+    "axl:start:intel": "node -e \"console.log('Planned helper: scripts/axl/start-intel-node.ps1')\"",
+    "axl:start:generator": "node -e \"console.log('Planned helper: scripts/axl/start-generator-node.ps1')\"",
+    "axl:start:writer": "node -e \"console.log('Planned helper: scripts/axl/start-writer-node.ps1')\"",
+    "axl:start:publisher": "node -e \"console.log('Planned helper: scripts/axl/start-publisher-node.ps1')\"",
+    "axl:start:memory": "node -e \"console.log('Planned helper: scripts/axl/start-memory-node.ps1')\""
   },
   "devDependencies": {
     "@eslint/js": "^9.25.1",

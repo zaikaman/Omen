@@ -100,6 +100,53 @@ const axlHealthMethodByRole = {
   analyst: "analyst.health",
 } as const;
 
+const defaultAxlServiceByRole: Record<Exclude<AgentRole, "monitor">, string> = {
+  orchestrator: "orchestrator",
+  market_bias: "market_bias",
+  scanner: "scanner",
+  research: "research",
+  chart_vision: "chart_vision",
+  analyst: "analyst",
+  critic: "critic",
+  intel: "intel",
+  generator: "generator",
+  writer: "writer",
+  publisher: "publisher",
+  memory: "memory",
+};
+
+const resolveAxlNodePeerId = (
+  nodes: BackendEnv["axl"]["nodes"],
+  role: Exclude<AgentRole, "monitor">,
+) => {
+  switch (role) {
+    case "orchestrator":
+      return nodes.orchestrator;
+    case "market_bias":
+      return nodes.marketBias;
+    case "scanner":
+      return nodes.scanner;
+    case "research":
+      return nodes.research;
+    case "chart_vision":
+      return nodes.chartVision;
+    case "analyst":
+      return nodes.analyst;
+    case "critic":
+      return nodes.critic;
+    case "intel":
+      return nodes.intel;
+    case "generator":
+      return nodes.generator;
+    case "writer":
+      return nodes.writer;
+    case "publisher":
+      return nodes.publisher;
+    case "memory":
+      return nodes.memory;
+  }
+};
+
 const getRoleForStep = (step: string): AgentRole =>
   managedStepRoleMap[step as keyof typeof managedStepRoleMap] ?? "monitor";
 
@@ -336,10 +383,7 @@ const createAgentNode = (input: {
   peerId?: string | null;
 }): AgentNode => {
   const role = getRoleForStep(input.step);
-  const transport =
-    role === "scanner" || role === "research" || role === "analyst" || role === "critic"
-      ? "axl"
-      : "local";
+  const transport = input.peerId ? "axl" : "local";
 
   return {
     id: `agent-${input.step}`,
@@ -352,6 +396,7 @@ const createAgentNode = (input: {
     metadata: {
       step: input.step,
       managedBy: "live-swarm-pipeline",
+      services: role === "monitor" ? [] : [defaultAxlServiceByRole[role]],
     },
   };
 };
@@ -370,20 +415,22 @@ const createOrchestratorNode = (input: {
   metadata: {
     managedBy: "live-swarm-pipeline",
     step: "orchestrator",
+    services: [defaultAxlServiceByRole.orchestrator],
   },
 });
 
-const createPublisherNode = (input: { timestamp: string }): AgentNode => ({
+const createPublisherNode = (input: { timestamp: string; peerId?: string | null }): AgentNode => ({
   id: "agent-publisher",
   role: "publisher",
-  transport: "local",
+  transport: input.peerId ? "axl" : "local",
   status: "online",
-  peerId: null,
+  peerId: input.peerId ?? null,
   lastHeartbeatAt: input.timestamp,
   lastError: null,
   metadata: {
     managedBy: "live-swarm-pipeline",
     step: "publisher-agent",
+    services: [defaultAxlServiceByRole.publisher],
   },
 });
 
@@ -618,6 +665,20 @@ class LivePipelineExecutionContext {
         adapter: this.axlAdapter,
         peerRegistry: this.axlPeerRegistry,
         orchestratorPeerId: input.env.axl.nodes.orchestrator,
+        peerIdsByRole: {
+          orchestrator: input.env.axl.nodes.orchestrator,
+          market_bias: input.env.axl.nodes.marketBias,
+          scanner: input.env.axl.nodes.scanner,
+          research: input.env.axl.nodes.research,
+          chart_vision: input.env.axl.nodes.chartVision,
+          analyst: input.env.axl.nodes.analyst,
+          critic: input.env.axl.nodes.critic,
+          intel: input.env.axl.nodes.intel,
+          generator: input.env.axl.nodes.generator,
+          writer: input.env.axl.nodes.writer,
+          publisher: input.env.axl.nodes.publisher,
+          memory: input.env.axl.nodes.memory,
+        },
       });
     } else {
       this.axlAdapter = null;
@@ -776,7 +837,14 @@ class LivePipelineExecutionContext {
     }
 
     if (this.axlNodeManager) {
-      this.axlNodeManager.registerDefaultLogicalNodes(run.createdAt);
+      const registrations = this.axlNodeManager.registerDefaultLogicalNodes(run.createdAt);
+
+      if (this.eventPublisher) {
+        for (const registration of registrations) {
+          await this.safePublishNodeStatus(registration.node);
+        }
+      }
+
       this.axlTransportAvailable = await this.probeAxlTransport(run.id, run.createdAt);
     }
   }
@@ -1290,6 +1358,7 @@ class LivePipelineExecutionContext {
       await this.safePublishNodeStatus(
         createPublisherNode({
           timestamp: result.post.updatedAt,
+          peerId: this.input.env.axl.nodes.publisher,
         }),
       );
       await this.safePublishEvent({
@@ -1739,29 +1808,13 @@ class LivePipelineExecutionContext {
   }
 
   private resolvePeerIdForStep(step: string) {
-    switch (step) {
-      case "scanner-agent":
-        return this.input.env.axl.nodes.scanner;
-      case "research-agent":
-        return this.input.env.axl.nodes.research;
-      case "analyst-agent":
-        return this.input.env.axl.nodes.analyst;
-      default:
-        return null;
-    }
+    const role = getRoleForStep(step);
+
+    return role === "monitor" ? null : resolveAxlNodePeerId(this.input.env.axl.nodes, role);
   }
 
   private resolvePeerIdForRole(role: (typeof axlStepRoleMap)[keyof typeof axlStepRoleMap]) {
-    switch (role) {
-      case "scanner":
-        return this.input.env.axl.nodes.scanner;
-      case "research":
-        return this.input.env.axl.nodes.research;
-      case "analyst":
-        return this.input.env.axl.nodes.analyst;
-      default:
-        return null;
-    }
+    return resolveAxlNodePeerId(this.input.env.axl.nodes, role);
   }
 }
 

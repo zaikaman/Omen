@@ -26,10 +26,17 @@ export type BackendEnv = {
     servicePeerId: string | null;
     nodes: {
       orchestrator: string;
+      marketBias: string;
       scanner: string;
       research: string;
+      chartVision: string;
       analyst: string;
       critic: string;
+      intel: string;
+      generator: string;
+      writer: string;
+      publisher: string;
+      memory: string;
     };
   };
   zeroG: {
@@ -125,10 +132,7 @@ const parsePort = (value: string | undefined, defaultValue: number) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
 };
 
-const parseApiKeyArray = (
-  env: NodeJS.ProcessEnv,
-  prefix: "COINGECKO" | "BIRDEYE" | "CMC",
-) => {
+const parseApiKeyArray = (env: NodeJS.ProcessEnv, prefix: "COINGECKO" | "BIRDEYE" | "CMC") => {
   const keys: string[] = [];
   const primaryKey = env[`${prefix}_API_KEY`];
 
@@ -174,15 +178,8 @@ const normalizeNodeEnv = (value: string | undefined): BackendEnv["nodeEnv"] => {
   return "development";
 };
 
-const normalizeLogLevel = (
-  value: string | undefined,
-): BackendEnv["logLevel"] => {
-  if (
-    value === "debug" ||
-    value === "info" ||
-    value === "warn" ||
-    value === "error"
-  ) {
+const normalizeLogLevel = (value: string | undefined): BackendEnv["logLevel"] => {
+  if (value === "debug" || value === "info" || value === "warn" || value === "error") {
     return value;
   }
 
@@ -207,22 +204,18 @@ const loadEnvFiles = () => {
   }
 };
 
-export const createBackendEnv = (
-  env: NodeJS.ProcessEnv = process.env,
-): BackendEnv => {
+export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendEnv => {
   loadEnvFiles();
 
   const runtimePort = parsePort(env.PORT, 4001);
-  const frontendOrigin =
-    env.FRONTEND_ORIGIN ?? env.FRONTEND_URL ?? "http://localhost:5173";
+  const frontendOrigin = env.FRONTEND_ORIGIN ?? env.FRONTEND_URL ?? "http://localhost:5173";
   const twitterApiKey =
     env.TWITTERAPI_API_KEY ??
     env.TWITTERAPI_IO_KEY ??
     env.TWITTER_API_KEY ??
     env.TWITTERIO_API_KEY ??
     null;
-  const twitterLoginCookies =
-    env.TWITTERAPI_LOGIN_COOKIES ?? env.TWITTER_LOGIN_COOKIES ?? null;
+  const twitterLoginCookies = env.TWITTERAPI_LOGIN_COOKIES ?? env.TWITTER_LOGIN_COOKIES ?? null;
   const twitterProxy = env.TWITTERAPI_PROXY ?? env.TWITTER_PROXY ?? null;
 
   return {
@@ -246,10 +239,17 @@ export const createBackendEnv = (
       servicePeerId: env.AXL_SERVICE_PEER_ID ?? null,
       nodes: {
         orchestrator: env.AXL_ORCHESTRATOR_NODE_ID ?? "omen-orchestrator",
+        marketBias: env.AXL_MARKET_BIAS_NODE_ID ?? "omen-market-bias",
         scanner: env.AXL_SCANNER_NODE_ID ?? "omen-scanner",
         research: env.AXL_RESEARCH_NODE_ID ?? "omen-research",
+        chartVision: env.AXL_CHART_VISION_NODE_ID ?? "omen-chart-vision",
         analyst: env.AXL_ANALYST_NODE_ID ?? "omen-analyst",
         critic: env.AXL_CRITIC_NODE_ID ?? "omen-critic",
+        intel: env.AXL_INTEL_NODE_ID ?? "omen-intel",
+        generator: env.AXL_GENERATOR_NODE_ID ?? "omen-generator",
+        writer: env.AXL_WRITER_NODE_ID ?? "omen-writer",
+        publisher: env.AXL_PUBLISHER_NODE_ID ?? "omen-publisher",
+        memory: env.AXL_MEMORY_NODE_ID ?? "omen-memory",
       },
     },
     zeroG: {
@@ -263,9 +263,7 @@ export const createBackendEnv = (
       flowContractAddress: env.ZERO_G_FLOW_CONTRACT_ADDRESS ?? null,
       chainId: env.ZERO_G_CHAIN_ID ?? "16602",
       chainExplorerBaseUrl: env.ZERO_G_CHAIN_EXPLORER_BASE_URL ?? null,
-      checkpointStrategy: normalizeZeroGCheckpointStrategy(
-        env.ZERO_G_CHECKPOINT_STRATEGY,
-      ),
+      checkpointStrategy: normalizeZeroGCheckpointStrategy(env.ZERO_G_CHECKPOINT_STRATEGY),
     },
     providers: {
       openaiApiKey: env.OPENAI_API_KEY ?? null,

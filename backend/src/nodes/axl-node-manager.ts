@@ -1,6 +1,4 @@
-import {
-  ok,
-} from "@omen/shared";
+import { ok } from "@omen/shared";
 import type { AgentNode, AxlEnvelope, Result } from "@omen/shared";
 import type { AxlHttpNodeAdapter, ReceivedAxlEnvelope } from "@omen/axl";
 
@@ -10,11 +8,33 @@ type ManagedRole = LogicalAxlNodeRegistration["role"];
 
 const defaultManagedRoles = [
   "orchestrator",
+  "market_bias",
   "scanner",
   "research",
+  "chart_vision",
   "analyst",
   "critic",
+  "intel",
+  "generator",
+  "writer",
+  "publisher",
+  "memory",
 ] as const satisfies readonly ManagedRole[];
+
+const defaultAgentIdByRole: Record<ManagedRole, string> = {
+  orchestrator: "agent-orchestrator",
+  market_bias: "agent-market-bias-agent",
+  scanner: "agent-scanner-agent",
+  research: "agent-research-agent",
+  chart_vision: "agent-chart-vision-agent",
+  analyst: "agent-analyst-agent",
+  critic: "agent-critic",
+  intel: "agent-intel-agent",
+  generator: "agent-generator-agent",
+  writer: "agent-writer-agent",
+  publisher: "agent-publisher",
+  memory: "agent-memory-agent",
+};
 
 export class AxlNodeManager {
   constructor(
@@ -22,6 +42,7 @@ export class AxlNodeManager {
       adapter: AxlHttpNodeAdapter;
       peerRegistry: AxlPeerRegistry;
       orchestratorPeerId: string;
+      peerIdsByRole?: Partial<Record<ManagedRole, string>>;
       specialistPeerPrefix?: string;
     },
   ) {}
@@ -35,12 +56,9 @@ export class AxlNodeManager {
 
     return defaultManagedRoles.map((role) =>
       this.registerLogicalNode({
-        agentId: `agent-${role}-001`,
+        agentId: defaultAgentIdByRole[role],
         role,
-        peerId:
-          role === "orchestrator"
-            ? this.input.orchestratorPeerId
-            : `${peerPrefix}-${role}`,
+        peerId: this.resolvePeerId(role, peerPrefix),
         observedAt,
         metadata: {
           managedBy: "axl-node-manager",
@@ -51,6 +69,13 @@ export class AxlNodeManager {
 
   listManagedNodes(): AgentNode[] {
     return this.input.peerRegistry.listNodes();
+  }
+
+  private resolvePeerId(role: ManagedRole, peerPrefix: string) {
+    return (
+      this.input.peerIdsByRole?.[role] ??
+      (role === "orchestrator" ? this.input.orchestratorPeerId : `${peerPrefix}-${role}`)
+    );
   }
 
   async syncPeerStatuses() {
