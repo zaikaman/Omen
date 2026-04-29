@@ -79,7 +79,7 @@ describe("generator agent", () => {
 
     expect(result.content.tweetText ?? "").toContain("sui tvl surge");
     expect(result.content.tweetText ?? "").toContain("- ");
-    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(280);
+    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
     expect(result.content.blogPost).toContain("## Executive Summary");
     expect(result.content.imagePrompt).toContain("directly tied to this intel thesis");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
@@ -180,7 +180,76 @@ describe("generator agent", () => {
 
     expect(result.content.tweetText).toContain("- ");
     expect(result.content.tweetText).not.toMatch(/\bawaiting$/i);
-    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(280);
+    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
+  });
+
+  it("asks the model to retry when generated tweet text is over 270 characters", async () => {
+    const calls: string[] = [];
+    const tooLongTweet = [
+      "l2 launchpad momentum: fluent blend + pump.fun pump surge",
+      "",
+      "- fresh ethereum l2 mainnet activation for fluent with $50m day-one liquidity and expanding ecosystem incentives that keep stretching this line",
+      "- concurrently, $PUMP maintains heavy birdeye trending and volume as the market rotates into launchpad narratives",
+      "",
+      "watch $BLEND $PUMP $BTC if confirmation follows",
+    ].join("\n");
+    const validTweet = [
+      "l2 launchpad momentum: fluent blend + pump.fun surge",
+      "",
+      "- fluent launches ethereum l2 mainnet with $50m day-one liquidity",
+      "- $PUMP keeps birdeye trend + launchpad volume while majors range",
+      "",
+      "watch $BLEND $PUMP $BTC if confirmation follows",
+    ].join("\n");
+    const agent = createGeneratorAgent({
+      llmClient: {
+        completeJson: async (input: { userPrompt: string }) => {
+          calls.push(input.userPrompt);
+
+          return {
+            topic: "L2 Launchpad Momentum",
+            tweetText: calls.length === 1 ? tooLongTweet : validTweet,
+            blogPost: "# L2 Launchpad Momentum\n\n## Executive Summary\nLaunchpads are rotating.",
+            imagePrompt: "Cyberpunk launchpad liquidity cover art.",
+            formattedContent: "l2 launchpad momentum",
+            logMessage: "INTEL LOCKED: launchpads.",
+          };
+        },
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generator-retry-too-long",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "L2 Launchpad Momentum",
+          insight:
+            "Fluent launched its Ethereum L2 mainnet with reported day-one liquidity while PUMP stayed high in launchpad attention.",
+          importanceScore: 8,
+          category: "narrative_shift",
+          title: "L2 Launchpad Momentum",
+          summary:
+            "Fluent launched its Ethereum L2 mainnet with reported day-one liquidity. PUMP stayed high in launchpad attention while majors ranged.",
+          confidence: 80,
+          symbols: ["BLEND", "PUMP", "BTC"],
+          imagePrompt: null,
+        },
+        evidence: [],
+      },
+      createInitialSwarmState({ run, config }),
+    );
+
+    expect(tooLongTweet.length).toBeGreaterThan(270);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toContain("Previous tweet failed validation");
+    expect(result.content.tweetText).toBe(validTweet);
+    expect(result.content.tweetText ?? "").toHaveLength(validTweet.length);
+    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
   });
 
   it("falls back when model tweet repeats the same bullet", async () => {

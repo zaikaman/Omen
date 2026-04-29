@@ -34,6 +34,8 @@ const buildHashtagLine = (values: string[]) => {
   return unique.join(" ");
 };
 
+const GENERATED_INTEL_TWEET_MAX_LENGTH = 270;
+
 const symbolHashtagMap: Record<string, string> = {
   ARB: "arbitrum",
   BTC: "bitcoin",
@@ -263,7 +265,7 @@ const buildIntelSummaryDraft = (input: {
       kind: "intel_summary",
       headline: toFeedSentence(input.title),
       summary: toFeedSentence(input.summary),
-      text: trimToLength(input.generatedTweetText, 280),
+      text: trimToLength(input.generatedTweetText, GENERATED_INTEL_TWEET_MAX_LENGTH),
       metadata: {
         confidence: input.confidence,
         source: "generator-agent",

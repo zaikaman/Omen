@@ -14,8 +14,8 @@ const generatorAgentOptionsSchema = zod.object({
 
 const rawGeneratorContentSchema = zod.object({
   topic: zod.string().min(1).optional(),
-  tweetText: zod.string().min(1).max(280).optional(),
-  tweet_text: zod.string().min(1).max(280).optional(),
+  tweetText: zod.string().min(1).optional(),
+  tweet_text: zod.string().min(1).optional(),
   blogPost: zod.string().min(1).optional(),
   blog_post: zod.string().min(1).optional(),
   imagePrompt: zod.string().min(1).optional(),
@@ -113,14 +113,20 @@ const danglingTweetEndings = new Set([
   "with",
 ]);
 
-const enforceTweetLimit = (value: string) => {
-  const normalized = value.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+const GENERATED_TWEET_MAX_LENGTH = 270;
+const GENERATOR_TWEET_RETRY_COUNT = 2;
 
-  if (normalized.length <= 280) {
+const normalizeTweetWhitespace = (value: string) =>
+  value.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+
+const enforceTweetLimit = (value: string) => {
+  const normalized = normalizeTweetWhitespace(value);
+
+  if (normalized.length <= GENERATED_TWEET_MAX_LENGTH) {
     return normalized;
   }
 
-  const trimmed = normalized.slice(0, 279).trimEnd();
+  const trimmed = normalized.slice(0, GENERATED_TWEET_MAX_LENGTH).trimEnd();
   const boundary = Math.max(trimmed.lastIndexOf("\n\n"), trimmed.lastIndexOf("\n"), trimmed.lastIndexOf("."));
 
   if (boundary >= 150) {
@@ -140,7 +146,6 @@ const looksTruncatedTweet = (value: string) => {
   const normalized = value.trim();
 
   return (
-    normalized.length >= 275 ||
     /[,;:([{-]$/.test(normalized) ||
     danglingTweetEndings.has(lastWord(normalized))
   );
@@ -184,7 +189,7 @@ const isTemplateStyleTweet = (value: string) => {
 
   return (
     normalized.length > 0 &&
-    normalized.length <= 280 &&
+    normalized.length <= GENERATED_TWEET_MAX_LENGTH &&
     normalized.includes("\n") &&
     countBulletLines(normalized) >= 2 &&
     hasClosingTake(normalized) &&
@@ -192,6 +197,44 @@ const isTemplateStyleTweet = (value: string) => {
     !hasRepeatedTweetLines(normalized) &&
     !lowSignalTweetPatterns.some((pattern) => pattern.test(normalized))
   );
+};
+
+const getTweetValidationError = (value: string) => {
+  const normalized = normalizeTweetWhitespace(value);
+
+  if (normalized.length === 0) {
+    return "tweetText is empty";
+  }
+
+  if (normalized.length > GENERATED_TWEET_MAX_LENGTH) {
+    return `tweetText is ${normalized.length.toString()} characters; it must be ${GENERATED_TWEET_MAX_LENGTH.toString()} or fewer`;
+  }
+
+  if (!normalized.includes("\n")) {
+    return "tweetText needs line breaks";
+  }
+
+  if (countBulletLines(normalized) < 2) {
+    return "tweetText needs at least two '-' bullet lines";
+  }
+
+  if (!hasClosingTake(normalized)) {
+    return "tweetText needs a final watch/take/expect line";
+  }
+
+  if (looksTruncatedTweet(normalized)) {
+    return "tweetText appears cut off mid-thought";
+  }
+
+  if (hasRepeatedTweetLines(normalized)) {
+    return "tweetText repeats a line";
+  }
+
+  if (lowSignalTweetPatterns.some((pattern) => pattern.test(normalized))) {
+    return "tweetText contains low-signal headline spam";
+  }
+
+  return null;
 };
 
 const trimLine = (value: string, maxLength: number) => {
@@ -246,7 +289,7 @@ const buildFallbackTweet = (report: IntelReport) => {
   ] as const) {
     const tweet = compose(lineBudget, bulletCount);
 
-    if (tweet.length <= 280) {
+    if (tweet.length <= GENERATED_TWEET_MAX_LENGTH) {
       return tweet;
     }
   }
@@ -326,7 +369,7 @@ const normalizeGeneratorContent = (
   input: z.infer<typeof rawGeneratorContentSchema>,
   report: IntelReport,
 ): GeneratedIntelContent => {
-  const candidateTweet = enforceTweetLimit(input.tweetText ?? input.tweet_text ?? "");
+  const candidateTweet = normalizeTweetWhitespace(input.tweetText ?? input.tweet_text ?? "");
   const fallbackTweet = buildFallbackTweet(report);
   const tweetText = isTemplateStyleTweet(candidateTweet) ? candidateTweet : fallbackTweet;
 
@@ -371,20 +414,45 @@ export class GeneratorAgentFactory {
     }
 
     try {
-      const response = await this.llmClient.completeJson({
-        schema: rawGeneratorContentSchema,
-        systemPrompt: buildGeneratorSystemPrompt(parsed.context),
-        userPrompt: [
-          "Generate content for this INTEL REPORT.",
-          "",
-          "I need a 'tweetText' under 280 characters, a 'blogPost' markdown article, an 'imagePrompt' for a relevant cover image with no visible text, a 'formattedContent' value, and a short 'logMessage'.",
-          "",
-          `Report: ${JSON.stringify(parsed.report, null, 2)}`,
-        ].join("\n"),
-      });
+      const systemPrompt = buildGeneratorSystemPrompt(parsed.context);
+      let lastResponse: z.infer<typeof rawGeneratorContentSchema> | null = null;
+      let lastTweetError: string | null = null;
+
+      for (let attempt = 0; attempt <= GENERATOR_TWEET_RETRY_COUNT; attempt += 1) {
+        const response: z.infer<typeof rawGeneratorContentSchema> = await this.llmClient.completeJson({
+          schema: rawGeneratorContentSchema,
+          systemPrompt,
+          userPrompt: [
+            attempt === 0
+              ? "Generate content for this INTEL REPORT."
+              : "Rewrite only the generated assets that need correction, keeping the same facts.",
+            "",
+            `The 'tweetText' field must be a complete Rogue-style tweet at ${GENERATED_TWEET_MAX_LENGTH.toString()} characters or fewer. Do not rely on downstream trimming.`,
+            "It needs a hook, line breaks, at least two '-' bullets, and a final watch/take/expect line. Every line must end cleanly.",
+            lastTweetError ? `Previous tweet failed validation: ${lastTweetError}.` : null,
+            lastResponse?.tweetText || lastResponse?.tweet_text
+              ? `Previous tweetText:\n${lastResponse.tweetText ?? lastResponse.tweet_text ?? ""}`
+              : null,
+            "",
+            "Return 'tweetText', a 'blogPost' markdown article, an 'imagePrompt' for a relevant cover image with no visible text, a 'formattedContent' value, and a short 'logMessage'.",
+            "",
+            `Report: ${JSON.stringify(parsed.report, null, 2)}`,
+          ]
+            .filter((part): part is string => part !== null)
+            .join("\n"),
+        });
+        const tweetError = getTweetValidationError(response.tweetText ?? response.tweet_text ?? "");
+
+        lastResponse = response;
+        lastTweetError = tweetError;
+
+        if (tweetError === null) {
+          break;
+        }
+      }
 
       return generatorOutputSchema.parse({
-        content: normalizeGeneratorContent(response, parsed.report),
+        content: normalizeGeneratorContent(lastResponse ?? {}, parsed.report),
       });
     } catch {
       return generatorOutputSchema.parse({ content: fallbackContent });
