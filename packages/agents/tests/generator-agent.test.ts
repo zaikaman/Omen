@@ -233,8 +233,9 @@ describe("generator agent", () => {
     expect(result.content.tweetText).toMatch(/\bawaiting$/i);
   });
 
-  it("asks the generator to retry when tweet output is too long", async () => {
-    const calls: string[] = [];
+  it("uses the shortener agent when the first generator tweet is too long", async () => {
+    const generatorCalls: string[] = [];
+    const shortenerCalls: string[] = [];
     const tooLongTweet = [
       "bitcoin pressure and institutional signals are becoming a longer form macro note",
       "",
@@ -243,30 +244,32 @@ describe("generator agent", () => {
       "",
       "watch $BTC $ETH if macro liquidity confirms after the fed",
     ].join("\n");
-    const validTweet =
+    const stillTooLongTweet =
+      "bitcoin pressure builds into fed week with a long desk note that still needs another compression pass because it keeps too much macro framing and policy context for a public X post\n\n- btc holds below 76k as risk appetite thins and traders wait for confirmation\n- policy tailwinds need liquidity confirmation before the market can treat them as a durable catalyst\n\nwatch $BTC $ETH if macro flows turn";
+    const shortenedTweet =
       "bitcoin pressure builds into fed week\n\n- btc holds below 76k as risk appetite thins\n- policy tailwinds need liquidity confirmation\n\nwatch $BTC $ETH if macro flows turn";
     const agent = createGeneratorAgent({
       llmClient: {
         completeJson: async (input: { userPrompt: string }) => {
-          calls.push(input.userPrompt);
+          generatorCalls.push(input.userPrompt);
 
-          return calls.length === 1
-            ? {
-                topic: "Bitcoin Pressure",
-                tweetText: tooLongTweet,
-                blogPost: "# Bitcoin Pressure\n\n## Executive Summary\nBTC is weak.",
-                imagePrompt: "Cyberpunk BTC pressure cover art.",
-                formattedContent: tooLongTweet,
-                logMessage: "INTEL LOCKED: BTC pressure.",
-              }
-            : {
-                topic: "Bitcoin Pressure",
-                tweetText: validTweet,
-                blogPost: "# Bitcoin Pressure\n\n## Executive Summary\nBTC is weak.",
-                imagePrompt: "Cyberpunk BTC pressure cover art.",
-                formattedContent: validTweet,
-                logMessage: "INTEL LOCKED: BTC pressure.",
-              };
+          return {
+            topic: "Bitcoin Pressure",
+            tweetText: tooLongTweet,
+            blogPost: "# Bitcoin Pressure\n\n## Executive Summary\nBTC is weak.",
+            imagePrompt: "Cyberpunk BTC pressure cover art.",
+            formattedContent: tooLongTweet,
+            logMessage: "INTEL LOCKED: BTC pressure.",
+          };
+        },
+      } as never,
+      shortenerClient: {
+        completeJson: async (input: { userPrompt: string }) => {
+          shortenerCalls.push(input.userPrompt);
+
+          return {
+            shortenedText: shortenerCalls.length < 3 ? stillTooLongTweet : shortenedTweet,
+          };
         },
       } as never,
     });
@@ -298,11 +301,15 @@ describe("generator agent", () => {
     );
 
     expect(tooLongTweet.length).toBeGreaterThanOrEqual(280);
-    expect(calls).toHaveLength(2);
-    expect(calls[1]).toContain("previous tweetText was too long for X");
-    expect(result.content.tweetText).toBe(validTweet);
-    expect(result.content.tweetText ?? "").toHaveLength(validTweet.length);
-    expect(validTweet.length).toBeLessThan(280);
+    expect(stillTooLongTweet.length).toBeGreaterThan(270);
+    expect(generatorCalls).toHaveLength(1);
+    expect(shortenerCalls).toHaveLength(3);
+    expect(shortenerCalls[0]).toContain("Shorten this over-length INTEL tweet.");
+    expect(shortenerCalls[1]).toContain("still too long for X");
+    expect(result.content.tweetText).toBe(shortenedTweet);
+    expect(result.content.formattedContent).toBe(shortenedTweet);
+    expect(result.content.tweetText ?? "").toHaveLength(shortenedTweet.length);
+    expect(shortenedTweet.length).toBeLessThanOrEqual(270);
   });
 
   it("preserves model tweet output with broken parentheticals instead of retrying", async () => {
