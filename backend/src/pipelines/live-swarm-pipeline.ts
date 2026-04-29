@@ -148,11 +148,14 @@ const buildIntelImagePrompt = (report: SwarmState["intelReports"][number]) =>
   report.imagePrompt ??
   [
     "Premium editorial crypto market intelligence cover art",
-    `headline theme: ${report.title}`,
-    report.symbols.length > 0 ? `assets: ${report.symbols.join(", ")}` : "broad crypto market",
+    `visual thesis: ${report.title.replace(/\$[A-Za-z0-9_]+/g, "the referenced crypto asset")}`,
+    report.symbols.length > 0
+      ? "abstract representations of the tracked crypto assets through color-coded liquidity flows and market structure, without ticker glyphs"
+      : "broad crypto market narrative represented through institutional liquidity, macro pressure, and social signal flows",
     `category: ${report.category.replace(/_/g, " ")}`,
     "cinematic research terminal, market data streams, institutional analyst desk",
-    "sharp focus, high contrast, no text, no logos, 16:9",
+    "sharp focus, high contrast, 16:9",
+    "strictly no text, no words, no letters, no numbers, no captions, no labels, no logos, no watermarks, no UI, no ticker symbols",
   ].join(", ");
 
 const buildZeroGAdapterConfig = (env: BackendEnv): ZeroGAdapterConfig | null => {

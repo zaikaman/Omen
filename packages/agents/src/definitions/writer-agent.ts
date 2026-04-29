@@ -38,9 +38,29 @@ const trimToLength = (value: string, maxLength: number) => {
 
 const splitSentences = (value: string) =>
   normalizeParagraph(value)
+    .replace(/\bU\.S\./g, "US")
+    .replace(/\bU\.K\./g, "UK")
     .split(/(?<=[.!?])\s+/)
     .map((sentence) => sentence.trim())
     .filter(Boolean);
+
+const uniqueSentences = (values: string[]) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    const key = value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+    if (!key || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(value);
+  }
+
+  return result;
+};
 
 const titleCase = (value: string) =>
   value
@@ -96,17 +116,8 @@ const buildPreviewSummary = (parsed: z.infer<typeof writerInputSchema>) => {
 
 const buildFallbackArticle = (input: z.input<typeof writerInputSchema>): IntelArticle => {
   const parsed = writerInputSchema.parse(input);
-  const generatedBlogPost = parsed.generatedContent?.blogPost?.trim();
   const headline = buildCleanHeadline(parsed);
   const tldr = buildPreviewSummary(parsed);
-
-  if (generatedBlogPost && generatedBlogPost.length > 0) {
-    return {
-      headline: parsed.generatedContent?.topic ?? headline,
-      content: generatedBlogPost,
-      tldr,
-    };
-  }
 
   const cleanedInsight = stripArticleBoilerplate(parsed.report.insight);
   const cleanedSummary = stripArticleBoilerplate(parsed.report.summary);
@@ -117,7 +128,7 @@ const buildFallbackArticle = (input: z.input<typeof writerInputSchema>): IntelAr
   const evidenceLines = parsed.evidence
     .slice(0, 6)
     .map((item) => `- ${normalizeParagraph(item.summary)} (${item.sourceLabel})`);
-  const insightSentences = splitSentences(cleanedInsight || cleanedSummary);
+  const insightSentences = uniqueSentences(splitSentences(`${cleanedSummary} ${cleanedInsight}`));
   const signalMap =
     insightSentences.length > 0
       ? insightSentences
@@ -175,6 +186,12 @@ const buildFallbackArticle = (input: z.input<typeof writerInputSchema>): IntelAr
   };
 };
 
+const hasUsefulArticleShape = (article: IntelArticle) =>
+  article.content.length >= 1_400 &&
+  /###\s+The Alpha/i.test(article.content) &&
+  /###\s+The Edge/i.test(article.content) &&
+  /###\s+Verdict/i.test(article.content);
+
 export class WriterAgentFactory {
   private readonly llmClient: OpenAiCompatibleJsonClient | null;
 
@@ -214,27 +231,19 @@ export class WriterAgentFactory {
           category: parsed.report.category,
           symbolCount: parsed.report.symbols.length,
         }),
-        userPrompt: JSON.stringify(
-          {
-            report: parsed.report,
-            evidence: parsed.evidence,
-            generatedContent: parsed.generatedContent,
-            instruction: [
-              "Write the long-form website article for this INTEL REPORT, following the template Rogue Journalist flow.",
-              "Treat the report as the raw market-intelligence object: topic, insight, and importance score are the source of truth.",
-              "If generatedContent.blogPost is present, use it as the template generator draft and improve it without changing factual claims.",
-              "Do not produce a short recap. Build a deep-dive article with a strong lead, context, analysis, strategic implications, watchpoints, and verdict.",
-              "Avoid repeating the preview summary as the first paragraph.",
-              "Keep factual claims anchored to the report and evidence.",
-            ].join(" "),
-          },
-          null,
-          2,
-        ),
+        userPrompt: [
+          "Write a deep-dive article for this INTEL REPORT.",
+          "",
+          `Report: ${JSON.stringify(parsed.report, null, 2)}`,
+        ].join("\n"),
         temperature: 0.35,
       });
 
-      return writerOutputSchema.parse(response);
+      const parsedResponse = writerOutputSchema.parse(response);
+
+      return hasUsefulArticleShape(parsedResponse.article)
+        ? parsedResponse
+        : writerOutputSchema.parse({ article: fallbackArticle });
     } catch {
       return writerOutputSchema.parse({ article: fallbackArticle });
     }

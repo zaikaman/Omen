@@ -453,12 +453,16 @@ export class PublisherAgentFactory {
   private async publish(input: z.input<typeof publisherInputSchema>, state: SwarmState) {
     void state;
     const basePacket = derivePublisherPacket(input);
+    const parsed = publisherInputSchema.parse(input);
 
-    if (this.llmClient === null || basePacket.drafts.length === 0) {
+    if (
+      this.llmClient === null ||
+      basePacket.drafts.length === 0 ||
+      (parsed.intelSummary !== null && parsed.thesis === null)
+    ) {
       return basePacket;
     }
 
-    const parsed = publisherInputSchema.parse(input);
     const prompt = buildPublisherSystemPrompt({
       runId: parsed.context.runId,
       hasThesis: parsed.thesis !== null,

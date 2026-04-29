@@ -139,4 +139,54 @@ describe("writer agent", () => {
     expect(result.article.content).not.toContain(`\n${result.article.tldr}\n`);
     expect(result.article.content).not.toContain("### Executive Summary");
   });
+
+  it("does not promote generator blog scaffolding as the final article fallback", async () => {
+    const agent = createWriterAgent({ llmClient: null });
+    const state = createInitialSwarmState({ run, config });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-writer-generator-blog",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "Bitcoin pressure",
+          insight:
+            "Bitcoin has broken below $76,000 while institutional adoption headlines keep the longer-term setup alive.",
+          importanceScore: 7,
+          category: "market_update",
+          title: "Bitcoin Pressure and Institutional Signals",
+          summary:
+            "Bitcoin weakness is colliding with constructive regulatory and stablecoin adoption signals.",
+          confidence: 70,
+          symbols: [],
+          imagePrompt: null,
+        },
+        evidence: [],
+        generatedContent: {
+          topic: "Bitcoin Pressure and Institutional Signals",
+          tweetText: "bitcoin pressure is rising\n\n- btc broke below $76k",
+          blogPost:
+            "# Bitcoin Pressure and Institutional Signals\n\n## Executive Summary\nGeneric recap.\n\n## Market Impact\nThis is market intelligence, not an automatic trade instruction.\n\n## Verdict\ncrypto stays on watch while the narrative remains active.",
+          imagePrompt: "Cyberpunk BTC cover art.",
+          formattedContent: "bitcoin pressure is rising",
+          logMessage: "INTEL LOCKED: BTC pressure.",
+        },
+      },
+      state,
+    );
+
+    expect(result.article.content).toContain("### ON-CHAIN");
+    expect(result.article.content).toContain("### The Edge");
+    expect(result.article.content).not.toContain("## Executive Summary");
+    expect(result.article.content).not.toContain(
+      "This is market intelligence, not an automatic trade instruction.",
+    );
+    expect(result.article.content).not.toContain(
+      "crypto stays on watch while the narrative remains active.",
+    );
+  });
 });

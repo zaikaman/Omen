@@ -81,7 +81,12 @@ describe("generator agent", () => {
     expect(result.content.tweetText ?? "").toContain("- ");
     expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(280);
     expect(result.content.blogPost).toContain("## Executive Summary");
-    expect(result.content.imagePrompt).toContain("$SUI");
+    expect(result.content.imagePrompt).toContain("directly tied to this intel thesis");
+    expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
+    expect(result.content.imagePrompt).toContain("narrative shift");
+    expect(result.content.imagePrompt).toContain("strictly no text");
+    expect(result.content.imagePrompt).toContain("no ticker symbols");
+    expect(result.content.imagePrompt).not.toContain("$SUI");
   });
 
   it("falls back when model tweet output is generic headline spam", async () => {
@@ -129,5 +134,196 @@ describe("generator agent", () => {
     expect(result.content.tweetText).toContain("- ");
     expect(result.content.tweetText).toContain("$SUI");
     expect(result.content.tweetText).not.toMatch(/pepeto|price prediction/i);
+  });
+
+  it("falls back when model tweet output is cut off mid-thought", async () => {
+    const agent = createGeneratorAgent({
+      llmClient: {
+        completeJson: async () => ({
+          topic: "Bitcoin Pressure",
+          tweetText:
+            "bitcoin pressure and institutional signals\n\n- bitcoin has broken below $76,000 amid broader underperformance narratives, with high-signal chatter highlighting eth's 5-year lag versus nvda and cautious positioning from traders like pentosh1 awaiting",
+          blogPost: "# Bitcoin Pressure\n\n## Executive Summary\nBTC is weak.",
+          imagePrompt: "Cyberpunk BTC pressure cover art.",
+          formattedContent:
+            "bitcoin pressure and institutional signals\n\n- bitcoin has broken below $76,000 amid broader underperformance narratives, with high-signal chatter highlighting eth's 5-year lag versus nvda and cautious positioning from traders like pentosh1 awaiting",
+          logMessage: "INTEL LOCKED: BTC pressure.",
+        }),
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generator-truncated",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "Bitcoin Pressure",
+          insight:
+            "Bitcoin has broken below $76,000 while high-signal accounts frame the move as a patience trade. Institutional optimism remains in the background through stablecoin and regulatory headlines.",
+          importanceScore: 7,
+          category: "market_update",
+          title: "Bitcoin Pressure and Institutional Signals",
+          summary:
+            "Bitcoin has broken below $76,000 while traders wait for higher-timeframe reclaim levels. Regulatory and stablecoin adoption headlines are still constructive.",
+          confidence: 70,
+          symbols: ["BTC", "ETH"],
+          imagePrompt: null,
+        },
+        evidence: [],
+      },
+      createInitialSwarmState({ run, config }),
+    );
+
+    expect(result.content.tweetText).toContain("- ");
+    expect(result.content.tweetText).not.toMatch(/\bawaiting$/i);
+    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(280);
+  });
+
+  it("falls back when model tweet repeats the same bullet", async () => {
+    const agent = createGeneratorAgent({
+      llmClient: {
+        completeJson: async () => ({
+          topic: "Bitcoin Policy Bid",
+          tweetText:
+            "bitcoin testing support\n\n- btc slipped under $76k while policy tailwinds build\n- btc slipped under $76k while policy tailwinds build",
+          blogPost: "# Bitcoin Policy Bid\n\n## Executive Summary\nBTC is mixed.",
+          imagePrompt: "Cyberpunk Bitcoin policy cover art.",
+          formattedContent:
+            "bitcoin testing support\n\n- btc slipped under $76k while policy tailwinds build\n- btc slipped under $76k while policy tailwinds build",
+          logMessage: "INTEL LOCKED: BTC policy bid.",
+        }),
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generator-repeated",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "Bitcoin Policy Bid",
+          insight:
+            "Policy tailwinds are building while Bitcoin tests key support, creating a tension between short-term weakness and institutional demand.",
+          importanceScore: 8,
+          category: "macro",
+          title: "Bitcoin Policy Bid",
+          summary:
+            "Policy tailwinds are building while Bitcoin tests key support. Institutional demand can absorb weakness if liquidity follows.",
+          confidence: 80,
+          symbols: ["BTC"],
+          imagePrompt: null,
+        },
+        evidence: [],
+      },
+      createInitialSwarmState({ run, config }),
+    );
+
+    expect(result.content.tweetText).toContain("- ");
+    expect(result.content.tweetText).not.toMatch(/btc slipped under \$76k.*btc slipped under \$76k/is);
+  });
+
+  it("falls back when model tweet has no closing take", async () => {
+    const agent = createGeneratorAgent({
+      llmClient: {
+        completeJson: async () => ({
+          topic: "Pharos Coinbase Catalyst",
+          tweetText:
+            "pharos $PROS coinbase listing catalyst\n\n- pharos network is trending after a coinbase spot listing",
+          blogPost: "# Pharos Coinbase Catalyst\n\n## Executive Summary\nPROS is rotating.",
+          imagePrompt: "Cyberpunk Pharos listing cover art.",
+          formattedContent:
+            "pharos $PROS coinbase listing catalyst\n\n- pharos network is trending after a coinbase spot listing",
+          logMessage: "INTEL LOCKED: PROS listing.",
+        }),
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generator-no-closing-take",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "Pharos Coinbase Catalyst",
+          insight:
+            "Pharos gained liquidity attention after Coinbase opened spot trading while majors stayed range-bound.",
+          importanceScore: 7,
+          category: "narrative_shift",
+          title: "Pharos Coinbase Catalyst",
+          summary:
+            "Pharos gained liquidity attention after Coinbase opened spot trading. The setup is useful only if attention and volume persist.",
+          confidence: 70,
+          symbols: ["PROS"],
+          imagePrompt: null,
+        },
+        evidence: [],
+      },
+      createInitialSwarmState({ run, config }),
+    );
+
+    expect(result.content.tweetText ?? "").toContain("watch $PROS");
+    expect(
+      (result.content.tweetText ?? "").split("\n").filter((line) => line.startsWith("- ")).length,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("wraps model image prompts with the intel thesis and no-text constraints", async () => {
+    const agent = createGeneratorAgent({
+      llmClient: {
+        completeJson: async () => ({
+          topic: "SUI TVL Surge",
+          tweetText:
+            "sui tvl keeps pressing higher\n\n- lending yields pulled in new liquidity\n- wallets kept expanding\n\nwatch confirmation before chasing",
+          blogPost: "# SUI TVL Surge\n\n## Executive Summary\nSUI is rotating.",
+          imagePrompt: "Big glowing $SUI logo with the words SUI TVL Surge on a trading screen.",
+          formattedContent: "sui tvl keeps pressing higher",
+          logMessage: "INTEL LOCKED: SUI rotation.",
+        }),
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-generator-image-prompt",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        report: {
+          topic: "SUI TVL Surge",
+          insight:
+            "SUI TVL is accelerating while active wallets rise and liquidity rotates from ETH pools.",
+          importanceScore: 8,
+          category: "narrative_shift",
+          title: "SUI TVL Surge",
+          summary:
+            "SUI TVL blasts higher as lending yields attract new liquidity. Active wallets are rising and ETH pool flows are rotating.",
+          confidence: 80,
+          symbols: ["SUI", "ETH"],
+          imagePrompt: null,
+        },
+        evidence: [],
+      },
+      createInitialSwarmState({ run, config }),
+    );
+
+    expect(result.content.imagePrompt).toContain("directly tied to this intel thesis");
+    expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
+    expect(result.content.imagePrompt).toContain("strictly no text");
+    expect(result.content.imagePrompt).toContain("no logos");
+    expect(result.content.imagePrompt).toContain("no ticker symbols");
+    expect(result.content.imagePrompt).not.toContain("$SUI");
+    expect(result.content.imagePrompt).not.toMatch(/with the words/i);
   });
 });

@@ -34,9 +34,29 @@ const extractTickerText = (report: IntelReport) =>
 const splitSentences = (value: string) =>
   value
     .replace(/\s+/g, " ")
+    .replace(/\bU\.S\./g, "US")
+    .replace(/\bU\.K\./g, "UK")
     .split(/(?<=[.!?])\s+/)
     .map((sentence) => sentence.trim())
     .filter(Boolean);
+
+const uniqueSentences = (values: string[]) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    const key = value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+    if (!key || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(value);
+  }
+
+  return result;
+};
 
 const lowerProseKeepTickers = (value: string) =>
   value
@@ -52,6 +72,46 @@ const lowSignalTweetPatterns = [
   /\bpepeto\b/i,
   /\bpress release\b/i,
 ];
+
+const danglingTweetEndings = new Set([
+  "a",
+  "about",
+  "above",
+  "after",
+  "against",
+  "amid",
+  "and",
+  "around",
+  "as",
+  "at",
+  "awaiting",
+  "because",
+  "before",
+  "below",
+  "between",
+  "but",
+  "by",
+  "for",
+  "from",
+  "if",
+  "in",
+  "into",
+  "near",
+  "of",
+  "on",
+  "or",
+  "over",
+  "that",
+  "the",
+  "through",
+  "to",
+  "under",
+  "until",
+  "versus",
+  "via",
+  "while",
+  "with",
+]);
 
 const enforceTweetLimit = (value: string) => {
   const normalized = value.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
@@ -71,6 +131,54 @@ const enforceTweetLimit = (value: string) => {
   return trimmed.slice(0, wordBoundary > 0 ? wordBoundary : trimmed.length).trimEnd();
 };
 
+const lastWord = (value: string) => {
+  const match = value.trim().match(/([a-z0-9]+)[^a-z0-9]*$/i);
+  return match?.[1]?.toLowerCase() ?? "";
+};
+
+const looksTruncatedTweet = (value: string) => {
+  const normalized = value.trim();
+
+  return (
+    normalized.length >= 275 ||
+    /[,;:([{-]$/.test(normalized) ||
+    danglingTweetEndings.has(lastWord(normalized))
+  );
+};
+
+const hasRepeatedTweetLines = (value: string) => {
+  const lines = value
+    .split("\n")
+    .map((line) => line.replace(/^-\s*/, "").toLowerCase().replace(/[^a-z0-9$]+/g, " ").trim())
+    .filter((line) => line.length >= 20);
+  const seen = new Set<string>();
+
+  for (const line of lines) {
+    if (seen.has(line)) {
+      return true;
+    }
+
+    seen.add(line);
+  }
+
+  return false;
+};
+
+const countBulletLines = (value: string) =>
+  value
+    .split("\n")
+    .filter((line) => /^-\s+\S/.test(line.trim())).length;
+
+const hasClosingTake = (value: string) => {
+  const lines = value
+    .split("\n")
+    .map((line) => line.trim().toLowerCase())
+    .filter(Boolean);
+  const lastLine = lines.at(-1) ?? "";
+
+  return /^(watch|expect|takeaway|if\b|wait\b|look\b|rotate\b|rotation\b)/i.test(lastLine);
+};
+
 const isTemplateStyleTweet = (value: string) => {
   const normalized = value.trim();
 
@@ -78,21 +186,72 @@ const isTemplateStyleTweet = (value: string) => {
     normalized.length > 0 &&
     normalized.length <= 280 &&
     normalized.includes("\n") &&
-    /^-\s+/m.test(normalized) &&
+    countBulletLines(normalized) >= 2 &&
+    hasClosingTake(normalized) &&
+    !looksTruncatedTweet(normalized) &&
+    !hasRepeatedTweetLines(normalized) &&
     !lowSignalTweetPatterns.some((pattern) => pattern.test(normalized))
   );
 };
 
+const trimLine = (value: string, maxLength: number) => {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  const trimmed = normalized.slice(0, maxLength).trimEnd();
+  const sentenceBoundary = Math.max(
+    trimmed.lastIndexOf("."),
+    trimmed.lastIndexOf("?"),
+    trimmed.lastIndexOf("!"),
+    trimmed.lastIndexOf(";"),
+    trimmed.lastIndexOf(","),
+    trimmed.lastIndexOf("—"),
+  );
+
+  if (sentenceBoundary >= Math.floor(maxLength * 0.55)) {
+    return trimmed.slice(0, sentenceBoundary + 1);
+  }
+
+  const wordBoundary = trimmed.lastIndexOf(" ");
+  return trimmed.slice(0, wordBoundary > 0 ? wordBoundary : trimmed.length).trimEnd();
+};
+
 const buildFallbackTweet = (report: IntelReport) => {
-  const hook = lowerProseKeepTickers(report.title.replace(/\.$/, ""));
-  const sentences = splitSentences(report.summary || report.insight)
+  const hook = trimLine(lowerProseKeepTickers(report.title.replace(/\.$/, "")), 72);
+  const sourceSentences = uniqueSentences(splitSentences(`${report.summary} ${report.insight}`))
     .map(lowerProseKeepTickers)
     .filter((sentence) => sentence !== hook)
-    .slice(0, 3);
-  const bullets = sentences.length > 0 ? sentences : [lowerProseKeepTickers(report.insight)];
-  const watchLine = `watch ${extractTickerText(report)} if liquidity confirms`;
+    .filter((sentence) => sentence.length > 0);
+  const watchLine =
+    report.symbols.length > 0
+      ? `watch ${extractTickerText(report)} if confirmation follows`
+      : "watch confirmation before chasing the move";
 
-  return enforceTweetLimit([hook, "", ...bullets.map((sentence) => `- ${sentence}`), "", watchLine].join("\n"));
+  const compose = (lineBudget: number, bulletCount: number) => {
+    const bullets = (sourceSentences.length > 0 ? sourceSentences : [lowerProseKeepTickers(report.insight)])
+      .slice(0, bulletCount)
+      .map((sentence) => `- ${trimLine(sentence, lineBudget).replace(/[;:,]$/, ".")}`);
+
+    return [hook, "", ...bullets, "", watchLine].join("\n").trim();
+  };
+
+  for (const [lineBudget, bulletCount] of [
+    [105, 2],
+    [90, 2],
+    [75, 2],
+    [90, 1],
+  ] as const) {
+    const tweet = compose(lineBudget, bulletCount);
+
+    if (tweet.length <= 280) {
+      return tweet;
+    }
+  }
+
+  return enforceTweetLimit(compose(70, 1));
 };
 
 const buildFallbackBlogPost = (report: IntelReport) =>
@@ -112,14 +271,56 @@ const buildFallbackBlogPost = (report: IntelReport) =>
     `${extractTickerText(report)} stays on watch while the narrative remains active. Confirmation needs liquidity follow-through and repeated attention across future scans.`,
   ].join("\n");
 
-const buildFallbackImagePrompt = (report: IntelReport) =>
-  report.imagePrompt ??
-  [
-    "Premium cyberpunk crypto market intelligence cover art",
-    `focused on ${extractTickerText(report)}`,
-    "futuristic trading desk, liquidity streams, institutional research terminal",
-    "cinematic lighting, high contrast, no text, no logos, 16:9",
+const imageTextExclusion =
+  "strictly no text, no words, no letters, no numbers, no captions, no labels, no logos, no watermarks, no UI, no ticker symbols";
+
+const removeTextLikeTokens = (value: string) =>
+  value
+    .replace(/\$[A-Za-z0-9_]+/g, "the referenced crypto asset")
+    .replace(/\b(?:with|showing|displaying|featuring)?\s*the\s+words?\s+[^,.]+/gi, "")
+    .replace(
+      /\b(?:with|showing|displaying|featuring)?\s*(?:big\s+)?(?:glowing\s+)?(?:coin\s+)?logos?\b[^,.]*/gi,
+      "abstract symbolic forms",
+    )
+    .replace(/\b(?:headline|caption|label|labels|watermark|ticker symbol|ticker symbols)\b/gi, "abstract detail")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.])/g, "$1")
+    .trim();
+
+const buildImageVisualBrief = (report: IntelReport) => {
+  const topic = removeTextLikeTokens(report.title);
+  const summary = removeTextLikeTokens(report.summary || report.insight);
+  const category = report.category.replace(/_/g, " ");
+  const assetContext =
+    report.symbols.length > 0
+      ? "abstract representations of the tracked crypto assets through color-coded light, liquidity flows, and market structure"
+      : "broad crypto market structure represented through institutional liquidity, macro pressure, and social narrative signals";
+
+  return [
+    "Premium editorial crypto market intelligence cover art directly tied to this intel thesis",
+    `visual thesis: ${topic}`,
+    `context: ${trimLine(summary, 220)}`,
+    `category: ${category}`,
+    assetContext,
+    "cinematic cyberpunk institutional research desk, abstract market flows, high-tech atmosphere, realistic lighting, 16:9",
+    imageTextExclusion,
   ].join(", ");
+};
+
+const normalizeImagePrompt = (input: z.infer<typeof rawGeneratorContentSchema>, report: IntelReport) => {
+  const candidate = input.imagePrompt ?? input.image_prompt ?? "";
+  const visualBrief = buildImageVisualBrief(report);
+
+  if (!candidate.trim()) {
+    return visualBrief;
+  }
+
+  return [
+    visualBrief,
+    `additional visual direction: ${removeTextLikeTokens(candidate)}`,
+    imageTextExclusion,
+  ].join(", ");
+};
 
 const normalizeGeneratorContent = (
   input: z.infer<typeof rawGeneratorContentSchema>,
@@ -133,7 +334,7 @@ const normalizeGeneratorContent = (
     topic: input.topic ?? report.title,
     tweetText,
     blogPost: input.blogPost ?? input.blog_post ?? buildFallbackBlogPost(report),
-    imagePrompt: input.imagePrompt ?? input.image_prompt ?? buildFallbackImagePrompt(report),
+    imagePrompt: normalizeImagePrompt(input, report),
     formattedContent: input.formattedContent ?? input.formatted_content ?? tweetText,
     logMessage: input.logMessage ?? input.log_message ?? `INTEL LOCKED: ${report.title}`,
   };
@@ -173,16 +374,13 @@ export class GeneratorAgentFactory {
       const response = await this.llmClient.completeJson({
         schema: rawGeneratorContentSchema,
         systemPrompt: buildGeneratorSystemPrompt(parsed.context),
-        userPrompt: JSON.stringify(
-          {
-            report: parsed.report,
-            evidence: parsed.evidence,
-            instruction:
-              "Generate content for this INTEL REPORT. Return topic, tweetText, blogPost, imagePrompt, formattedContent, and logMessage.",
-          },
-          null,
-          2,
-        ),
+        userPrompt: [
+          "Generate content for this INTEL REPORT.",
+          "",
+          "I need a 'tweetText' under 280 characters, a 'blogPost' markdown article, an 'imagePrompt' for a relevant cover image with no visible text, a 'formattedContent' value, and a short 'logMessage'.",
+          "",
+          `Report: ${JSON.stringify(parsed.report, null, 2)}`,
+        ].join("\n"),
       });
 
       return generatorOutputSchema.parse({

@@ -92,15 +92,20 @@ describe("intel agent", () => {
     expect(result.report?.summary).toMatch(/high-throughput infra/i);
   });
 
-  it("suppresses duplicate intel when a similar report was published recently", async () => {
+  it("passes recently covered topics as avoid-context without hard-blocking the model report", async () => {
     const state = createInitialSwarmState({ run, config });
+    let capturedUserPrompt = "";
     const agent = createIntelAgent({
       llmClient: {
-        completeJson: async () => ({
-          topic: "AVAX market intel",
-          insight: "Layer-1 rotation kept AVAX on the watchlist despite the signal reject.",
-          importance_score: 8,
-        }),
+        completeJson: async ({ userPrompt }: { userPrompt: string }) => {
+          capturedUserPrompt = userPrompt;
+
+          return {
+            topic: "AVAX market intel",
+            insight: "Layer-1 rotation kept AVAX on the watchlist despite the signal reject.",
+            importance_score: 8,
+          };
+        },
       } as never,
     });
 
@@ -131,9 +136,9 @@ describe("intel agent", () => {
       state,
     );
 
-    expect(result.action).toBe("skip");
-    expect(result.report).toBeNull();
-    expect(result.skipReason).toBe("recent_duplicate");
+    expect(result.action).toBe("ready");
+    expect(result.report?.title).toBe("AVAX market intel");
+    expect(capturedUserPrompt).toContain("AVOID these recently covered topics: AVAX market intel");
   });
 
   it("does not synthesize live intel from raw token feeds when no model is available", async () => {
@@ -230,22 +235,285 @@ describe("intel agent", () => {
       },
       state,
     );
-    const parsedPrompt = JSON.parse(capturedUserPrompt) as {
-      instruction: string;
-      recent_posts?: Array<{ text?: string }>;
-      market_data?: unknown[];
-    };
-
     expect(result.action).toBe("ready");
-    expect(parsedPrompt.recent_posts?.[0]?.text).toBe(
+    expect(capturedUserPrompt).toContain("Analyze this market data and generate an intel report");
+    expect(capturedUserPrompt).toContain("RECENTLY POSTED CONTENT (Avoid repeating these):");
+    expect(capturedUserPrompt).toContain(
       "privacy coins wake as btc/eth range; thin liquidity could spark a move",
     );
-    expect(parsedPrompt.market_data).toEqual([]);
+    expect(capturedUserPrompt).toContain("AVOID these recently covered topics:");
     expect(capturedUseResponsesApi).toBeUndefined();
     expect(capturedTools).toBeUndefined();
-    expect(parsedPrompt.instruction).toMatch(/built-in X search/i);
-    expect(parsedPrompt.instruction).toMatch(/only the high-signal X accounts/i);
-    expect(parsedPrompt.instruction).toMatch(/Do not build intel from CoinGecko/i);
+  });
+
+  it("collects live market leads before asking the model to research intel", async () => {
+    const liveRun = {
+      ...run,
+      mode: "live" as const,
+    };
+    const liveConfig = {
+      ...config,
+      mode: "live" as const,
+    };
+    const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
+    let capturedUserPrompt = "";
+    const agent = createIntelAgent({
+      coinGecko: {
+        getAssetSnapshot: async () => ({
+          ok: true,
+          provider: "coingecko",
+          value: {
+            symbol: "BTC",
+            provider: "coingecko",
+            price: 76000,
+            change24hPercent: -1.2,
+            volume24h: 25_000_000_000,
+            fundingRate: null,
+            openInterest: null,
+            candles: [],
+            capturedAt: new Date().toISOString(),
+          },
+          health: {
+            provider: "coingecko",
+            available: true,
+            degraded: false,
+            checkedAt: new Date().toISOString(),
+            notes: [],
+          },
+        }),
+        getTrending: async () => ({
+          ok: true,
+          provider: "coingecko",
+          value: [
+            {
+              name: "Zcash",
+              symbol: "ZEC",
+              rank: 50,
+              chain: null,
+              address: null,
+              volume24h: null,
+              source: "coingecko",
+              capturedAt: new Date().toISOString(),
+            },
+          ],
+          health: {
+            provider: "coingecko",
+            available: true,
+            degraded: false,
+            checkedAt: new Date().toISOString(),
+            notes: [],
+          },
+        }),
+        getTopGainersLosers: async () => ({
+          ok: true,
+          provider: "coingecko",
+          value: [],
+          health: {
+            provider: "coingecko",
+            available: true,
+            degraded: false,
+            checkedAt: new Date().toISOString(),
+            notes: [],
+          },
+        }),
+      } as never,
+      birdeye: {
+        getTrendingTokens: async () => ({
+          ok: true,
+          provider: "birdeye",
+          value: [],
+          health: {
+            provider: "birdeye",
+            available: true,
+            degraded: false,
+            checkedAt: new Date().toISOString(),
+            notes: [],
+          },
+        }),
+      } as never,
+      defiLlama: {
+        getProtocolStats: async () => ({
+          ok: true,
+          provider: "defillama",
+          value: [],
+          health: {
+            provider: "defillama",
+            available: true,
+            degraded: false,
+            checkedAt: new Date().toISOString(),
+            notes: [],
+          },
+        }),
+        getYieldPools: async () => ({
+          ok: true,
+          provider: "defillama",
+          value: [],
+          health: {
+            provider: "defillama",
+            available: true,
+            degraded: false,
+            checkedAt: new Date().toISOString(),
+            notes: [],
+          },
+        }),
+        getGlobalTVL: async () => ({
+          ok: true,
+          provider: "defillama",
+          value: [],
+          health: {
+            provider: "defillama",
+            available: true,
+            degraded: false,
+            checkedAt: new Date().toISOString(),
+            notes: [],
+          },
+        }),
+      } as never,
+      llmClient: {
+        completeJson: async ({ userPrompt }: { userPrompt: string }) => {
+          capturedUserPrompt = userPrompt;
+
+          return {
+            topic: "Privacy coin policy bid",
+            insight:
+              "High-signal accounts are connecting privacy coin strength to policy chatter and institutional demand for compliant shielded infrastructure.",
+            importance_score: 8,
+          };
+        },
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: liveRun.id,
+          threadId: "thread-intel-live-leads",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        bias: null,
+        candidates: [],
+        evidence: [],
+        chartVisionSummary: null,
+        thesis: null,
+        review: null,
+        recentIntelHistory: [],
+        recentPostContext: [],
+      },
+      state,
+    );
+    expect(result.action).toBe("ready");
+    expect(capturedUserPrompt).toContain("trending_coingecko");
+    expect(capturedUserPrompt).toContain('"symbol": "ZEC"');
+    expect(capturedUserPrompt).toContain("RECENTLY POSTED CONTENT");
+  });
+
+  it("passes recent post context as avoid-context without suppressing the model report", async () => {
+    const state = createInitialSwarmState({ run, config });
+    let capturedUserPrompt = "";
+    const agent = createIntelAgent({
+      llmClient: {
+        completeJson: async ({ userPrompt }: { userPrompt: string }) => {
+          capturedUserPrompt = userPrompt;
+
+          return {
+            topic: "Bitcoin pressure and institutional signals",
+            insight:
+              "Bitcoin has broken below $76,000 while high-signal chatter highlights ETH's five-year lag versus NVDA and cautious positioning from Pentosh1.",
+            importance_score: 8,
+          };
+        },
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-intel-recent-post-dupe",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        bias: null,
+        candidates: [],
+        evidence: [],
+        chartVisionSummary: null,
+        thesis: null,
+        review: null,
+        recentIntelHistory: [],
+        recentPostContext: [
+          {
+            kind: "intel_summary",
+            text:
+              "bitcoin pressure and institutional signals\n\n- bitcoin has broken below $76,000 amid broader underperformance narratives, with high-signal chatter highlighting eth's 5-year lag versus nvda and cautious positioning from traders like pentosh1",
+            status: "posted",
+            publishedUrl: "https://x.com/i/web/status/456",
+            signalId: null,
+            intelId: "intel-bitcoin-pressure",
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      },
+      state,
+    );
+
+    expect(result.action).toBe("ready");
+    expect(result.report?.title).toBe("Bitcoin pressure and institutional signals");
+    expect(capturedUserPrompt).toContain("RECENTLY POSTED CONTENT (Avoid repeating these):");
+    expect(capturedUserPrompt).toContain("bitcoin pressure and institutional signals");
+  });
+
+  it("retries with an X search prompt when the first intel pass returns not enough value", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const capturedPrompts: string[] = [];
+    const agent = createIntelAgent({
+      llmClient: {
+        completeJson: async ({ userPrompt }: { userPrompt: string }) => {
+          capturedPrompts.push(userPrompt);
+
+          if (capturedPrompts.length === 1) {
+            return {
+              topic: "SKIP",
+              insight: "Not enough value",
+              importance_score: 4,
+            };
+          }
+
+          return {
+            topic: "Privacy coin policy bid",
+            insight:
+              "High-signal accounts are connecting privacy coin strength to policy chatter and renewed demand for shielded infrastructure.",
+            importance_score: 8,
+          };
+        },
+      } as never,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-intel-retry",
+          mode: "mocked",
+          triggeredBy: "scheduler",
+        },
+        bias: null,
+        candidates: [],
+        evidence: [],
+        chartVisionSummary: null,
+        thesis: null,
+        review: null,
+        recentIntelHistory: [],
+        recentPostContext: [],
+      },
+      state,
+    );
+
+    expect(result.action).toBe("ready");
+    expect(result.report?.title).toBe("Privacy coin policy bid");
+    expect(capturedPrompts).toHaveLength(2);
+    expect(capturedPrompts[1]).toContain("Treat that as an error");
+    expect(capturedPrompts[1]).toContain("Prioritize recent posts or commentary");
   });
 
   it("rejects generic low-signal news even when the model scores it highly", async () => {

@@ -21,6 +21,8 @@ const DEFAULT_SPACE = "Tongyi-MAI/Z-Image-Turbo";
 const DEFAULT_RESOLUTION = "2048x1152 ( 16:9 )";
 const TARGET_IMAGE_WIDTH = 2048;
 const TARGET_IMAGE_HEIGHT = 1152;
+const NO_TEXT_IMAGE_CONSTRAINT =
+  "strictly no text, no words, no letters, no numbers, no captions, no labels, no logos, no watermarks, no UI, no ticker symbols";
 
 export const hasIntelImageConfig = (env: BackendEnv) =>
   Boolean(env.r2.accountId && env.r2.accessKeyId && env.r2.secretAccessKey && env.r2.publicUrl);
@@ -43,7 +45,7 @@ export class IntelImageService {
 
   async generateAndStore(prompt: string): Promise<string | null> {
     try {
-      const temporaryUrl = await this.generateTemporaryImage(prompt);
+      const temporaryUrl = await this.generateTemporaryImage(this.withNoTextConstraint(prompt));
 
       if (temporaryUrl === null) {
         return null;
@@ -98,6 +100,10 @@ export class IntelImageService {
     }
 
     return null;
+  }
+
+  private withNoTextConstraint(prompt: string) {
+    return [prompt.trim(), NO_TEXT_IMAGE_CONSTRAINT].filter(Boolean).join(", ");
   }
 
   private getTokenAttemptOrder() {
