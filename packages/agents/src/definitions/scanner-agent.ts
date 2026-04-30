@@ -109,71 +109,16 @@ export class ScannerAgentFactory {
     );
     const blockedSymbols = new Set(parsed.activeTradeSymbols.map((symbol) => symbol.toUpperCase()));
 
-    if (this.llmClient !== null) {
-      const llmResult = await this.scanWithModel({
-        parsed,
-        snapshots,
-        existingDedupeKeys,
-        blockedSymbols,
-        state,
-      });
-
-      if (llmResult !== null) {
-        return llmResult;
-      }
+    if (this.llmClient === null) {
+      throw new Error("Scanner candidate selection requires a configured LLM client.");
     }
 
-    const ranked = snapshots
-      .map((snapshot) => ({
-        snapshot,
-        score: resolveSnapshotScore(snapshot),
-      }))
-      .filter(
-        (item): item is { snapshot: MarketSnapshot; score: number } =>
-          item.score !== null,
-      )
-      .sort((left, right) =>
-        parsed.bias.marketBias === "SHORT" ? left.score - right.score : right.score - left.score,
-      );
-
-    const candidates: CandidateState[] = [];
-    const rejectedSymbols: string[] = [];
-
-    for (const rankedSnapshot of ranked) {
-      const symbol = rankedSnapshot.snapshot.symbol.toUpperCase();
-      const directionHint = toDirectionHint(rankedSnapshot.score, parsed.bias.marketBias);
-
-      if (!directionHint || existingDedupeKeys.has(symbol) || blockedSymbols.has(symbol)) {
-        rejectedSymbols.push(symbol);
-        continue;
-      }
-
-      candidates.push(
-        buildCandidate({
-          symbol,
-          bias: parsed.bias,
-          score: rankedSnapshot.score,
-          sourceUniverse: state.config.marketUniverse.join(","),
-        }),
-      );
-
-      if (candidates.length === 3) {
-        break;
-      }
-    }
-
-    for (const rankedSnapshot of ranked.slice(candidates.length)) {
-      const symbol = rankedSnapshot.snapshot.symbol.toUpperCase();
-
-      if (!candidates.some((candidate) => candidate.symbol === symbol)) {
-        rejectedSymbols.push(symbol);
-      }
-    }
-
-    return scannerOutputSchema.parse({
-      marketBias: parsed.bias.marketBias,
-      candidates,
-      rejectedSymbols: Array.from(new Set(rejectedSymbols)),
+    return this.scanWithModel({
+      parsed,
+      snapshots,
+      existingDedupeKeys,
+      blockedSymbols,
+      state,
     });
   }
 
@@ -189,7 +134,11 @@ export class ScannerAgentFactory {
       input.parsed.bias.marketBias === "NEUTRAL" ||
       input.parsed.bias.marketBias === "UNKNOWN"
     ) {
-      return null;
+      return scannerOutputSchema.parse({
+        marketBias: input.parsed.bias.marketBias,
+        candidates: [],
+        rejectedSymbols: input.parsed.universe,
+      });
     }
 
     try {

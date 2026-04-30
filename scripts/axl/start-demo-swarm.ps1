@@ -1,6 +1,6 @@
 param(
   [ValidateSet("core", "all")]
-  [string]$Profile = "core",
+  [string]$Profile = "all",
   [string]$Root = ""
 )
 

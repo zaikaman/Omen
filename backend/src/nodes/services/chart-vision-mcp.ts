@@ -11,7 +11,7 @@ import {
 } from "@omen/axl";
 import { axlMcpRequestSchema, type AxlMcpResponse } from "@omen/shared";
 
-import { createServiceSwarmState, isAxlOptionalLlmDisabled } from "./service-runtime.js";
+import { createServiceSwarmState } from "./service-runtime.js";
 
 export const chartVisionMcpContract = defineAxlMcpServiceContract({
   service: "chart_vision",
@@ -33,9 +33,7 @@ export const chartVisionMcpContract = defineAxlMcpServiceContract({
 });
 
 export class ChartVisionMcpService {
-  private readonly agent = createChartVisionAgent({
-    visionClient: isAxlOptionalLlmDisabled("chart_vision") ? null : undefined,
-  });
+  private readonly agent = createChartVisionAgent();
 
   readonly contract = chartVisionMcpContract;
 

@@ -18,7 +18,7 @@ import {
 } from "../packages/agents/src/index.js";
 
 const baseUrl = process.env.AXL_NODE_BASE_URL ?? "https://omen-axl-node.fly.dev";
-const timeoutMs = Number(process.env.AXL_REQUEST_TIMEOUT_MS ?? "120000");
+const timeoutMs = Number(process.env.AXL_REQUEST_TIMEOUT_MS ?? "300000");
 const adapter = new AxlHttpNodeAdapter({
   node: {
     baseUrl,
@@ -225,7 +225,7 @@ const allTasks = [
     payload: { context, thesis, review, intelSummary: report, generatedContent },
   },
 ] as const;
-const verifyProfile = process.env.AXL_VERIFY_PROFILE ?? "core";
+const verifyProfile = process.env.AXL_VERIFY_PROFILE ?? "all";
 const coreVerificationRoles = new Set(["market_bias", "scanner", "research", "analyst", "critic"]);
 const tasks =
   verifyProfile === "all"

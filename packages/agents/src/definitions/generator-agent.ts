@@ -110,58 +110,6 @@ const trimLine = (value: string, maxLength: number) => {
   return trimmed.slice(0, wordBoundary > 0 ? wordBoundary : trimmed.length).trimEnd();
 };
 
-const buildFallbackTweet = (report: IntelReport) => {
-  const hook = trimLine(lowerProseKeepTickers(report.title.replace(/\.$/, "")), 72);
-  const sourceSentences = uniqueSentences(splitSentences(`${report.summary} ${report.insight}`))
-    .map(lowerProseKeepTickers)
-    .filter((sentence) => sentence !== hook)
-    .filter((sentence) => sentence.length > 0);
-  const watchLine =
-    report.symbols.length > 0
-      ? `watch ${extractTickerText(report)} if confirmation follows`
-      : "watch confirmation before chasing the move";
-
-  const compose = (lineBudget: number, bulletCount: number) => {
-    const bullets = (sourceSentences.length > 0 ? sourceSentences : [lowerProseKeepTickers(report.insight)])
-      .slice(0, bulletCount)
-      .map((sentence) => `- ${trimLine(sentence, lineBudget).replace(/[;:,]$/, ".")}`);
-
-    return [hook, "", ...bullets, "", watchLine].join("\n").trim();
-  };
-
-  for (const [lineBudget, bulletCount] of [
-    [105, 2],
-    [90, 2],
-    [75, 2],
-    [90, 1],
-  ] as const) {
-    const tweet = compose(lineBudget, bulletCount);
-
-    if (tweet.length <= GENERATED_TWEET_MAX_LENGTH) {
-      return tweet;
-    }
-  }
-
-  return compose(70, 1);
-};
-
-const buildFallbackBlogPost = (report: IntelReport) =>
-  [
-    `# ${report.title}`,
-    "",
-    "## Executive Summary",
-    report.summary,
-    "",
-    "## The Alpha",
-    report.insight,
-    "",
-    "## Market Impact",
-    "This is market intelligence, not an automatic trade instruction. The useful read is where attention, liquidity, and risk are starting to cluster.",
-    "",
-    "## Verdict",
-    `${extractTickerText(report)} stays on watch while the narrative remains active. Confirmation needs liquidity follow-through and repeated attention across future scans.`,
-  ].join("\n");
-
 const imageTextExclusion =
   "strictly visual-only full-bleed scene with no title card, no banner, no header strip, no lower third, no text panel, no article layout, no news card, no readable or pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings";
 
@@ -238,20 +186,39 @@ const normalizeImagePrompt = (input: z.infer<typeof rawGeneratorContentSchema>, 
   ].join(", ");
 };
 
+const requireGeneratorField = (
+  field: string,
+  ...values: Array<string | null | undefined>
+) => {
+  const value = firstNonBlank(...values);
+
+  if (!value) {
+    throw new Error(`Generator LLM response did not include ${field}.`);
+  }
+
+  return value;
+};
+
 const normalizeGeneratorContent = (
   input: z.infer<typeof rawGeneratorContentSchema>,
   report: IntelReport,
 ): GeneratedIntelContent => {
   const candidateTweet = normalizeTweetWhitespace(input.tweetText ?? input.tweet_text ?? "");
-  const tweetText = candidateTweet || buildFallbackTweet(report);
+  if (!candidateTweet) {
+    throw new Error("Generator LLM response did not include tweetText.");
+  }
 
   return {
-    topic: firstNonBlank(input.topic) ?? report.title,
-    tweetText,
-    blogPost: firstNonBlank(input.blogPost, input.blog_post) ?? buildFallbackBlogPost(report),
+    topic: requireGeneratorField("topic", input.topic),
+    tweetText: candidateTweet,
+    blogPost: requireGeneratorField("blogPost", input.blogPost, input.blog_post),
     imagePrompt: normalizeImagePrompt(input, report),
-    formattedContent: firstNonBlank(input.formattedContent, input.formatted_content) ?? tweetText,
-    logMessage: firstNonBlank(input.logMessage, input.log_message) ?? `INTEL LOCKED: ${report.title}`,
+    formattedContent: requireGeneratorField(
+      "formattedContent",
+      input.formattedContent,
+      input.formatted_content,
+    ),
+    logMessage: requireGeneratorField("logMessage", input.logMessage, input.log_message),
   };
 };
 
@@ -289,10 +256,9 @@ export class GeneratorAgentFactory {
 
   private async generate(input: z.input<typeof generatorInputSchema>) {
     const parsed = generatorInputSchema.parse(input);
-    const fallbackContent = normalizeGeneratorContent({}, parsed.report);
 
     if (this.llmClient === null) {
-      return generatorOutputSchema.parse({ content: fallbackContent });
+      throw new Error("Generator content requires a configured LLM client.");
     }
 
     try {

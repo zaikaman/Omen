@@ -1,6 +1,5 @@
 import {
   createAnalystAgent,
-  deriveAnalystThesis,
   analystInputSchema,
   analystOutputSchema,
 } from "@omen/agents";
@@ -17,7 +16,6 @@ import {
 import { axlMcpRequestSchema, type AxlMcpResponse } from "@omen/shared";
 
 import { createServiceSwarmState } from "./service-runtime.js";
-import { isAxlOptionalLlmDisabled } from "./service-runtime.js";
 
 export const analystMcpContract = defineAxlMcpServiceContract({
   service: "analyst",
@@ -132,15 +130,13 @@ export class AnalystMcpService {
       }
 
       const input = analystInputSchema.parse(parsed.params.input ?? {});
-      const output = isAxlOptionalLlmDisabled("analyst")
-        ? deriveAnalystThesis(input)
-        : await this.agent.invoke(
-            input,
-            createServiceSwarmState({
-              runId: input.context.runId,
-              mode: input.context.mode,
-            }),
-          );
+      const output = await this.agent.invoke(
+        input,
+        createServiceSwarmState({
+          runId: input.context.runId,
+          mode: input.context.mode,
+        }),
+      );
 
       return createAxlMcpSuccessResponse({
         id: parsed.id,

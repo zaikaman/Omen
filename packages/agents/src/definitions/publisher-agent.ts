@@ -460,7 +460,9 @@ export class PublisherAgentFactory {
       basePacket.drafts.length === 0 ||
       (parsed.intelSummary !== null && parsed.thesis === null)
     ) {
-      return basePacket;
+      throw new Error(
+        "Publisher draft preparation requires a configured LLM client and rewriteable drafts.",
+      );
     }
 
     const prompt = buildPublisherSystemPrompt({
@@ -516,8 +518,10 @@ export class PublisherAgentFactory {
                 drafts,
               },
       });
-    } catch {
-      return basePacket;
+    } catch (error) {
+      throw new Error(
+        `Publisher draft preparation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }

@@ -114,83 +114,11 @@ const buildPreviewSummary = (parsed: z.infer<typeof writerInputSchema>) => {
   );
 };
 
-const buildFallbackArticle = (input: z.input<typeof writerInputSchema>): IntelArticle => {
-  const parsed = writerInputSchema.parse(input);
-  const headline = buildCleanHeadline(parsed);
-  const tldr = buildPreviewSummary(parsed);
-
-  const cleanedInsight = stripArticleBoilerplate(parsed.report.insight);
-  const cleanedSummary = stripArticleBoilerplate(parsed.report.summary);
-  const lead =
-    splitSentences(cleanedInsight).find((sentence) => normalizeParagraph(sentence) !== tldr) ??
-    splitSentences(cleanedSummary).find((sentence) => normalizeParagraph(sentence) !== tldr) ??
-    `${headline} is worth tracking because the evidence points to a live narrative rather than a clean trade signal.`;
-  const evidenceLines = parsed.evidence
-    .slice(0, 6)
-    .map((item) => `- ${normalizeParagraph(item.summary)} (${item.sourceLabel})`);
-  const insightSentences = uniqueSentences(splitSentences(`${cleanedSummary} ${cleanedInsight}`));
-  const signalMap =
-    insightSentences.length > 0
-      ? insightSentences
-          .slice(0, 6)
-          .map((sentence) => `- ${sentence}`)
-          .join("\n")
-      : "- The report did not include enough supporting detail to build a full signal map.";
-  const symbols = parsed.report.symbols.length
-    ? parsed.report.symbols.map((symbol) => `$${symbol.toUpperCase()}`).join(", ")
-    : "the tracked market";
-  const evidenceSection =
-    evidenceLines.length > 0
-      ? evidenceLines.join("\n")
-      : signalMap;
-  const category = parsed.report.category.replace(/_/g, " ");
-  const confirmation =
-    parsed.report.symbols.length > 0
-      ? `Confirmation is simple: ${symbols} need to keep showing up in both liquidity and attention data while majors fail to absorb the bid. If the flow rotates back into BTC or ETH quickly, this stays a watchlist note rather than a tradeable regime change.`
-      : "Confirmation is simple: the same narrative needs to keep appearing across liquidity, social attention, and price action. If it disappears after one scan, it is background noise.";
-
-  return {
-    headline,
-    tldr,
-    content: [
-      "### ON-CHAIN",
-      "",
-      `> ${lead}`,
-      "",
-      "### The Alpha",
-      "",
-      cleanedInsight.length > 0
-        ? cleanedInsight
-        : `${headline} has enough signal to track, but not enough confirmation to treat as a standalone trade call.`,
-      "",
-      "### Signal Map",
-      "",
-      evidenceSection,
-      "",
-      "### Market Impact",
-      "",
-      `The read is not an automatic long or short. It is a ${category} note: useful because it shows where attention, liquidity, or risk is starting to cluster before the cleaner setups become obvious. The practical question is whether this is early rotation or just a one-cycle attention spike.`,
-      "",
-      "### What Confirms It",
-      "",
-      confirmation,
-      "",
-      "### The Edge",
-      "",
-      `${symbols} deserves attention while this ${category} remains active. The edge is not to chase the first headline; it is to track whether liquidity follows attention, whether the same tickers keep leading on down days, and whether the narrative survives the next market-wide volatility check.`,
-      "",
-      "### Verdict",
-      "",
-      `Omen rates this at ${parsed.report.importanceScore}/10 importance with ${parsed.report.confidence}% confidence. Treat it as market intelligence first, not an automatic trade instruction.`,
-    ].join("\n"),
-  };
-};
-
 const hasUsefulArticleShape = (article: IntelArticle) =>
-  article.content.length >= 1_400 &&
-  /###\s+The Alpha/i.test(article.content) &&
-  /###\s+The Edge/i.test(article.content) &&
-  /###\s+Verdict/i.test(article.content);
+  article.headline.trim().length >= 12 &&
+  article.tldr.trim().length >= 40 &&
+  article.content.trim().length >= 900 &&
+  /###\s+/i.test(article.content);
 
 export class WriterAgentFactory {
   private readonly llmClient: OpenAiCompatibleJsonClient | null;
@@ -219,10 +147,9 @@ export class WriterAgentFactory {
   private async writeArticle(input: z.input<typeof writerInputSchema>, state: SwarmState) {
     void state;
     const parsed = writerInputSchema.parse(input);
-    const fallbackArticle = buildFallbackArticle(parsed);
 
     if (this.llmClient === null) {
-      return writerOutputSchema.parse({ article: fallbackArticle });
+      throw new Error("Writer article generation requires a configured LLM client.");
     }
 
     try {
@@ -243,11 +170,15 @@ export class WriterAgentFactory {
 
       const parsedResponse = writerOutputSchema.parse(response);
 
-      return hasUsefulArticleShape(parsedResponse.article)
-        ? parsedResponse
-        : writerOutputSchema.parse({ article: fallbackArticle });
-    } catch {
-      return writerOutputSchema.parse({ article: fallbackArticle });
+      if (!hasUsefulArticleShape(parsedResponse.article)) {
+        throw new Error("Writer LLM response did not include a substantial markdown article.");
+      }
+
+      return parsedResponse;
+    } catch (error) {
+      throw new Error(
+        `Writer article generation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }

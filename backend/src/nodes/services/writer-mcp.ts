@@ -7,7 +7,7 @@ import {
 } from "@omen/axl";
 import { axlMcpRequestSchema, type AxlMcpResponse } from "@omen/shared";
 
-import { createServiceSwarmState, isAxlOptionalLlmDisabled } from "./service-runtime.js";
+import { createServiceSwarmState } from "./service-runtime.js";
 
 export const writerMcpContract = defineAxlMcpServiceContract({
   service: "writer",
@@ -29,9 +29,7 @@ export const writerMcpContract = defineAxlMcpServiceContract({
 });
 
 export class WriterMcpService {
-  private readonly agent = createWriterAgent({
-    llmClient: isAxlOptionalLlmDisabled("writer") ? null : undefined,
-  });
+  private readonly agent = createWriterAgent();
 
   readonly contract = writerMcpContract;
 

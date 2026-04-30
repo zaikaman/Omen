@@ -153,7 +153,7 @@ describe("chart vision agent", () => {
     expect(result.missingDataNotes).toEqual([]);
   });
 
-  it("falls back to deterministic chart summaries when the vision model is unavailable", async () => {
+  it("accepts chartSummary as a model summary alias without synthesizing analysis", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createChartVisionAgent({
       marketData: {
@@ -180,7 +180,28 @@ describe("chart vision agent", () => {
           description: `${symbol} ${timeframe} chart`,
         }),
       },
-      visionClient: null,
+      visionClient: {
+        completeJson: async (completionInput: {
+          schema: { parse: (value: unknown) => unknown };
+        }) =>
+          completionInput.schema.parse({
+            frames: [
+              {
+                timeframe: "15m" as const,
+                analysis: "15m shows constructive continuation.",
+              },
+              {
+                timeframe: "1h" as const,
+                analysis: "1h is pressing through resistance.",
+              },
+              {
+                timeframe: "4h" as const,
+                analysis: "4h is still building higher lows.",
+              },
+            ],
+            chartSummary: "The chart stack remains constructive across visible frames.",
+          }),
+      } as unknown as OpenAiCompatibleVisionClientType,
     });
 
     const result = await agent.invoke(
@@ -206,9 +227,61 @@ describe("chart vision agent", () => {
     );
 
     expect(result.frames).toHaveLength(3);
-    expect(result.frames[0]?.analysis).toContain("SOL");
-    expect(result.chartSummary).toContain("15m:");
+    expect(result.frames[0]?.analysis).toContain("constructive");
+    expect(result.chartSummary).toContain("constructive across visible frames");
     expect(result.evidence[0]?.summary).toContain("SOL");
+  });
+
+  it("fails closed when the vision model is unavailable", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createChartVisionAgent({
+      marketData: {
+        getCandles: async ({ interval }: { interval: "15m" | "1h" | "4h" }) => ({
+          ok: true,
+          value:
+            interval === "4h"
+              ? buildCandles(240).slice(0, 90)
+              : buildCandles(interval === "15m" ? 15 : 60),
+        }),
+      } as unknown as BinanceMarketService,
+      chartImageService: {
+        generateCandlestickChart: async ({}: {
+          symbol: string;
+          timeframe: "15m" | "1h" | "4h";
+        }) => ({
+          base64: Buffer.from("chart").toString("base64"),
+          mimeType: "image/png" as const,
+          width: 1600,
+          height: 900,
+          description: "Chart image",
+        }),
+      },
+      visionClient: null,
+    });
+
+    await expect(
+      agent.invoke(
+        {
+          context: {
+            runId: run.id,
+            threadId: "thread-chart-vision-3",
+            mode: "live",
+            triggeredBy: "scheduler",
+          },
+          candidate: {
+            id: "candidate-sol-2",
+            symbol: "SOL",
+            reason: "Strong relative momentum",
+            directionHint: "LONG",
+            status: "researched",
+            sourceUniverse: "BTC,ETH,SOL",
+            dedupeKey: "SOL",
+            missingDataNotes: [],
+          },
+        },
+        state,
+      ),
+    ).rejects.toThrow("requires a configured vision LLM client");
   });
 
   it("uses OpenAI reasoning env instead of scanner env for the vision client", () => {

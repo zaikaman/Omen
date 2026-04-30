@@ -1,0 +1,20 @@
+[
+    {
+        "name":  "router",
+        "pid":  20576,
+        "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\generator-router.out.log",
+        "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\generator-router.err.log"
+    },
+    {
+        "name":  "mcp",
+        "pid":  35420,
+        "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\generator-mcp.out.log",
+        "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\generator-mcp.err.log"
+    },
+    {
+        "name":  "node",
+        "pid":  5260,
+        "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\generator-node.out.log",
+        "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\generator-node.err.log"
+    }
+]

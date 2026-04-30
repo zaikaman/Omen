@@ -1,0 +1,20 @@
+[
+    {
+        "name":  "router",
+        "pid":  7220,
+        "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\chart_vision-router.out.log",
+        "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\chart_vision-router.err.log"
+    },
+    {
+        "name":  "mcp",
+        "pid":  34024,
+        "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\chart_vision-mcp.out.log",
+        "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\chart_vision-mcp.err.log"
+    },
+    {
+        "name":  "node",
+        "pid":  3536,
+        "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\chart_vision-node.out.log",
+        "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\chart_vision-node.err.log"
+    }
+]

@@ -10,7 +10,6 @@ template
 local/logs/axl-demo/
 0g-ts-sdk
 0g-doc
-axl
 !scripts/axl/
 !scripts/axl/**
 !packages/axl/

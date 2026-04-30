@@ -21,47 +21,47 @@ const chartVisionAgentOptionsSchema = z.object({
   visionClient: z.custom<OpenAiCompatibleVisionClient>().nullable().optional(),
 });
 
-const chartVisionAnalysisSchema = z.object({
-  frames: z
-    .array(
-      z.object({
-        timeframe: z.enum(["15m", "1h", "4h"]),
-        analysis: z.string().min(1),
-      }),
-    )
-    .min(1),
-  summary: z.string().min(1),
-});
+const chartVisionAnalysisSchema = z.preprocess(
+  (value) => {
+    if (
+      value &&
+      typeof value === "object" &&
+      !("summary" in value) &&
+      "chartSummary" in value
+    ) {
+      return {
+        ...value,
+        summary: (value as { chartSummary?: unknown }).chartSummary,
+      };
+    }
+
+    return value;
+  },
+  z.object({
+    frames: z
+      .array(
+        z.object({
+          timeframe: z.enum(["15m", "1h", "4h"]),
+          analysis: z.string().min(1),
+        }),
+      )
+      .min(1),
+    summary: z.string().min(1),
+  }),
+);
+type ChartVisionAnalysis = z.infer<typeof chartVisionAnalysisSchema>;
 
 const TIMEFRAMES = [
   { timeframe: "15m", limit: 96 },
   { timeframe: "1h", limit: 96 },
   { timeframe: "4h", limit: 90 },
 ] as const;
+const MAX_CHART_VISION_ATTEMPTS = 3;
 
 type RenderedChartFrame = {
   timeframe: "15m" | "1h" | "4h";
   image: ChartImageResult;
   candles: MarketCandle[];
-};
-
-const summarizeCandlesFallback = (
-  symbol: string,
-  timeframe: "15m" | "1h" | "4h",
-  candles: MarketCandle[],
-) => {
-  const first = candles[0]?.close ?? 0;
-  const last = candles.at(-1)?.close ?? 0;
-  const highest = Math.max(...candles.map((candle) => candle.high));
-  const lowest = Math.min(...candles.map((candle) => candle.low));
-  const direction =
-    last > first * 1.01
-      ? "trend is leaning upward"
-      : last < first * 0.99
-        ? "trend is leaning downward"
-        : "price is ranging";
-
-  return `${symbol.toUpperCase()} ${timeframe} chart shows ${direction}, with visible range between ${lowest.toFixed(2)} and ${highest.toFixed(2)} and the latest close near ${last.toFixed(2)}.`;
 };
 
 const buildChartEvidence = (input: {
@@ -202,22 +202,20 @@ export class ChartVisionAgentFactory {
       const matchingAnalysis = modelAnalysis?.frames.find(
         (entry) => entry.timeframe === frame.timeframe,
       );
-      const analysis =
-        matchingAnalysis?.analysis ??
-        summarizeCandlesFallback(symbol, frame.timeframe, frame.candles);
+      if (!matchingAnalysis) {
+        throw new Error(`Chart vision model did not return analysis for ${frame.timeframe}.`);
+      }
 
       return chartVisionFrameSchema.parse({
         timeframe: frame.timeframe,
-        analysis,
+        analysis: matchingAnalysis.analysis,
         chartDescription: frame.image.description,
         imageMimeType: frame.image.mimeType,
         imageWidth: frame.image.width,
         imageHeight: frame.image.height,
       });
     });
-    const chartSummary =
-      modelAnalysis?.summary ??
-      frames.map((frame) => `${frame.timeframe}: ${frame.analysis}`).join(" ");
+    const chartSummary = modelAnalysis.summary;
 
     return chartVisionOutputSchema.parse({
       candidate: parsed.candidate,
@@ -251,41 +249,80 @@ export class ChartVisionAgentFactory {
     }>;
   }) {
     if (this.visionClient === null) {
-      return null;
+      throw new Error("Chart vision analysis requires a configured vision LLM client.");
     }
 
-    try {
-      return await this.visionClient.completeJson({
-        schema: chartVisionAnalysisSchema,
-        systemPrompt: buildChartVisionSystemPrompt({
-          symbol: input.symbol,
-          directionHint: input.directionHint,
-          timeframes: input.renderedFrames.map((frame) => frame.timeframe),
-        }),
-        userPrompt: JSON.stringify(
-          {
+    const expectedTimeframes = input.renderedFrames.map((frame) => frame.timeframe);
+    const baseUserPrompt = JSON.stringify(
+      {
+        symbol: input.symbol,
+        directionHint: input.directionHint,
+        frames: input.renderedFrames.map((frame) => ({
+          timeframe: frame.timeframe,
+          chartDescription: frame.image.description,
+          candleCount: frame.candles.length,
+          latestClose: frame.candles.at(-1)?.close ?? null,
+        })),
+        requiredTimeframes: expectedTimeframes,
+        instruction:
+          "Analyze the supplied chart images in order and return one short analysis for every required timeframe plus one cross-timeframe summary for the downstream analyst.",
+      },
+      null,
+      2,
+    );
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= MAX_CHART_VISION_ATTEMPTS; attempt += 1) {
+      const userPrompt =
+        attempt === 1
+          ? baseUserPrompt
+          : [
+              baseUserPrompt,
+              "",
+              `PREVIOUS ATTEMPT ${String(attempt - 1)} FAILED.`,
+              `Error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+              `Return exactly one frame analysis for each required timeframe: ${expectedTimeframes.join(", ")}.`,
+              "Return only valid JSON with top-level frames and summary.",
+            ].join("\n");
+
+      try {
+        const analysis = await this.visionClient.completeJson<ChartVisionAnalysis>({
+          schema: chartVisionAnalysisSchema,
+          systemPrompt: buildChartVisionSystemPrompt({
             symbol: input.symbol,
             directionHint: input.directionHint,
-            frames: input.renderedFrames.map((frame) => ({
-              timeframe: frame.timeframe,
-              chartDescription: frame.image.description,
-              candleCount: frame.candles.length,
-              latestClose: frame.candles.at(-1)?.close ?? null,
-            })),
-            instruction:
-              "Analyze the supplied chart images in order and return one short analysis per timeframe plus one cross-timeframe summary for the downstream analyst.",
-          },
-          null,
-          2,
-        ),
-        images: input.renderedFrames.map((frame) => ({
-          base64: frame.image.base64,
-          mimeType: frame.image.mimeType,
-        })),
-      });
-    } catch {
-      return null;
+            timeframes: expectedTimeframes,
+          }),
+          userPrompt,
+          images: input.renderedFrames.map((frame) => ({
+            base64: frame.image.base64,
+            mimeType: frame.image.mimeType,
+          })),
+        });
+        const returnedTimeframes = new Set(analysis.frames.map((frame) => frame.timeframe));
+        const missingTimeframes = expectedTimeframes.filter(
+          (timeframe) => !returnedTimeframes.has(timeframe),
+        );
+
+        if (missingTimeframes.length > 0) {
+          throw new Error(
+            `Chart vision model did not return analysis for ${missingTimeframes.join(", ")}.`,
+          );
+        }
+
+        return analysis;
+      } catch (error) {
+        lastError = error;
+
+        if (attempt >= MAX_CHART_VISION_ATTEMPTS) {
+          throw new Error(
+            `Chart vision model analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
     }
+
+    throw new Error("Chart vision model analysis failed.");
   }
 }
 

@@ -66,7 +66,7 @@ const extractJsonString = (content: string) => {
 export type VisionJsonCompletionInput<T> = {
   systemPrompt: string;
   userPrompt: string;
-  schema: z.ZodType<T>;
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>;
   images: Array<z.input<typeof openAiCompatibleVisionImageSchema>>;
   temperature?: number;
 };

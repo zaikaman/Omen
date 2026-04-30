@@ -1,5 +1,7 @@
-- 0g-doc and 0g-ts-sdk folders are meant for 0G related docs, axl is meant for Gensyn AXL docs, and you should only read them, not edit them.
+- 0g-doc and 0g-ts-sdk folders are meant for 0G related docs, and you should only read them, not edit them.
+- The axl folder is for the Gensyn AXL docs, but you can also edit it if you want to.
 - twitterapi-io is the folder where you're supposed to look at for docs when you want to work with the twitterapi.
 - The packages/db/current_schema.sql is the current database.
 - For UI tasks, just make sure you're creating UI that matches the design of the current app.
 - The current AXL node is hosted at https://omen-axl-node.fly.dev
+- Make sure there is no fallback or mock code or hardcoding logic when you're writing code, everything must be real and production ready.

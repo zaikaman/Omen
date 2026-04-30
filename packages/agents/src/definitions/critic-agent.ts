@@ -97,7 +97,7 @@ export class CriticAgentFactory {
     const gateReview = reviewThesisWithCritic(input);
 
     if (this.llmClient === null) {
-      return gateReview;
+      throw new Error("Critic review requires a configured LLM client.");
     }
 
     const parsed = criticInputSchema.parse(input);
@@ -145,8 +145,10 @@ export class CriticAgentFactory {
           new Set([...(gateReview.blockingReasons ?? []), ...(llmReview.blockingReasons ?? [])]),
         ),
       });
-    } catch {
-      return gateReview;
+    } catch (error) {
+      throw new Error(
+        `Critic review generation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }

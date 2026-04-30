@@ -2,9 +2,9 @@
 
 This demo starts Omen's AXL path as multiple local node identities on one machine. It is meant for the hackathon video and local sponsor validation, not as a replacement for the single Fly deployment path.
 
-## Core Demo
+## Full Role Demo
 
-Start the core split-node path:
+Start the full split-node path:
 
 ```powershell
 pnpm run axl:start:demo
@@ -12,15 +12,24 @@ pnpm run axl:start:demo
 
 This starts:
 
-- `orchestrator`: AXL API on `http://127.0.0.1:9002`; also hosts non-core support services for a full Omen run.
+- `orchestrator`: AXL API on `http://127.0.0.1:9002`; owns the shared local A2A router.
+- `market_bias`: separate AXL node and market-bias MCP/A2A service.
 - `scanner`: separate AXL node and scanner MCP/A2A service.
 - `research`: separate AXL node and research MCP/A2A service.
+- `chart_vision`: separate AXL node and chart-vision MCP/A2A service.
 - `analyst`: separate AXL node and analyst MCP/A2A service.
 - `critic`: separate AXL node and critic MCP/A2A service.
+- `intel`: separate AXL node and intel MCP/A2A service.
+- `generator`: separate AXL node and generator MCP/A2A service.
+- `writer`: separate AXL node and writer MCP/A2A service.
+- `memory`: separate AXL node and memory MCP/A2A service.
+- `publisher`: separate AXL node and publisher MCP/A2A service.
 
 Runtime files are written under `local/axl/demo/<role>`. Logs are written under `local/logs/axl-demo`.
 
-The local AXL binary currently uses the default A2A callback port, so the demo runs one shared Omen A2A router on `127.0.0.1:9004`. Each role still has its own AXL node identity, AXL API port, MCP router, MCP host, service registration, and peer ID; the shared A2A router dispatches inbound A2A payloads to the correct role router.
+The launcher builds `local/axl/node.exe` from the checked-in `axl/cmd/node` source when the binary is missing or older than the source tree. Node configs set `a2a_peer_timeout_secs` and `mcp_peer_timeout_secs` to `300`, so long real agent calls can complete without the old 30-second peer cutoff.
+
+The local AXL binary currently uses the default A2A callback port, so the demo runs one shared Omen A2A router on `127.0.0.1:9004`. Each role still has its own AXL node identity, AXL API port, Python MCP router, MCP host, service registration, and peer ID. The shared A2A router resolves the target role peer ID at request time and calls the orchestrator AXL MCP endpoint (`/mcp/{peerId}/{service}`), so execution flows through the target node's Python MCP router before reaching the Omen MCP host.
 
 The launcher writes the backend env snippet to:
 
@@ -30,12 +39,12 @@ local/axl/demo/axl-demo.env
 
 Use those values for the backend process so the UI can show the real peer IDs, registered services, route receipts, and A2A completion snapshots.
 
-## Full Role Demo
+## Core-Only Demo
 
-To launch every current Omen role as its own local AXL node:
+To launch the older five-node judging path only:
 
 ```powershell
-pnpm run axl:start:demo:all
+pnpm run axl:start:demo:core
 ```
 
 ## Verification
@@ -46,7 +55,7 @@ After the nodes are running and the generated env values are loaded:
 pnpm run axl:verify:a2a
 ```
 
-The verifier sends core A2A delegations to the configured role peer IDs and prints each role's target peer, completion state, schema validation result, and summary. Use `AXL_VERIFY_PROFILE=all` to include the non-core support services.
+The verifier sends A2A delegations to the configured role peer IDs and prints each role's target peer, completion state, schema validation result, and summary. It verifies every role by default. Use `AXL_VERIFY_PROFILE=core` to verify only the five-node core path.
 
 ## Stop
 

@@ -467,7 +467,7 @@ export class IntelAgentFactory {
     }
 
     if (this.llmClient === null) {
-      return parsed;
+      throw new Error("Intel research enrichment requires a configured LLM client.");
     }
 
     const evidence = await this.collectIntelMarketLeads(state);

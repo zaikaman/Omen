@@ -2,6 +2,7 @@ import type { Server } from "node:http";
 
 import express from "express";
 
+import { loadEnvFiles } from "../bootstrap/env.js";
 import { AnalystMcpService } from "../nodes/services/analyst-mcp.js";
 import { ChartVisionMcpService } from "../nodes/services/chart-vision-mcp.js";
 import { CriticMcpService } from "../nodes/services/critic-mcp.js";
@@ -13,6 +14,8 @@ import { PublisherMcpService } from "../nodes/services/publisher-mcp.js";
 import { ResearchMcpService } from "../nodes/services/research-mcp.js";
 import { ScannerMcpService } from "../nodes/services/scanner-mcp.js";
 import { WriterMcpService } from "../nodes/services/writer-mcp.js";
+
+loadEnvFiles();
 
 type HostedService = {
   service: string;

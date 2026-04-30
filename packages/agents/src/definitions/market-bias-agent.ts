@@ -123,26 +123,20 @@ export class MarketBiasAgentFactory {
     const parsed = marketBiasAgentInputSchema.parse(input);
 
     if (parsed.snapshots.length > 0 || parsed.narratives.length > 0) {
-      return deriveMarketBias(parsed);
+      return this.analyzeWithModel({
+        snapshots: parsed.snapshots,
+        narratives: parsed.narratives,
+        state,
+      });
     }
 
     const snapshots = await this.collectSnapshots(state.config.marketUniverse);
     const narratives: AssetNarrative[] = [];
 
-    const llmResult = await this.analyzeWithModel({
+    return this.analyzeWithModel({
       snapshots,
       narratives,
       state,
-    });
-
-    if (llmResult !== null) {
-      return llmResult;
-    }
-
-    return deriveMarketBias({
-      ...parsed,
-      snapshots,
-      narratives,
     });
   }
 
@@ -177,7 +171,7 @@ export class MarketBiasAgentFactory {
     state: SwarmState;
   }) {
     if (this.llmClient === null) {
-      return null;
+      throw new Error("Market bias derivation requires a configured LLM client.");
     }
 
     try {
@@ -216,8 +210,10 @@ export class MarketBiasAgentFactory {
           2,
         ),
       });
-    } catch {
-      return null;
+    } catch (error) {
+      throw new Error(
+        `Market bias derivation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

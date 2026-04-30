@@ -7,7 +7,7 @@ import {
 } from "@omen/axl";
 import { axlMcpRequestSchema, type AxlMcpResponse } from "@omen/shared";
 
-import { createServiceSwarmState, isAxlOptionalLlmDisabled } from "./service-runtime.js";
+import { createServiceSwarmState } from "./service-runtime.js";
 
 export const generatorMcpContract = defineAxlMcpServiceContract({
   service: "generator",
@@ -29,10 +29,7 @@ export const generatorMcpContract = defineAxlMcpServiceContract({
 });
 
 export class GeneratorMcpService {
-  private readonly agent = createGeneratorAgent({
-    llmClient: isAxlOptionalLlmDisabled("generator") ? null : undefined,
-    shortenerClient: isAxlOptionalLlmDisabled("generator") ? null : undefined,
-  });
+  private readonly agent = createGeneratorAgent();
 
   readonly contract = generatorMcpContract;
 

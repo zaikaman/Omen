@@ -15,7 +15,7 @@ if (!$Root) {
 }
 
 $roleConfig = @{
-  orchestrator = @{ Api = 9002; Router = 9003; A2A = 9004; Tcp = 7000; Listen = 9101; Mcp = 7100; Service = "market_bias,chart_vision,intel,generator,writer,memory,publisher" }
+  orchestrator = @{ Api = 9002; Router = 9003; A2A = 9004; Tcp = 7000; Listen = 9101; Mcp = 7100; Service = "" }
   scanner      = @{ Api = 9012; Router = 9013; A2A = 9004; Tcp = 7000; Listen = 9111; Mcp = 7110; Service = "scanner" }
   research     = @{ Api = 9022; Router = 9023; A2A = 9004; Tcp = 7000; Listen = 9121; Mcp = 7120; Service = "research" }
   analyst      = @{ Api = 9032; Router = 9033; A2A = 9004; Tcp = 7000; Listen = 9131; Mcp = 7130; Service = "analyst" }
@@ -31,6 +31,7 @@ $roleConfig = @{
 
 $ports = $roleConfig[$Role]
 $nodeExe = Join-Path $Root "local\axl\node.exe"
+$axlSourceDir = Join-Path $Root "axl"
 $runtimeDir = Join-Path $Root "local\axl\demo\$Role"
 $logDir = Join-Path $Root "local\logs\axl-demo"
 $integrationsPath = Join-Path $Root "axl\integrations"
@@ -38,8 +39,58 @@ $configPath = Join-Path $runtimeDir "node-config.json"
 $peerIdPath = Join-Path $runtimeDir "peer-id.txt"
 $pidPath = Join-Path $runtimeDir "pids.json"
 
+function Quote-PowerShellString([string]$Value) {
+  return "'" + $Value.Replace("'", "''") + "'"
+}
+
+function Get-LatestAxlSourceWriteTime {
+  param(
+    [Parameter(Mandatory = $true)][string]$SourceDir
+  )
+
+  $latest = Get-Item -Path (Join-Path $SourceDir "go.mod")
+  $sourceFiles = Get-ChildItem -Path $SourceDir -Recurse -File -Include "*.go", "go.sum" -ErrorAction SilentlyContinue
+  foreach ($file in $sourceFiles) {
+    if ($file.LastWriteTimeUtc -gt $latest.LastWriteTimeUtc) {
+      $latest = $file
+    }
+  }
+
+  return $latest.LastWriteTimeUtc
+}
+
+function Build-AxlNode {
+  param(
+    [Parameter(Mandatory = $true)][string]$SourceDir,
+    [Parameter(Mandatory = $true)][string]$OutputPath
+  )
+
+  if (!(Test-Path (Join-Path $SourceDir "go.mod"))) {
+    throw "AXL source folder not found at $SourceDir"
+  }
+
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutputPath) | Out-Null
+
+  $buildCommand = @(
+    "`$env:GOTOOLCHAIN='go1.25.5'",
+    "go build -o $(Quote-PowerShellString $OutputPath) .\cmd\node"
+  ) -join "; "
+
+  Write-Host "Building AXL node from $SourceDir"
+  $process = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $buildCommand) -WorkingDirectory $SourceDir -WindowStyle Hidden -Wait -PassThru
+  if ($process.ExitCode -ne 0) {
+    throw "Failed to build AXL node from $SourceDir. Run with GOTOOLCHAIN=go1.25.5 for details."
+  }
+}
+
 if (!(Test-Path $nodeExe)) {
-  throw "AXL node binary not found at $nodeExe"
+  Build-AxlNode -SourceDir $axlSourceDir -OutputPath $nodeExe
+} else {
+  $nodeWriteTime = (Get-Item -Path $nodeExe).LastWriteTimeUtc
+  $sourceWriteTime = Get-LatestAxlSourceWriteTime -SourceDir $axlSourceDir
+  if ($sourceWriteTime -gt $nodeWriteTime) {
+    Build-AxlNode -SourceDir $axlSourceDir -OutputPath $nodeExe
+  }
 }
 
 New-Item -ItemType Directory -Force -Path $runtimeDir, $logDir | Out-Null
@@ -67,6 +118,8 @@ $nodeConfig = [ordered]@{
   router_port = $ports.Router
   a2a_addr = "http://127.0.0.1"
   a2a_port = $ports.A2A
+  a2a_peer_timeout_secs = 300
+  mcp_peer_timeout_secs = 300
 }
 
 $privateKeyPath = Join-Path $runtimeDir "private.pem"
@@ -77,10 +130,6 @@ if (Test-Path $privateKeyPath) {
 $nodeConfig | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath -Encoding ASCII
 if (Test-Path $peerIdPath) {
   Remove-Item -Path $peerIdPath -Force
-}
-
-function Quote-PowerShellString([string]$Value) {
-  return "'" + $Value.Replace("'", "''") + "'"
 }
 
 function Start-LoggedProcess {
@@ -103,7 +152,7 @@ function Start-LoggedProcess {
 
 $started = @()
 
-$routerCommand = "`$env:PYTHONPATH=$(Quote-PowerShellString $integrationsPath); python -m mcp_routing.mcp_router --port $($ports.Router)"
+$routerCommand = "`$env:PYTHONPATH=$(Quote-PowerShellString $integrationsPath); `$env:MCP_ROUTER_FORWARD_TIMEOUT_SECS='300'; python -m mcp_routing.mcp_router --port $($ports.Router) --forward-timeout-secs 300"
 $started += Start-LoggedProcess -Name "router" -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $routerCommand)
 Start-Sleep -Milliseconds 700
 
@@ -114,7 +163,6 @@ if (!$NoMcp -and $ports.Service) {
     "`$env:OMEN_MCP_ROUTER_URL='http://127.0.0.1:$($ports.Router)'",
     "`$env:OMEN_MCP_PUBLIC_BASE_URL='http://127.0.0.1:$($ports.Mcp)'",
     "`$env:OMEN_MCP_SERVICES='$($ports.Service)'",
-    "`$env:AXL_DISABLE_OPTIONAL_LLM_ROLES='market_bias,scanner,research,chart_vision,analyst,critic,intel,generator,writer,memory,publisher'",
     "pnpm --dir backend run mcp:host"
   ) -join "; "
   $started += Start-LoggedProcess -Name "mcp" -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $mcpCommand)
@@ -128,6 +176,9 @@ if (!$NoA2A -and $Role -eq "orchestrator") {
   $a2aCommand = @(
     "`$env:OMEN_A2A_HOST='127.0.0.1'",
     "`$env:OMEN_A2A_PORT='$($ports.A2A)'",
+    "`$env:OMEN_A2A_AXL_API_BASE_URL='http://127.0.0.1:$($ports.Api)'",
+    "`$env:OMEN_A2A_DEMO_DIR=$(Quote-PowerShellString (Join-Path $Root 'local\axl\demo'))",
+    "`$env:OMEN_A2A_MCP_TIMEOUT_MS='300000'",
     "pnpm --dir backend run a2a:router"
   ) -join "; "
   $started += Start-LoggedProcess -Name "a2a" -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $a2aCommand)

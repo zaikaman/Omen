@@ -182,21 +182,19 @@ export class ResearchAgentFactory {
       missingDataNotes,
     });
 
-    if (synthesized !== null) {
-      evidence.splice(
-        0,
-        evidence.length,
-        ...synthesized.evidence.map((item) => evidenceItemSchema.parse(item)),
-      );
-      narrativeSummary = synthesized.narrativeSummary;
+    evidence.splice(
+      0,
+      evidence.length,
+      ...synthesized.evidence.map((item) => evidenceItemSchema.parse(item)),
+    );
+    narrativeSummary = synthesized.narrativeSummary;
 
-      if ((synthesized.missingDataNotes ?? []).length > 0) {
-        missingDataNotes.splice(
-          0,
-          missingDataNotes.length,
-          ...(synthesized.missingDataNotes ?? []),
-        );
-      }
+    if ((synthesized.missingDataNotes ?? []).length > 0) {
+      missingDataNotes.splice(
+        0,
+        missingDataNotes.length,
+        ...(synthesized.missingDataNotes ?? []),
+      );
     }
 
     if (evidence.length === 0) {
@@ -239,8 +237,12 @@ export class ResearchAgentFactory {
     narrativeSummary: string;
     missingDataNotes: string[];
   }) {
-    if (this.llmClient === null || input.evidence.length === 0) {
-      return null;
+    if (this.llmClient === null) {
+      throw new Error("Research synthesis requires a configured LLM client.");
+    }
+
+    if (input.evidence.length === 0) {
+      throw new Error("Research synthesis requires at least one live evidence item.");
     }
 
     try {
@@ -271,8 +273,10 @@ export class ResearchAgentFactory {
       });
 
       return researchSynthesisSchema.parse(response);
-    } catch {
-      return null;
+    } catch (error) {
+      throw new Error(
+        `Research synthesis failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }

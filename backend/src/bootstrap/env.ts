@@ -198,7 +198,7 @@ const backendEnvPaths = () => {
   ].filter((envPath) => path.basename(path.dirname(envPath)) === "backend");
 };
 
-const loadEnvFiles = () => {
+export const loadEnvFiles = () => {
   for (const envPath of backendEnvPaths()) {
     dotenv.config({ path: envPath, override: false });
   }

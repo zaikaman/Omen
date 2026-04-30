@@ -1,0 +1,20 @@
+[
+    {
+        "name":  "router",
+        "pid":  4944,
+        "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\intel-router.out.log",
+        "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\intel-router.err.log"
+    },
+    {
+        "name":  "mcp",
+        "pid":  13720,
+        "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\intel-mcp.out.log",
+        "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\intel-mcp.err.log"
+    },
+    {
+        "name":  "node",
+        "pid":  8368,
+        "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\intel-node.out.log",
+        "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\intel-node.err.log"
+    }
+]
