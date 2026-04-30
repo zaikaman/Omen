@@ -5,7 +5,7 @@ import { createInitialSwarmState, createIntelAgent } from "../src/index.js";
 describe("intel agent", () => {
   const run = {
     id: "run-intel-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "LONG" as const,
     startedAt: null,
@@ -24,7 +24,7 @@ describe("intel agent", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH", "SOL"],
     qualityThresholds: {
       minConfidence: 85,
@@ -51,14 +51,23 @@ describe("intel agent", () => {
 
   it("builds a publishable intel report when mocked evidence is supplied directly", async () => {
     const state = createInitialSwarmState({ run, config });
-    const agent = createIntelAgent({ llmClient: null });
+    const agent = createIntelAgent({
+      llmClient: {
+        completeJson: async () => ({
+          topic: "High-throughput infra momentum",
+          insight:
+            "High-throughput infra momentum is building as XPL, MON, and HYPE gain social and on-chain chatter.",
+          importance_score: 8,
+        }),
+      } as never,
+    });
 
     const result = await agent.invoke(
       {
         context: {
           runId: run.id,
           threadId: "thread-intel-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: {
@@ -114,7 +123,7 @@ describe("intel agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-intel-2",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: null,
@@ -153,27 +162,26 @@ describe("intel agent", () => {
     const state = createInitialSwarmState({ run: liveRun, config: liveConfig });
     const agent = createIntelAgent({ llmClient: null });
 
-    const result = await agent.invoke(
-      {
-        context: {
-          runId: liveRun.id,
-          threadId: "thread-intel-clean",
-          mode: "live",
-          triggeredBy: "scheduler",
+    await expect(
+      agent.invoke(
+        {
+          context: {
+            runId: liveRun.id,
+            threadId: "thread-intel-clean",
+            mode: "live",
+            triggeredBy: "scheduler",
+          },
+          bias: null,
+          candidates: [],
+          evidence: [],
+          chartVisionSummary: null,
+          thesis: null,
+          review: null,
+          recentIntelHistory: [],
         },
-        bias: null,
-        candidates: [],
-        evidence: [],
-        chartVisionSummary: null,
-        thesis: null,
-        review: null,
-        recentIntelHistory: [],
-      },
-      state,
-    );
-
-    expect(result.action).toBe("skip");
-    expect(result.report).toBeNull();
+        state,
+      ),
+    ).rejects.toThrow("Intel generation requires a configured LLM client.");
   });
 
   it("passes recent post context while asking the model to use built-in X search", async () => {
@@ -211,7 +219,7 @@ describe("intel agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-intel-x-search",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: null,
@@ -431,7 +439,7 @@ describe("intel agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-intel-recent-post-dupe",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: null,
@@ -444,8 +452,7 @@ describe("intel agent", () => {
         recentPostContext: [
           {
             kind: "intel_summary",
-            text:
-              "bitcoin pressure and institutional signals\n\n- bitcoin has broken below $76,000 amid broader underperformance narratives, with high-signal chatter highlighting eth's 5-year lag versus nvda and cautious positioning from traders like pentosh1",
+            text: "bitcoin pressure and institutional signals\n\n- bitcoin has broken below $76,000 amid broader underperformance narratives, with high-signal chatter highlighting eth's 5-year lag versus nvda and cautious positioning from traders like pentosh1",
             status: "posted",
             publishedUrl: "https://x.com/i/web/status/456",
             signalId: null,
@@ -494,7 +501,7 @@ describe("intel agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-intel-retry",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: null,
@@ -534,7 +541,7 @@ describe("intel agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-intel-low-signal",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: null,

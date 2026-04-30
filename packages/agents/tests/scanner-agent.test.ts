@@ -10,7 +10,7 @@ import {
 describe("scanner definitions", () => {
   const run = {
     id: "run-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "UNKNOWN" as const,
     startedAt: null,
@@ -29,7 +29,7 @@ describe("scanner definitions", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH", "SOL", "ARB"],
     qualityThresholds: {
       minConfidence: 85,
@@ -62,7 +62,7 @@ describe("scanner definitions", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         snapshots: [
@@ -113,7 +113,7 @@ describe("scanner definitions", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         snapshots: [],
@@ -134,7 +134,7 @@ describe("scanner definitions", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: {
@@ -161,7 +161,7 @@ describe("scanner definitions", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: {
@@ -202,7 +202,7 @@ describe("scanner definitions", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: {
@@ -246,7 +246,7 @@ describe("scanner definitions", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         bias: {

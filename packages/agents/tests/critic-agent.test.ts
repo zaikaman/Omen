@@ -6,7 +6,7 @@ import { createCriticAgent, createInitialSwarmState } from "../src/index.js";
 describe("critic agent", () => {
   const run = {
     id: "run-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "LONG" as const,
     startedAt: null,
@@ -25,7 +25,7 @@ describe("critic agent", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH", "SOL"],
     qualityThresholds: {
       minConfidence: 85,
@@ -59,7 +59,7 @@ describe("critic agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         evaluation: {
@@ -115,7 +115,7 @@ describe("critic agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         evaluation: {
@@ -169,7 +169,7 @@ describe("critic agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         evaluation: {

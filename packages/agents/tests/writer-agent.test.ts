@@ -5,7 +5,7 @@ import { createInitialSwarmState, createWriterAgent } from "../src/index.js";
 describe("writer agent", () => {
   const run = {
     id: "run-writer-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "NEUTRAL" as const,
     startedAt: null,
@@ -24,7 +24,7 @@ describe("writer agent", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH", "SOL"],
     qualityThresholds: {
       minConfidence: 85,
@@ -58,7 +58,7 @@ describe("writer agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-writer-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -102,7 +102,7 @@ describe("writer agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-writer-market",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -149,7 +149,7 @@ describe("writer agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-writer-generator-blog",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {

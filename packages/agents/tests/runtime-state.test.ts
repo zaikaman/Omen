@@ -5,7 +5,7 @@ import { createInitialSwarmState, mergeSwarmState, swarmStateSchema } from "../s
 describe("agent runtime state", () => {
   const run = {
     id: "run-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "UNKNOWN" as const,
     startedAt: null,
@@ -24,7 +24,7 @@ describe("agent runtime state", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH"],
     qualityThresholds: {
       minConfidence: 85,

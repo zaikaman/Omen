@@ -5,7 +5,7 @@ import { createGeneratorAgent, createInitialSwarmState } from "../src/index.js";
 describe("generator agent", () => {
   const run = {
     id: "run-generator-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "NEUTRAL" as const,
     startedAt: null,
@@ -24,7 +24,7 @@ describe("generator agent", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH", "SOL"],
     qualityThresholds: {
       minConfidence: 85,
@@ -56,7 +56,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -81,7 +81,9 @@ describe("generator agent", () => {
     expect(result.content.tweetText ?? "").toContain("- ");
     expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
     expect(result.content.blogPost).toContain("## Executive Summary");
-    expect(result.content.imagePrompt).toContain("single cinematic visual-only market-intelligence scene");
+    expect(result.content.imagePrompt).toContain(
+      "single cinematic visual-only market-intelligence scene",
+    );
     expect(result.content.imagePrompt).toContain("relevant, distinct, creative visual metaphor");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
     expect(result.content.imagePrompt).toContain("the scene should be driven by");
@@ -122,7 +124,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-low-signal",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -169,7 +171,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-blank-formatted-content",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -217,7 +219,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-object-formatted-content",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -263,7 +265,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-truncated",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -333,7 +335,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-retry-too-long",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -398,7 +400,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-retry-broken-parenthetical",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -444,7 +446,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-repeated",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -491,7 +493,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-no-closing-take",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -538,7 +540,7 @@ describe("generator agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-generator-image-prompt",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         report: {
@@ -559,7 +561,9 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(result.content.imagePrompt).toContain("single cinematic visual-only market-intelligence scene");
+    expect(result.content.imagePrompt).toContain(
+      "single cinematic visual-only market-intelligence scene",
+    );
     expect(result.content.imagePrompt).toContain("relevant, distinct, creative visual metaphor");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
     expect(result.content.imagePrompt).toContain("the scene should be driven by");
@@ -574,7 +578,9 @@ describe("generator agent", () => {
     expect(result.content.imagePrompt).not.toContain("$SUI");
     expect(result.content.imagePrompt).not.toMatch(/with the words/i);
     expect(result.content.imagePrompt).not.toMatch(/trading screen/i);
-    expect(result.content.imagePrompt).not.toMatch(/dashboard UI, chart axes, and poster typography/i);
+    expect(result.content.imagePrompt).not.toMatch(
+      /dashboard UI, chart axes, and poster typography/i,
+    );
     expect(result.content.imagePrompt).not.toMatch(/visual thesis:/i);
     expect(result.content.imagePrompt).not.toMatch(/secondary style direction/i);
   });

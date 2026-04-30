@@ -13,7 +13,7 @@ import { createAnalystAgent, createInitialSwarmState } from "../src/index.js";
 describe("analyst agent", () => {
   const run = {
     id: "run-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "LONG" as const,
     startedAt: null,
@@ -32,7 +32,7 @@ describe("analyst agent", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH", "SOL"],
     qualityThresholds: {
       minConfidence: 85,
@@ -57,16 +57,49 @@ describe("analyst agent", () => {
     updatedAt: "2026-04-25T08:00:00.000Z",
   };
 
+  const createAnalystLlmClient = (output: unknown) =>
+    ({
+      config: {
+        apiKey: "test-key",
+        baseUrl: "https://example.com/v1",
+        model: "test-reasoner",
+        timeoutMs: 30_000,
+      },
+      completeJson: async () => output,
+    }) as unknown as OpenAiCompatibleJsonClient;
+
   it("turns a research bundle into a structured thesis draft", async () => {
     const state = createInitialSwarmState({ run, config });
-    const agent = createAnalystAgent();
+    const agent = createAnalystAgent({
+      llmClient: createAnalystLlmClient({
+        thesis: {
+          candidateId: "ignored-by-sanitizer",
+          asset: "ignored-by-sanitizer",
+          direction: "LONG",
+          confidence: 88,
+          orderType: "market",
+          tradingStyle: "day_trade",
+          expectedDuration: "8-16 hours",
+          currentPrice: 65000,
+          entryPrice: 65000,
+          targetPrice: 72000,
+          stopLoss: 62000,
+          riskReward: 2.6,
+          whyNow: "BTC reclaimed local range highs with enough confirmation.",
+          confluences: ["Range reclaim", "Constructive sentiment"],
+          uncertaintyNotes: "Funding data was estimated from fallback inputs.",
+          missingDataNotes: "Funding data was estimated from fallback inputs.",
+        },
+        analystNotes: ["Model fixture preferred the breakout path."],
+      }),
+    });
 
     const result = await agent.invoke(
       {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         research: {
@@ -167,7 +200,7 @@ describe("analyst agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         research: {
@@ -244,7 +277,7 @@ describe("analyst agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-normalize-model",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         research: {
@@ -337,7 +370,7 @@ describe("analyst agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-stale-market",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         research: {
@@ -384,14 +417,36 @@ describe("analyst agent", () => {
 
   it("derives a short thesis from downward chart language without a direction hint", async () => {
     const state = createInitialSwarmState({ run, config });
-    const agent = createAnalystAgent({ llmClient: null });
+    const agent = createAnalystAgent({
+      llmClient: createAnalystLlmClient({
+        thesis: {
+          candidateId: "ignored-by-sanitizer",
+          asset: "ignored-by-sanitizer",
+          direction: "SHORT",
+          confidence: 87,
+          orderType: "limit",
+          tradingStyle: "day_trade",
+          expectedDuration: "8-16 hours",
+          currentPrice: 83.83,
+          entryPrice: 84,
+          targetPrice: 78,
+          stopLoss: 87,
+          riskReward: 2,
+          whyNow: "SOL has an actionable downside setup from downward chart language.",
+          confluences: ["Lower lows", "Weak relative performance"],
+          uncertaintyNotes: "Continuation needs confirmation.",
+          missingDataNotes: "No additional missing-data flags.",
+        },
+        analystNotes: ["Model fixture derived the short setup."],
+      }),
+    });
 
     const result = await agent.invoke(
       {
         context: {
           runId: run.id,
           threadId: "thread-short",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         research: {
@@ -455,7 +510,27 @@ describe("analyst agent", () => {
       };
     });
     const agent = createAnalystAgent({
-      llmClient: null,
+      llmClient: createAnalystLlmClient({
+        thesis: {
+          candidateId: "ignored-by-sanitizer",
+          asset: "ignored-by-sanitizer",
+          direction: "LONG",
+          confidence: 89,
+          orderType: "limit",
+          tradingStyle: "day_trade",
+          expectedDuration: "8-16 hours",
+          currentPrice: 112,
+          entryPrice: 111,
+          targetPrice: 120,
+          stopLoss: 107,
+          riskReward: 2.25,
+          whyNow: "Analyzer TA and market chart 1H structure support a live setup.",
+          confluences: ["Analyzer TA constructive", "1H structure held"],
+          uncertaintyNotes: "Needs continued volume confirmation.",
+          missingDataNotes: "No additional missing-data flags.",
+        },
+        analystNotes: ["technical analyzer TA confirmed by market chart"],
+      }),
       marketData: {
         getSnapshot: async () => {
           calls.push("get_token_price/binance_snapshot");

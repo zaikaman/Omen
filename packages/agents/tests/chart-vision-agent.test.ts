@@ -30,7 +30,7 @@ const buildCandles = (intervalMinutes: number): MarketCandle[] =>
 describe("chart vision agent", () => {
   const run = {
     id: "run-chart-vision-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "LONG" as const,
     startedAt: null,
@@ -49,7 +49,7 @@ describe("chart vision agent", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH", "SOL"],
     qualityThresholds: {
       minConfidence: 85,
@@ -89,11 +89,7 @@ describe("chart vision agent", () => {
         }),
       } as unknown as BinanceMarketService,
       chartImageService: {
-        generateCandlestickChart: async ({
-          timeframe,
-        }: {
-          timeframe: "15m" | "1h" | "4h";
-        }) => ({
+        generateCandlestickChart: async ({ timeframe }: { timeframe: "15m" | "1h" | "4h" }) => ({
           base64: Buffer.from(`chart:${timeframe}`).toString("base64"),
           mimeType: "image/png" as const,
           width: 1600,
@@ -128,7 +124,7 @@ describe("chart vision agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-chart-vision-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         candidate: {
@@ -163,7 +159,10 @@ describe("chart vision agent", () => {
       marketData: {
         getCandles: async ({ interval }: { interval: "15m" | "1h" | "4h" }) => ({
           ok: true,
-          value: interval === "4h" ? buildCandles(240).slice(0, 90) : buildCandles(interval === "15m" ? 15 : 60),
+          value:
+            interval === "4h"
+              ? buildCandles(240).slice(0, 90)
+              : buildCandles(interval === "15m" ? 15 : 60),
         }),
       } as unknown as BinanceMarketService,
       chartImageService: {
@@ -189,7 +188,7 @@ describe("chart vision agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-chart-vision-2",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         candidate: {

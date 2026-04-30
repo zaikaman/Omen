@@ -66,50 +66,6 @@ const lowSignalNarrativePatterns = [
   /\bpress release\b/i,
 ];
 
-const rawProviderListPatterns = [
-  /^coingecko trending tokens:/i,
-  /^birdeye trending tokens:/i,
-  /^top watched movers:/i,
-  /^coingecko top gainers:/i,
-  /^defillama top chain tvl:/i,
-];
-
-const isRawProviderListEvidence = (item: EvidenceItem) =>
-  rawProviderListPatterns.some((pattern) => pattern.test(item.summary.trim()));
-
-const templateEvidenceRank = (item: EvidenceItem) => {
-  if (item.structuredData.source === "intel-research") {
-    return 0;
-  }
-
-  if (
-    item.category === "catalyst" ||
-    item.category === "fundamental" ||
-    item.category === "liquidity"
-  ) {
-    return 1;
-  }
-
-  if (item.category === "sentiment" && !isRawProviderListEvidence(item)) {
-    return 2;
-  }
-
-  if (item.category === "market") {
-    return 3;
-  }
-
-  return isRawProviderListEvidence(item) ? 5 : 4;
-};
-
-const sortTemplateEvidence = (evidence: EvidenceItem[]) =>
-  [...evidence].sort((left, right) => templateEvidenceRank(left) - templateEvidenceRank(right));
-
-const summarizeEvidence = (evidence: EvidenceItem[]) =>
-  sortTemplateEvidence(evidence)
-    .slice(0, 4)
-    .map((item) => item.summary.replace(/\s+/g, " ").trim())
-    .join(" ");
-
 const trimToLength = (value: string, maxLength: number) => {
   const normalized = value.replace(/\s+/g, " ").trim();
 
@@ -162,10 +118,7 @@ const isIntelOwnedEvidence = (item: EvidenceItem) =>
   item.structuredData.source === "intel-research";
 
 const toTemplateEvidence = (evidence: EvidenceItem[]) =>
-  evidence.filter(
-    (item) =>
-      isIntelOwnedEvidence(item),
-  );
+  evidence.filter((item) => isIntelOwnedEvidence(item));
 
 const extractSymbols = (text: string) => [
   ...new Set(
@@ -232,7 +185,9 @@ const templateIntelToReport = (input: {
       "strictly visual-only full-bleed scene with no title card, no banner, no header strip, no lower third, no text panel, no article layout, no news card, no readable or pseudo-readable text",
       "single cinematic visual-only market-intelligence scene, not a poster, not an infographic, not a presentation slide, not a webpage, not an article thumbnail",
       "relevant, distinct, creative visual metaphor; vary the setting, subject, scale, materials, lighting, camera angle, and mood for each report; suitable styles include cinematic realism, surreal physical scenes, speculative architecture, macro material studies, symbolic environments, industrial systems, orbital scenes, underwater scenes, landscapes, or other fitting non-textual imagery",
-      `depict ${replaceImagePromptSymbolMentions(title, symbols).replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset").toLowerCase()} as visual metaphor only`,
+      `depict ${replaceImagePromptSymbolMentions(title, symbols)
+        .replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset")
+        .toLowerCase()} as visual metaphor only`,
       `the scene should be driven by ${trimToLength(replaceImagePromptSymbolMentions(insight, symbols).replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset"), 180).toLowerCase()}`,
       symbols.length > 0
         ? "depict the specific named-asset thesis as a visual story with unmarked competing forces, changing momentum, capital rotation, and risk/attention pressure matching the report"
@@ -253,28 +208,36 @@ const formatSignedPercent = (value: number | null) =>
 const topTrendingSymbols = (tokens: TrendingToken[], limit: number) =>
   tokens
     .slice(0, limit)
-    .map((token) => `${token.symbol.toUpperCase()}${token.rank === null ? "" : ` rank ${token.rank.toString()}`}`)
+    .map(
+      (token) =>
+        `${token.symbol.toUpperCase()}${token.rank === null ? "" : ` rank ${token.rank.toString()}`}`,
+    )
     .join("; ");
 
 const topMoversSummary = (snapshots: MarketSnapshot[], limit: number) =>
   snapshots
     .slice(0, limit)
-    .map((snapshot) => `${snapshot.symbol.toUpperCase()} ${formatSignedPercent(snapshot.change24hPercent)}`)
+    .map(
+      (snapshot) =>
+        `${snapshot.symbol.toUpperCase()} ${formatSignedPercent(snapshot.change24hPercent)}`,
+    )
     .join("; ");
 
 const protocolStatsSummary = (protocols: DefiProtocolStat[], limit: number) =>
   protocols
     .slice(0, limit)
-    .map((protocol) =>
-      `${protocol.name}${protocol.chain ? ` on ${protocol.chain}` : ""} TVL $${Math.round(protocol.tvlUsd).toLocaleString("en-US")} 1d ${formatSignedPercent(protocol.tvlChange1dPercent)}`,
+    .map(
+      (protocol) =>
+        `${protocol.name}${protocol.chain ? ` on ${protocol.chain}` : ""} TVL $${Math.round(protocol.tvlUsd).toLocaleString("en-US")} 1d ${formatSignedPercent(protocol.tvlChange1dPercent)}`,
     )
     .join("; ");
 
 const yieldPoolsSummary = (pools: DefiYieldPool[], limit: number) =>
   pools
     .slice(0, limit)
-    .map((pool) =>
-      `${pool.project} ${pool.symbol} on ${pool.chain} APY ${pool.apy.toFixed(2)}% TVL $${Math.round(pool.tvlUsd).toLocaleString("en-US")}`,
+    .map(
+      (pool) =>
+        `${pool.project} ${pool.symbol} on ${pool.chain} APY ${pool.apy.toFixed(2)}% TVL $${Math.round(pool.tvlUsd).toLocaleString("en-US")}`,
     )
     .join("; ");
 
@@ -302,10 +265,7 @@ const buildTemplateMarketData = (evidence: EvidenceItem[]) => {
       bitcoin:
         findItems("coingecko", "global_market_context").find(
           (item) =>
-            typeof item === "object" &&
-            item !== null &&
-            "symbol" in item &&
-            item.symbol === "BTC",
+            typeof item === "object" && item !== null && "symbol" in item && item.symbol === "BTC",
         ) ?? null,
     },
     trending_coingecko: findItems("coingecko", "trending"),
@@ -534,20 +494,27 @@ export class IntelAgentFactory {
       defiProtocols,
       defiYields,
       defiChains,
-    ] =
-      await Promise.allSettled([
-        state.config.providers.coinGecko.enabled
-          ? this.coinGecko.getAssetSnapshot("BTC")
-          : Promise.resolve(null),
-        state.config.providers.coinGecko.enabled ? this.coinGecko.getTrending() : Promise.resolve(null),
-        state.config.providers.coinGecko.enabled
-          ? this.coinGecko.getTopGainersLosers(12)
-          : Promise.resolve(null),
-        this.birdeye.getTrendingTokens(10),
-        state.config.providers.defiLlama.enabled ? this.defiLlama.getProtocolStats(8) : Promise.resolve(null),
-        state.config.providers.defiLlama.enabled ? this.defiLlama.getYieldPools(12) : Promise.resolve(null),
-        state.config.providers.defiLlama.enabled ? this.defiLlama.getGlobalTVL(6) : Promise.resolve(null),
-      ]);
+    ] = await Promise.allSettled([
+      state.config.providers.coinGecko.enabled
+        ? this.coinGecko.getAssetSnapshot("BTC")
+        : Promise.resolve(null),
+      state.config.providers.coinGecko.enabled
+        ? this.coinGecko.getTrending()
+        : Promise.resolve(null),
+      state.config.providers.coinGecko.enabled
+        ? this.coinGecko.getTopGainersLosers(12)
+        : Promise.resolve(null),
+      this.birdeye.getTrendingTokens(10),
+      state.config.providers.defiLlama.enabled
+        ? this.defiLlama.getProtocolStats(8)
+        : Promise.resolve(null),
+      state.config.providers.defiLlama.enabled
+        ? this.defiLlama.getYieldPools(12)
+        : Promise.resolve(null),
+      state.config.providers.defiLlama.enabled
+        ? this.defiLlama.getGlobalTVL(6)
+        : Promise.resolve(null),
+    ]);
 
     if (bitcoinContext.status === "fulfilled" && bitcoinContext.value?.ok) {
       append({

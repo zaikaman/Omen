@@ -61,7 +61,9 @@ describe("OpenAiCompatibleJsonClient", () => {
   });
 
   it("uses clean restarts after five repair attempts", async () => {
-    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(createJsonResponse({ text: 123 })));
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(createJsonResponse({ text: 123 })));
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new OpenAiCompatibleJsonClient({
@@ -105,7 +107,9 @@ describe("OpenAiCompatibleJsonClient", () => {
   });
 
   it("throws after eight failed attempts", async () => {
-    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(createJsonResponse({ text: 123 })));
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(createJsonResponse({ text: 123 })));
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new OpenAiCompatibleJsonClient({

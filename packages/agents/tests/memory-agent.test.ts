@@ -5,7 +5,7 @@ import { createInitialSwarmState, createMemoryAgent } from "../src/index.js";
 describe("memory agent", () => {
   const run = {
     id: "run-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "LONG" as const,
     startedAt: null,
@@ -24,7 +24,7 @@ describe("memory agent", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH", "SOL"],
     qualityThresholds: {
       minConfidence: 85,
@@ -58,7 +58,7 @@ describe("memory agent", () => {
         context: {
           runId: run.id,
           threadId: "thread-1",
-          mode: "mocked",
+          mode: "live",
           triggeredBy: "scheduler",
         },
         checkpointLabel: "critic approved",
