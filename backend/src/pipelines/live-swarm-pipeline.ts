@@ -4,6 +4,7 @@ import {
   analystInputSchema,
   chartVisionInputSchema,
   criticInputSchema,
+  criticOutputSchema,
   createOmenGraphFactory,
   generatorInputSchema,
   intelInputSchema,
@@ -14,6 +15,7 @@ import {
   scannerInputSchema,
   writerInputSchema,
   type GraphFactory,
+  type CriticInput,
   type OmenSwarmNodeInvoker,
   type SwarmCheckpoint,
   type SwarmCheckpointStore,
@@ -38,6 +40,7 @@ import {
   ZeroGStateStore,
   type ZeroGAdapterConfig,
   ZeroGClientAdapter,
+  ZeroGAdjudication,
   ZeroGProofAnchor,
 } from "@omen/zero-g";
 import { TRADEABLE_SYMBOLS } from "@omen/shared";
@@ -118,6 +121,12 @@ const axlHealthMethodByRole = {
   analyst: "analyst.health",
   critic: "critic.health",
 } as const;
+
+const criticDecisionRank = {
+  approved: 0,
+  watchlist_only: 1,
+  rejected: 2,
+} as const satisfies Record<"approved" | "watchlist_only" | "rejected", number>;
 
 const defaultAxlServiceByRole: Record<Exclude<AgentRole, "monitor">, string> = {
   orchestrator: "orchestrator",
@@ -221,6 +230,31 @@ const replaceImagePromptSymbolMentions = (value: string, symbols: readonly strin
       ),
     value,
   );
+
+const summarizeThesisForCompute = (thesis: SwarmState["thesisDrafts"][number]) =>
+  [
+    `${thesis.asset} ${thesis.direction} confidence ${thesis.confidence.toString()}.`,
+    thesis.riskReward === null
+      ? "Risk/reward unavailable."
+      : `Risk/reward ${thesis.riskReward.toString()}.`,
+    `Why now: ${thesis.whyNow}`,
+    `Confluences: ${thesis.confluences.join("; ") || "none"}.`,
+    `Uncertainty: ${thesis.uncertaintyNotes}`,
+    `Missing data: ${thesis.missingDataNotes}`,
+  ].join(" ");
+
+const summarizeEvidenceForCompute = (evidence: SwarmState["evidenceItems"]) =>
+  evidence.length > 0
+    ? evidence.map(
+        (item) =>
+          `${item.category}: ${item.summary} (source: ${item.sourceLabel}${
+            item.sourceUrl ? `, ${item.sourceUrl}` : ""
+          })`,
+      )
+    : ["No evidence items were supplied."];
+
+const truncateComputeOutputPreview = (value: string, maxLength = 500) =>
+  value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 
 const buildIntelImagePrompt = (report: SwarmState["intelReports"][number]) =>
   report.imagePrompt ??
@@ -581,6 +615,8 @@ class LivePipelineExecutionContext {
 
   private readonly zeroGPublisher: ZeroGPublisher | null;
 
+  private readonly zeroGAdjudication: ZeroGAdjudication | null;
+
   private readonly zeroGStateStore: ZeroGStateStore | null;
 
   private readonly zeroGLogStore: ZeroGLogStore | null;
@@ -721,6 +757,7 @@ class LivePipelineExecutionContext {
       const adapter = new ZeroGClientAdapter(zeroGConfig);
       this.zeroGStateStore = new ZeroGStateStore(adapter);
       this.zeroGLogStore = new ZeroGLogStore(adapter);
+      this.zeroGAdjudication = zeroGConfig.compute ? new ZeroGAdjudication(adapter) : null;
       this.zeroGPublisher = new ZeroGPublisher(zeroGConfig);
       this.evidenceBundlePublisher = new EvidenceBundlePublisher(zeroGConfig);
       this.reportBundlePublisher = new ReportBundlePublisher(zeroGConfig);
@@ -730,6 +767,7 @@ class LivePipelineExecutionContext {
     } else {
       this.zeroGStateStore = null;
       this.zeroGLogStore = null;
+      this.zeroGAdjudication = null;
       this.zeroGPublisher = null;
       this.evidenceBundlePublisher = null;
       this.reportBundlePublisher = null;
@@ -1164,6 +1202,92 @@ class LivePipelineExecutionContext {
     return [...this.artifacts];
   }
 
+  private async refineCriticOutputWithZeroG(input: {
+    runId: string;
+    nodeInput: CriticInput;
+    output: unknown;
+  }) {
+    const parsedOutput = criticOutputSchema.parse(input.output);
+
+    if (!this.zeroGAdjudication) {
+      return parsedOutput;
+    }
+
+    const thesis = input.nodeInput.evaluation.thesis;
+    const evidence = input.nodeInput.evaluation.evidence;
+    const result = await this.zeroGAdjudication.adjudicate({
+      runId: input.runId,
+      thesis: summarizeThesisForCompute(thesis),
+      evidence: summarizeEvidenceForCompute(evidence),
+      priorDecision: parsedOutput.review.decision,
+      model: this.input.env.zeroG.computeModel,
+      prompt: [
+        "You are a sealed 0G Compute critic inside the Omen agent loop, before routing or publishing.",
+        "Review the local critic decision against the thesis and evidence only.",
+        "Return a concise result with these exact fields:",
+        "VERDICT: approved | rejected | watchlist_only",
+        "CONFIDENCE: integer 0-100",
+        "RATIONALE: one sentence",
+        "Do not invent data. Prefer downgrading when evidence, confluence, or risk/reward is weak.",
+        `Run ID: ${input.runId}`,
+        `Local critic decision: ${parsedOutput.review.decision}`,
+        `Local objections: ${parsedOutput.review.objections.join("; ") || "none"}`,
+        `Local blocking reasons: ${parsedOutput.blockingReasons.join("; ") || "none"}`,
+        "Thesis:",
+        summarizeThesisForCompute(thesis),
+        "Evidence:",
+        ...summarizeEvidenceForCompute(evidence).map(
+          (item, index) => `${(index + 1).toString()}. ${item}`,
+        ),
+      ].join("\n"),
+      signalId: null,
+      intelId: null,
+      metadata: {
+        stage: "critic_reflection",
+        localDecision: parsedOutput.review.decision,
+        candidateId: thesis.candidateId,
+        asset: thesis.asset,
+      },
+    });
+
+    if (!result.ok) {
+      this.logger.warn(
+        "0G critic reflection failed; continuing with local critic output.",
+        result.error,
+      );
+      return parsedOutput;
+    }
+
+    await this.safeRecordArtifact(result.value.artifact);
+
+    const zeroGDecision = result.value.decisionHint;
+    const localDecision = parsedOutput.review.decision;
+    const shouldUseZeroGDecision =
+      zeroGDecision !== "unknown" &&
+      criticDecisionRank[zeroGDecision] > criticDecisionRank[localDecision];
+    const decision = shouldUseZeroGDecision ? zeroGDecision : localDecision;
+    const zeroGPreview = truncateComputeOutputPreview(result.value.output);
+    const zeroGNote = shouldUseZeroGDecision
+      ? `0G Compute sealed critic downgraded ${localDecision} to ${zeroGDecision}: ${zeroGPreview}`
+      : `0G Compute verified critic decision ${localDecision}: ${zeroGPreview}`;
+
+    return criticOutputSchema.parse({
+      ...parsedOutput,
+      review: {
+        ...parsedOutput.review,
+        decision,
+        objections: Array.from(new Set([...parsedOutput.review.objections, zeroGNote])),
+        forcedOutcomeReason: shouldUseZeroGDecision
+          ? zeroGNote
+          : parsedOutput.review.forcedOutcomeReason,
+      },
+      blockingReasons: shouldUseZeroGDecision
+        ? Array.from(new Set([...parsedOutput.blockingReasons, zeroGNote]))
+        : parsedOutput.blockingReasons,
+      proofArtifacts: [...parsedOutput.proofArtifacts, result.value.artifact],
+    });
+  }
+
   createAxlNodeInvoker(): OmenSwarmNodeInvoker | null {
     if (
       !this.axlTransportAvailable ||
@@ -1181,11 +1305,7 @@ class LivePipelineExecutionContext {
     const fromPeerId = this.axlServicePeerId;
     const preferredPeerId = this.axlServicePeerId;
 
-    const failAxlDelegation = (input: {
-      nodeKey: string;
-      role: string;
-      error: Error;
-    }): never => {
+    const failAxlDelegation = (input: { nodeKey: string; role: string; error: Error }): never => {
       throw new Error(
         `AXL A2A ${input.role} delegation failed for ${input.nodeKey}: ${input.error.message}`,
       );
@@ -1365,7 +1485,11 @@ class LivePipelineExecutionContext {
           });
 
           if (delegated.ok) {
-            return delegated.value.output;
+            return this.refineCriticOutputWithZeroG({
+              runId: state.run.id,
+              nodeInput: payload,
+              output: delegated.value.output,
+            });
           }
 
           return failAxlDelegation({

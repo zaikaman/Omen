@@ -619,10 +619,16 @@ export const applyOmenNodeOutput = (input: {
       candidateId: output.review.candidateId || thesis?.candidateId || "unknown",
     });
     const blockingReasons = output.blockingReasons ?? [];
+    const proofArtifacts = output.proofArtifacts ?? [];
     const stateDelta = {
       criticReviews: [...input.state.criticReviews, review],
       errors: [...input.state.errors, ...blockingReasons],
-      notes: [...input.state.notes, `critic-decision:${review.decision}`],
+      proofArtifacts: [...input.state.proofArtifacts, ...proofArtifacts],
+      notes: [
+        ...input.state.notes,
+        `critic-decision:${review.decision}`,
+        ...proofArtifacts.map((artifact) => `proof-ref:${artifact.id}`),
+      ],
     };
 
     return {

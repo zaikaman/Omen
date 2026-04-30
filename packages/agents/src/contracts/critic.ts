@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-import { orchestrationContextSchema, criticReviewSchema, thesisEvaluationSchema } from "./common.js";
+import { proofArtifactSchema } from "@omen/shared";
+
+import {
+  orchestrationContextSchema,
+  criticReviewSchema,
+  thesisEvaluationSchema,
+} from "./common.js";
 
 export const criticInputSchema = z.object({
   context: orchestrationContextSchema,
@@ -10,6 +16,7 @@ export const criticInputSchema = z.object({
 export const criticOutputSchema = z.object({
   review: criticReviewSchema,
   blockingReasons: z.array(z.string().min(1)).default([]),
+  proofArtifacts: z.array(proofArtifactSchema).default([]),
 });
 
 export type CriticInput = z.infer<typeof criticInputSchema>;
