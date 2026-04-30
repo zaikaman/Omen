@@ -10,7 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "mcp:host": "tsx src/scripts/omen-mcp-host.ts",
-    "a2a:router": "tsx src/scripts/omen-a2a-router.ts",
+    "a2a:callback-adapter": "tsx src/scripts/omen-a2a-callback-adapter.ts",
     "run:scheduled": "tsx src/scripts/run-scheduled-cycle.ts",
     "run:scheduled:prod": "tsx src/scripts/run-scheduled-cycle.ts",
     "smoke:live": "tsx src/scripts/smoke-live-swarm.ts",

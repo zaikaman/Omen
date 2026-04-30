@@ -5,26 +5,28 @@ import type { AxlHttpNodeAdapter } from "@omen/axl";
 import { AxlNodeManager } from "./axl-node-manager.js";
 import { AxlPeerRegistry } from "./axl-peer-registry.js";
 
+const peerId = (suffix: string) => `${"0".repeat(62)}${suffix}`;
+
 describe("AxlNodeManager", () => {
   it("registers the full Omen swarm topology as logical AXL nodes", () => {
     const registry = new AxlPeerRegistry();
     const manager = new AxlNodeManager({
       adapter: {} as AxlHttpNodeAdapter,
       peerRegistry: registry,
-      orchestratorPeerId: "omen-orchestrator",
+      orchestratorPeerId: peerId("01"),
       peerIdsByRole: {
-        orchestrator: "omen-orchestrator",
-        market_bias: "omen-market-bias",
-        scanner: "omen-scanner",
-        research: "omen-research",
-        chart_vision: "omen-chart-vision",
-        analyst: "omen-analyst",
-        critic: "omen-critic",
-        intel: "omen-intel",
-        generator: "omen-generator",
-        writer: "omen-writer",
-        publisher: "omen-publisher",
-        memory: "omen-memory",
+        orchestrator: peerId("01"),
+        market_bias: peerId("02"),
+        scanner: peerId("03"),
+        research: peerId("04"),
+        chart_vision: peerId("05"),
+        analyst: peerId("06"),
+        critic: peerId("07"),
+        intel: peerId("08"),
+        generator: peerId("09"),
+        writer: peerId("0a"),
+        publisher: peerId("0b"),
+        memory: peerId("0c"),
       },
     });
 
@@ -49,7 +51,7 @@ describe("AxlNodeManager", () => {
       ].sort(),
     );
     expect(nodes.every((node) => node.transport === "axl")).toBe(true);
-    expect(nodes.every((node) => node.peerId?.startsWith("omen-"))).toBe(true);
+    expect(nodes.every((node) => /^[0-9a-f]{64}$/i.test(node.peerId ?? ""))).toBe(true);
     expect(registry.listServices()).toHaveLength(12);
   });
 });

@@ -249,11 +249,17 @@ const summarize = (role: string, output: Record<string, unknown>) => {
   return {};
 };
 
-const resolvePeerIdForRole = (role: string, fallbackPeerId: string) => {
+const isValidAxlPeerId = (value: string) => /^[0-9a-f]{64}$/i.test(value);
+
+const resolvePeerIdForRole = (role: string) => {
   const envName = peerEnvByRole[role];
   const configured = envName ? process.env[envName]?.trim() : null;
 
-  return configured || fallbackPeerId;
+  if (!configured || !isValidAxlPeerId(configured)) {
+    throw new Error(`Missing valid explicit peer id for ${role}. Set ${envName}.`);
+  }
+
+  return configured;
 };
 
 const main = async () => {
@@ -263,18 +269,16 @@ const main = async () => {
   }
 
   const topology = (await topologyResponse.json()) as { our_public_key?: unknown };
-  const peerId =
-    process.env.AXL_SERVICE_PEER_ID?.trim() ||
-    (typeof topology.our_public_key === "string" ? topology.our_public_key : "");
+  const peerId = typeof topology.our_public_key === "string" ? topology.our_public_key : "";
 
-  if (!peerId) {
-    throw new Error("Could not resolve the orchestrator AXL peer id.");
+  if (!isValidAxlPeerId(peerId)) {
+    throw new Error("Could not resolve a valid orchestrator AXL peer id from /topology.");
   }
   const results = [];
 
   for (const task of tasks) {
     const started = Date.now();
-    const targetPeerId = resolvePeerIdForRole(task.role, peerId);
+    const targetPeerId = resolvePeerIdForRole(task.role);
     const request = createDelegationRequest({
       delegationId: `${runId}:${task.role}`,
       runId,

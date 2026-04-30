@@ -188,9 +188,24 @@ const hasTwitterPostingConfig = (env: BackendEnv) =>
 const hasSupabasePersistenceConfig = (env: BackendEnv) =>
   Boolean(env.supabase.url && env.supabase.serviceRoleKey);
 
-const hasAxlTransportConfig = (env: BackendEnv) => Boolean(env.axl.nodeBaseUrl);
+const isValidAxlPeerId = (value: string) => /^[0-9a-f]{64}$/i.test(value);
 
-const hasConfiguredAxlServicePeer = (env: BackendEnv) => Boolean(env.axl.servicePeerId?.trim());
+const hasAxlTransportConfig = (env: BackendEnv) =>
+  Boolean(
+    env.axl.nodeBaseUrl &&
+      isValidAxlPeerId(env.axl.nodes.orchestrator) &&
+      isValidAxlPeerId(env.axl.nodes.marketBias) &&
+      isValidAxlPeerId(env.axl.nodes.scanner) &&
+      isValidAxlPeerId(env.axl.nodes.research) &&
+      isValidAxlPeerId(env.axl.nodes.chartVision) &&
+      isValidAxlPeerId(env.axl.nodes.analyst) &&
+      isValidAxlPeerId(env.axl.nodes.critic) &&
+      isValidAxlPeerId(env.axl.nodes.intel) &&
+      isValidAxlPeerId(env.axl.nodes.generator) &&
+      isValidAxlPeerId(env.axl.nodes.writer) &&
+      isValidAxlPeerId(env.axl.nodes.publisher) &&
+      isValidAxlPeerId(env.axl.nodes.memory),
+  );
 
 const hasZeroGStorageConfig = (env: BackendEnv) =>
   Boolean(env.zeroG.indexerUrl && env.zeroG.rpcUrl && env.zeroG.privateKey);
@@ -1532,9 +1547,11 @@ class LivePipelineExecutionContext {
     const resolvePreferredPeerId = (role: Exclude<AgentRole, "monitor">) => {
       const rolePeerId = resolveAxlNodePeerId(this.input.env.axl.nodes, role);
 
-      return rolePeerId && !rolePeerId.startsWith("omen-")
-        ? rolePeerId
-        : this.axlServicePeerId;
+      if (!isValidAxlPeerId(rolePeerId)) {
+        throw new Error(`A valid AXL peer ID is not configured for ${role}.`);
+      }
+
+      return rolePeerId;
     };
 
     const failAxlDelegation = (input: { nodeKey: string; role: string; error: Error }): never => {
@@ -2202,7 +2219,6 @@ class LivePipelineExecutionContext {
           payload: {
             axlBaseUrl: this.input.env.axl.nodeBaseUrl,
             timeoutMs: this.input.env.axl.requestTimeoutMs,
-            fallbackPeerIdConfigured: hasConfiguredAxlServicePeer(this.input.env),
           },
           timestamp: observedAt,
           correlationId: `${runId}:axl-probe`,
@@ -2211,11 +2227,6 @@ class LivePipelineExecutionContext {
           signalId: null,
           intelId: null,
         });
-      }
-
-      if (hasConfiguredAxlServicePeer(this.input.env)) {
-        this.axlServicePeerId = this.input.env.axl.servicePeerId;
-        return true;
       }
 
       return false;

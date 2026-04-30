@@ -95,9 +95,8 @@ const resolvePeerIdForService = (service: string) => {
   const envName = rolePeerEnvByService[service];
   const configured = envName ? process.env[envName]?.trim() : "";
   const demoPeerId = resolvePeerIdFromDemoFile(service);
-  const fallback = process.env.AXL_SERVICE_PEER_ID?.trim() ?? "";
 
-  for (const peerId of [configured, demoPeerId, fallback]) {
+  for (const peerId of [configured, demoPeerId]) {
     if (peerId && isValidAxlPeerId(peerId)) {
       return peerId;
     }
@@ -147,9 +146,9 @@ app.use(express.json({ limit: "2mb" }));
 app.get("/health", (_req, res) => {
   res.json({
     success: true,
-    service: "omen-a2a-router",
+    service: "omen-a2a-callback-adapter",
     status: "ok",
-    mode: "axl-mcp-router",
+    mode: "local-a2a-callback-adapter",
     axlApiBaseUrl: env.axlApiBaseUrl,
     demoDir: env.demoDir,
     mcpTimeoutMs: env.mcpTimeoutMs,
@@ -159,8 +158,9 @@ app.get("/health", (_req, res) => {
 
 app.get("/.well-known/agent-card.json", (_req, res) => {
   res.json({
-    name: "Omen AXL Demo A2A Router",
-    description: "Routes A2A MCP requests through AXL MCP peer routing into Omen role MCP routers.",
+    name: "Omen AXL Demo A2A Callback Adapter",
+    description:
+      "Local callback adapter for the AXL node A2A endpoint. It resolves explicit role peer IDs and invokes AXL MCP peer routing; it is not a message broker.",
     version: "0.1.0",
     default_input_modes: ["text", "application/json"],
     default_output_modes: ["text", "application/json"],
@@ -195,7 +195,7 @@ app.post(/.*/, async (req, res) => {
         createErrorResponse({
           id,
           code: -32601,
-          message: `No AXL peer ID is configured for service ${service}.`,
+          message: `No explicit AXL peer ID is configured for service ${service}. Set ${rolePeerEnvByService[service]} or start that role node so ${path.join(env.demoDir, service, "peer-id.txt")} exists.`,
         }),
       );
       return;
@@ -278,12 +278,12 @@ app.post(/.*/, async (req, res) => {
 let server: Server | null = null;
 
 server = app.listen(env.port, env.host, () => {
-  console.log(`[omen-a2a-router] listening on http://${env.host}:${env.port.toString()}`);
+  console.log(`[omen-a2a-callback-adapter] listening on http://${env.host}:${env.port.toString()}`);
   console.log(
-    `[omen-a2a-router] routing ${Object.keys(rolePeerEnvByService).length.toString()} services through AXL MCP endpoints`,
+    `[omen-a2a-callback-adapter] resolving ${Object.keys(rolePeerEnvByService).length.toString()} explicit role peer IDs for AXL MCP callbacks`,
   );
-  console.log(`[omen-a2a-router] AXL API base ${env.axlApiBaseUrl}`);
-  console.log(`[omen-a2a-router] MCP timeout ${env.mcpTimeoutMs.toString()}ms`);
+  console.log(`[omen-a2a-callback-adapter] AXL API base ${env.axlApiBaseUrl}`);
+  console.log(`[omen-a2a-callback-adapter] MCP timeout ${env.mcpTimeoutMs.toString()}ms`);
 });
 
 const shutdown = () => {

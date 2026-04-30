@@ -12,7 +12,7 @@ pnpm run axl:start:demo
 
 This starts:
 
-- `orchestrator`: AXL API on `http://127.0.0.1:9002`; owns the shared local A2A router.
+- `orchestrator`: AXL API on `http://127.0.0.1:9002`; owns the local A2A callback adapter used by the AXL node callback port.
 - `market_bias`: separate AXL node and market-bias MCP/A2A service.
 - `scanner`: separate AXL node and scanner MCP/A2A service.
 - `research`: separate AXL node and research MCP/A2A service.
@@ -29,7 +29,9 @@ Runtime files are written under `local/axl/demo/<role>`. Logs are written under 
 
 The launcher builds `local/axl/node.exe` from the checked-in `axl/cmd/node` source when the binary is missing or older than the source tree. Node configs set `a2a_peer_timeout_secs` and `mcp_peer_timeout_secs` to `300`, so long real agent calls can complete without the old 30-second peer cutoff.
 
-The local AXL binary currently uses the default A2A callback port, so the demo runs one shared Omen A2A router on `127.0.0.1:9004`. Each role still has its own AXL node identity, AXL API port, Python MCP router, MCP host, service registration, and peer ID. The shared A2A router resolves the target role peer ID at request time and calls the orchestrator AXL MCP endpoint (`/mcp/{peerId}/{service}`), so execution flows through the target node's Python MCP router before reaching the Omen MCP host.
+The local AXL binary currently uses the default A2A callback port, so the demo runs one local Omen A2A callback adapter on `127.0.0.1:9004`. This adapter is not a message broker and does not replace AXL routing. It only receives the AXL node's local A2A callback, requires an explicit peer ID for the requested role, and calls the orchestrator AXL MCP endpoint (`/mcp/{peerId}/{service}`). Execution still flows through AXL to the target role node's Python MCP router before reaching that role's Omen MCP host.
+
+The demo intentionally fails when a role peer ID is missing. It no longer maps missing roles to the orchestrator peer ID and no longer uses `AXL_SERVICE_PEER_ID` as a generic service fallback. Each role must have its own captured peer ID in `local/axl/demo/<role>/peer-id.txt` or an explicit `AXL_<ROLE>_NODE_ID` environment value.
 
 The launcher writes the backend env snippet to:
 

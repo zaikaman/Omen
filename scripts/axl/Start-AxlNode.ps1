@@ -179,9 +179,9 @@ if (!$NoA2A -and $Role -eq "orchestrator") {
     "`$env:OMEN_A2A_AXL_API_BASE_URL='http://127.0.0.1:$($ports.Api)'",
     "`$env:OMEN_A2A_DEMO_DIR=$(Quote-PowerShellString (Join-Path $Root 'local\axl\demo'))",
     "`$env:OMEN_A2A_MCP_TIMEOUT_MS='300000'",
-    "pnpm --dir backend run a2a:router"
+    "pnpm --dir backend run a2a:callback-adapter"
   ) -join "; "
-  $started += Start-LoggedProcess -Name "a2a" -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $a2aCommand)
+  $started += Start-LoggedProcess -Name "a2a-callback-adapter" -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $a2aCommand)
 }
 
 $started | ConvertTo-Json -Depth 4 | Set-Content -Path $pidPath -Encoding ASCII

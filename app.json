@@ -85,8 +85,41 @@
       "required": false,
       "value": "300000"
     },
-    "AXL_SERVICE_PEER_ID": {
-      "required": false
+    "AXL_ORCHESTRATOR_NODE_ID": {
+      "required": true
+    },
+    "AXL_MARKET_BIAS_NODE_ID": {
+      "required": true
+    },
+    "AXL_SCANNER_NODE_ID": {
+      "required": true
+    },
+    "AXL_RESEARCH_NODE_ID": {
+      "required": true
+    },
+    "AXL_CHART_VISION_NODE_ID": {
+      "required": true
+    },
+    "AXL_ANALYST_NODE_ID": {
+      "required": true
+    },
+    "AXL_CRITIC_NODE_ID": {
+      "required": true
+    },
+    "AXL_INTEL_NODE_ID": {
+      "required": true
+    },
+    "AXL_GENERATOR_NODE_ID": {
+      "required": true
+    },
+    "AXL_WRITER_NODE_ID": {
+      "required": true
+    },
+    "AXL_PUBLISHER_NODE_ID": {
+      "required": true
+    },
+    "AXL_MEMORY_NODE_ID": {
+      "required": true
     },
     "ZERO_G_RPC_URL": {
       "value": "https://evmrpc-testnet.0g.ai"

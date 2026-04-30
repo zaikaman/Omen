@@ -109,7 +109,7 @@ const resolveAnchor = (anchor: ChainAnchorCardProps['anchor']) => {
 
 export function ChainAnchorCard({
   anchor,
-  title = 'Optional Chain Anchor',
+  title = 'Chain Anchor',
   isLoading,
   error,
   emptyMessage = 'This manifest has no chain anchor.',

@@ -23,7 +23,6 @@ export type BackendEnv = {
     nodeBaseUrl: string;
     apiToken: string | null;
     requestTimeoutMs: number;
-    servicePeerId: string | null;
     nodes: {
       orchestrator: string;
       marketBias: string;
@@ -245,23 +244,22 @@ export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendE
       schema: env.SUPABASE_SCHEMA ?? "public",
     },
     axl: {
-      nodeBaseUrl: env.AXL_NODE_BASE_URL ?? "http://127.0.0.1:8080",
+      nodeBaseUrl: env.AXL_NODE_BASE_URL ?? "",
       apiToken: env.AXL_API_TOKEN ?? null,
       requestTimeoutMs: parsePort(env.AXL_REQUEST_TIMEOUT_MS, 300_000),
-      servicePeerId: env.AXL_SERVICE_PEER_ID ?? null,
       nodes: {
-        orchestrator: env.AXL_ORCHESTRATOR_NODE_ID ?? "omen-orchestrator",
-        marketBias: env.AXL_MARKET_BIAS_NODE_ID ?? "omen-market-bias",
-        scanner: env.AXL_SCANNER_NODE_ID ?? "omen-scanner",
-        research: env.AXL_RESEARCH_NODE_ID ?? "omen-research",
-        chartVision: env.AXL_CHART_VISION_NODE_ID ?? "omen-chart-vision",
-        analyst: env.AXL_ANALYST_NODE_ID ?? "omen-analyst",
-        critic: env.AXL_CRITIC_NODE_ID ?? "omen-critic",
-        intel: env.AXL_INTEL_NODE_ID ?? "omen-intel",
-        generator: env.AXL_GENERATOR_NODE_ID ?? "omen-generator",
-        writer: env.AXL_WRITER_NODE_ID ?? "omen-writer",
-        publisher: env.AXL_PUBLISHER_NODE_ID ?? "omen-publisher",
-        memory: env.AXL_MEMORY_NODE_ID ?? "omen-memory",
+        orchestrator: env.AXL_ORCHESTRATOR_NODE_ID ?? "",
+        marketBias: env.AXL_MARKET_BIAS_NODE_ID ?? "",
+        scanner: env.AXL_SCANNER_NODE_ID ?? "",
+        research: env.AXL_RESEARCH_NODE_ID ?? "",
+        chartVision: env.AXL_CHART_VISION_NODE_ID ?? "",
+        analyst: env.AXL_ANALYST_NODE_ID ?? "",
+        critic: env.AXL_CRITIC_NODE_ID ?? "",
+        intel: env.AXL_INTEL_NODE_ID ?? "",
+        generator: env.AXL_GENERATOR_NODE_ID ?? "",
+        writer: env.AXL_WRITER_NODE_ID ?? "",
+        publisher: env.AXL_PUBLISHER_NODE_ID ?? "",
+        memory: env.AXL_MEMORY_NODE_ID ?? "",
       },
     },
     zeroG: {
