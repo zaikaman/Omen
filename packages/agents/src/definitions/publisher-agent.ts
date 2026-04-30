@@ -457,8 +457,7 @@ export class PublisherAgentFactory {
 
     if (
       this.llmClient === null ||
-      basePacket.drafts.length === 0 ||
-      (parsed.intelSummary !== null && parsed.thesis === null)
+      basePacket.drafts.length === 0
     ) {
       throw new Error(
         "Publisher draft preparation requires a configured LLM client and rewriteable drafts.",

@@ -49,58 +49,36 @@ describe("generator agent", () => {
     updatedAt: "2026-04-25T08:00:00.000Z",
   };
 
-  it("formats template-style intel assets", async () => {
+  it("fails closed when the generator model is unavailable", async () => {
     const agent = createGeneratorAgent({ llmClient: null });
-    const result = await agent.invoke(
-      {
-        context: {
-          runId: run.id,
-          threadId: "thread-generator-1",
-          mode: "live",
-          triggeredBy: "scheduler",
-        },
-        report: {
-          topic: "SUI TVL Surge",
-          insight:
-            "SUI TVL is accelerating while active wallets rise and liquidity rotates from ETH pools.",
-          importanceScore: 8,
-          category: "narrative_shift",
-          title: "SUI TVL Surge",
-          summary:
-            "SUI TVL blasts higher as lending yields attract new liquidity. Active wallets are rising and ETH pool flows are rotating.",
-          confidence: 80,
-          symbols: ["SUI", "ETH"],
-          imagePrompt: null,
-        },
-        evidence: [],
-      },
-      createInitialSwarmState({ run, config }),
-    );
 
-    expect(result.content.tweetText ?? "").toContain("sui tvl surge");
-    expect(result.content.tweetText ?? "").toContain("- ");
-    expect((result.content.tweetText ?? "").length).toBeLessThanOrEqual(270);
-    expect(result.content.blogPost).toContain("## Executive Summary");
-    expect(result.content.imagePrompt).toContain(
-      "single cinematic visual-only market-intelligence scene",
-    );
-    expect(result.content.imagePrompt).toContain("relevant, distinct, creative visual metaphor");
-    expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
-    expect(result.content.imagePrompt).toContain("the scene should be driven by");
-    expect(result.content.imagePrompt).toContain("no title card");
-    expect(result.content.imagePrompt).toContain("no news card");
-    expect(result.content.imagePrompt).toContain("competing forces");
-    expect(result.content.imagePrompt).toContain("avoid defaulting to a neon trading-room");
-    expect(result.content.imagePrompt).toContain("narrative shift");
-    expect(result.content.imagePrompt).toContain("strictly visual-only full-bleed scene");
-    expect(result.content.imagePrompt).toContain("no ticker symbols");
-    expect(result.content.imagePrompt).toContain("no screens");
-    expect(result.content.imagePrompt).toContain("no charts with axes or legends");
-    expect(result.content.imagePrompt).toContain("without symbols or writing");
-    expect(result.content.imagePrompt).not.toContain("$SUI");
-    expect(result.content.imagePrompt).not.toMatch(/cover art/i);
-    expect(result.content.imagePrompt).not.toMatch(/visual thesis:/i);
-    expect(result.content.imagePrompt).not.toMatch(/context:/i);
+    await expect(
+      agent.invoke(
+        {
+          context: {
+            runId: run.id,
+            threadId: "thread-generator-1",
+            mode: "live",
+            triggeredBy: "scheduler",
+          },
+          report: {
+            topic: "SUI TVL Surge",
+            insight:
+              "SUI TVL is accelerating while active wallets rise and liquidity rotates from ETH pools.",
+            importanceScore: 8,
+            category: "narrative_shift",
+            title: "SUI TVL Surge",
+            summary:
+              "SUI TVL blasts higher as lending yields attract new liquidity. Active wallets are rising and ETH pool flows are rotating.",
+            confidence: 80,
+            symbols: ["SUI", "ETH"],
+            imagePrompt: null,
+          },
+          evidence: [],
+        },
+        createInitialSwarmState({ run, config }),
+      ),
+    ).rejects.toThrow("Generator content requires a configured LLM client.");
   });
 
   it("preserves model tweet output without quality fallback", async () => {
@@ -150,7 +128,7 @@ describe("generator agent", () => {
     );
   });
 
-  it("normalizes blank optional formatted content from the model", async () => {
+  it("rejects blank formatted content from the model", async () => {
     const tweetText =
       "sui tvl keeps pressing higher\n\n- lending yields pulled in new liquidity\n- wallets kept expanding\n\nwatch confirmation before chasing";
     const agent = createGeneratorAgent({
@@ -166,37 +144,36 @@ describe("generator agent", () => {
       } as never,
     });
 
-    const result = await agent.invoke(
-      {
-        context: {
-          runId: run.id,
-          threadId: "thread-generator-blank-formatted-content",
-          mode: "live",
-          triggeredBy: "scheduler",
+    await expect(
+      agent.invoke(
+        {
+          context: {
+            runId: run.id,
+            threadId: "thread-generator-blank-formatted-content",
+            mode: "live",
+            triggeredBy: "scheduler",
+          },
+          report: {
+            topic: "SUI TVL Surge",
+            insight:
+              "SUI TVL is accelerating while active wallets rise and liquidity rotates from ETH pools.",
+            importanceScore: 8,
+            category: "narrative_shift",
+            title: "SUI TVL Surge",
+            summary:
+              "SUI TVL blasts higher as lending yields attract new liquidity. Active wallets are rising and ETH pool flows are rotating.",
+            confidence: 80,
+            symbols: ["SUI", "ETH"],
+            imagePrompt: null,
+          },
+          evidence: [],
         },
-        report: {
-          topic: "SUI TVL Surge",
-          insight:
-            "SUI TVL is accelerating while active wallets rise and liquidity rotates from ETH pools.",
-          importanceScore: 8,
-          category: "narrative_shift",
-          title: "SUI TVL Surge",
-          summary:
-            "SUI TVL blasts higher as lending yields attract new liquidity. Active wallets are rising and ETH pool flows are rotating.",
-          confidence: 80,
-          symbols: ["SUI", "ETH"],
-          imagePrompt: null,
-        },
-        evidence: [],
-      },
-      createInitialSwarmState({ run, config }),
-    );
-
-    expect(result.content.tweetText).toBe(tweetText);
-    expect(result.content.formattedContent).toBe(tweetText);
+        createInitialSwarmState({ run, config }),
+      ),
+    ).rejects.toThrow("Generator LLM response did not include formattedContent.");
   });
 
-  it("ignores object-shaped optional formatted content from the model", async () => {
+  it("rejects object-shaped formatted content from the model", async () => {
     const tweetText =
       "sui tvl keeps pressing higher\n\n- lending yields pulled in new liquidity\n- wallets kept expanding\n\nwatch confirmation before chasing";
     const agent = createGeneratorAgent({
@@ -214,34 +191,33 @@ describe("generator agent", () => {
       } as never,
     });
 
-    const result = await agent.invoke(
-      {
-        context: {
-          runId: run.id,
-          threadId: "thread-generator-object-formatted-content",
-          mode: "live",
-          triggeredBy: "scheduler",
+    await expect(
+      agent.invoke(
+        {
+          context: {
+            runId: run.id,
+            threadId: "thread-generator-object-formatted-content",
+            mode: "live",
+            triggeredBy: "scheduler",
+          },
+          report: {
+            topic: "SUI TVL Surge",
+            insight:
+              "SUI TVL is accelerating while active wallets rise and liquidity rotates from ETH pools.",
+            importanceScore: 8,
+            category: "narrative_shift",
+            title: "SUI TVL Surge",
+            summary:
+              "SUI TVL blasts higher as lending yields attract new liquidity. Active wallets are rising and ETH pool flows are rotating.",
+            confidence: 80,
+            symbols: ["SUI", "ETH"],
+            imagePrompt: null,
+          },
+          evidence: [],
         },
-        report: {
-          topic: "SUI TVL Surge",
-          insight:
-            "SUI TVL is accelerating while active wallets rise and liquidity rotates from ETH pools.",
-          importanceScore: 8,
-          category: "narrative_shift",
-          title: "SUI TVL Surge",
-          summary:
-            "SUI TVL blasts higher as lending yields attract new liquidity. Active wallets are rising and ETH pool flows are rotating.",
-          confidence: 80,
-          symbols: ["SUI", "ETH"],
-          imagePrompt: null,
-        },
-        evidence: [],
-      },
-      createInitialSwarmState({ run, config }),
-    );
-
-    expect(result.content.tweetText).toBe(tweetText);
-    expect(result.content.formattedContent).toBe(tweetText);
+        createInitialSwarmState({ run, config }),
+      ),
+    ).rejects.toThrow("Generator LLM response did not include formattedContent.");
   });
 
   it("preserves model tweet output without truncation checks", async () => {

@@ -2,6 +2,26 @@ import { describe, expect, it } from "vitest";
 
 import { createInitialSwarmState, createWriterAgent } from "../src/index.js";
 
+const buildModelArticle = (input: {
+  headline: string;
+  tldr: string;
+  content: string;
+}) => ({
+  article: {
+    headline: input.headline,
+    tldr: input.tldr,
+    content: [
+      input.content,
+      "",
+      "### Flow Read",
+      "The live model keeps the article grounded in the supplied report and evidence. ".repeat(8),
+      "",
+      "### Risk",
+      "The setup still needs confirmation from liquidity, positioning, and follow-through before it can become a trade. ".repeat(8),
+    ].join("\n"),
+  },
+});
+
 describe("writer agent", () => {
   const run = {
     id: "run-writer-1",
@@ -49,52 +69,62 @@ describe("writer agent", () => {
     updatedAt: "2026-04-25T08:00:00.000Z",
   };
 
-  it("creates a long-form article fallback from a compact intel report", async () => {
+  it("fails closed when the writer model is unavailable", async () => {
     const agent = createWriterAgent({ llmClient: null });
     const state = createInitialSwarmState({ run, config });
 
-    const result = await agent.invoke(
-      {
-        context: {
-          runId: run.id,
-          threadId: "thread-writer-1",
-          mode: "live",
-          triggeredBy: "scheduler",
-        },
-        report: {
-          topic: "AI infrastructure rotation",
-          insight:
-            "AI-linked infrastructure tokens kept absorbing mindshare while majors stayed range-bound.",
-          importanceScore: 8,
-          category: "narrative_shift",
-          title: "AI Infrastructure Names Keep Absorbing Attention",
-          summary:
-            "Omen detected sustained attention rotation into AI-linked infrastructure tokens.",
-          confidence: 84,
-          symbols: ["TAO", "RNDR", "AKT"],
-          imagePrompt: null,
-        },
-        evidence: [
-          {
-            category: "sentiment",
-            summary: "Mindshare rose across AI infrastructure names.",
-            sourceLabel: "Market Desk",
-            sourceUrl: null,
-            structuredData: {},
+    await expect(
+      agent.invoke(
+        {
+          context: {
+            runId: run.id,
+            threadId: "thread-writer-1",
+            mode: "live",
+            triggeredBy: "scheduler",
           },
-        ],
-      },
-      state,
-    );
-
-    expect(result.article.headline).toContain("AI Infrastructure");
-    expect(result.article.tldr).toContain("Omen detected");
-    expect(result.article.content).toContain("### The Edge");
-    expect(result.article.content).toContain("Mindshare rose");
+          report: {
+            topic: "AI infrastructure rotation",
+            insight:
+              "AI-linked infrastructure tokens kept absorbing mindshare while majors stayed range-bound.",
+            importanceScore: 8,
+            category: "narrative_shift",
+            title: "AI Infrastructure Names Keep Absorbing Attention",
+            summary:
+              "Omen detected sustained attention rotation into AI-linked infrastructure tokens.",
+            confidence: 84,
+            symbols: ["TAO", "RNDR", "AKT"],
+            imagePrompt: null,
+          },
+          evidence: [
+            {
+              category: "sentiment",
+              summary: "Mindshare rose across AI infrastructure names.",
+              sourceLabel: "Market Desk",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+        },
+        state,
+      ),
+    ).rejects.toThrow("Writer article generation requires a configured LLM client.");
   });
 
   it("keeps broad-market intel articles from repeating the preview summary", async () => {
-    const agent = createWriterAgent({ llmClient: null });
+    const agent = createWriterAgent({
+      llmClient: {
+        completeJson: async () =>
+          buildModelArticle({
+            headline: "Crypto Market Narratives",
+            tldr:
+              "Bitcoin price targets are moving higher while ETF flows keep macro risk on the desk.",
+            content:
+              "### ON-CHAIN\nBitcoin price targets are moving higher while ETF flows keep macro risk active. ".repeat(
+                8,
+              ),
+          }),
+      } as never,
+    });
     const state = createInitialSwarmState({ run, config });
 
     const result = await agent.invoke(
@@ -141,7 +171,20 @@ describe("writer agent", () => {
   });
 
   it("does not promote generator blog scaffolding as the final article fallback", async () => {
-    const agent = createWriterAgent({ llmClient: null });
+    const agent = createWriterAgent({
+      llmClient: {
+        completeJson: async () =>
+          buildModelArticle({
+            headline: "Bitcoin Pressure and Institutional Signals",
+            tldr:
+              "Bitcoin weakness is colliding with constructive regulatory and stablecoin adoption signals.",
+            content:
+              "### ON-CHAIN\nBitcoin has broken below key support while institutional adoption headlines keep the longer-term setup alive.\n\n### The Edge\nThe model article is built from the current intel report rather than generator scaffolding. ".repeat(
+                6,
+              ),
+          }),
+      } as never,
+    });
     const state = createInitialSwarmState({ run, config });
 
     const result = await agent.invoke(

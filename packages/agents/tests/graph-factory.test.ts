@@ -106,6 +106,93 @@ describe("omen graph factory", () => {
       checkpointStore,
       runtimeName: "test-runtime",
       nodeInvoker: async ({ nodeKey, state }) => {
+        if (nodeKey === "market-bias-agent") {
+          return {
+            marketBias: "LONG",
+            reasoning: "Fixture market bias from model-backed path.",
+            confidence: 88,
+          };
+        }
+
+        if (nodeKey === "scanner-agent") {
+          return {
+            marketBias: "LONG",
+            candidates: [
+              {
+                id: "candidate-btc-1",
+                symbol: "BTC",
+                reason: "Fixture scanner candidate.",
+                directionHint: "LONG",
+                status: "pending",
+                sourceUniverse: "BTC,ETH,SOL",
+                dedupeKey: "BTC",
+                missingDataNotes: [],
+              },
+            ],
+            rejectedSymbols: ["ETH", "SOL"],
+          };
+        }
+
+        if (nodeKey === "research-agent") {
+          const candidate = state.activeCandidates[0];
+
+          if (!candidate) {
+            return null;
+          }
+
+          return {
+            candidate: {
+              ...candidate,
+              status: "researched",
+            },
+            evidence: [
+              {
+                category: "market",
+                summary: "BTC fixture evidence stayed constructive.",
+                sourceLabel: "Fixture Market",
+                sourceUrl: null,
+                structuredData: { symbol: "BTC" },
+              },
+            ],
+            narrativeSummary: "BTC fixture research stayed constructive.",
+            chartVisionSummary: null,
+            missingDataNotes: [],
+          };
+        }
+
+        if (nodeKey === "chart-vision-agent") {
+          const candidate = state.activeCandidates[0];
+
+          if (!candidate) {
+            return null;
+          }
+
+          return {
+            candidate,
+            frames: [
+              {
+                timeframe: "1h",
+                analysis: "Fixture chart structure remains constructive.",
+                chartDescription: "Fixture chart image.",
+                imageMimeType: "image/png",
+                imageWidth: 1,
+                imageHeight: 1,
+              },
+            ],
+            chartSummary: "Fixture chart vision confirms the candidate.",
+            evidence: [
+              {
+                category: "chart",
+                summary: "Fixture chart evidence stayed constructive.",
+                sourceLabel: "Fixture Chart",
+                sourceUrl: null,
+                structuredData: { timeframe: "1h" },
+              },
+            ],
+            missingDataNotes: [],
+          };
+        }
+
         if (nodeKey === "analyst-agent") {
           const candidate = state.activeCandidates[0];
 
@@ -151,6 +238,73 @@ describe("omen graph factory", () => {
               forcedOutcomeReason: null,
             },
             blockingReasons: [],
+          };
+        }
+
+        if (nodeKey === "intel-agent") {
+          return {
+            action: "ready",
+            report: {
+              topic: "Fixture BTC market intel",
+              insight: "Fixture intel stayed constructive enough to publish.",
+              importanceScore: 8,
+              category: "market_update",
+              title: "Fixture BTC Market Intel",
+              summary: "Fixture BTC market intel remained publishable.",
+              confidence: 80,
+              symbols: ["BTC"],
+              imagePrompt: null,
+            },
+            skipReason: null,
+          };
+        }
+
+        if (nodeKey === "generator-agent") {
+          return {
+            content: {
+              topic: "Fixture BTC market intel",
+              tweetText: "fixture btc market intel\n\n- model-backed content remained publishable",
+              blogPost: "# Fixture BTC Market Intel\n\n## Executive Summary\nFixture content.",
+              imagePrompt: "Fixture visual prompt without text.",
+              formattedContent:
+                "fixture btc market intel\n\n- model-backed content remained publishable",
+              logMessage: "INTEL LOCKED: fixture.",
+            },
+          };
+        }
+
+        if (nodeKey === "writer-agent") {
+          return {
+            article: {
+              headline: "Fixture BTC Market Intel",
+              tldr: "Fixture BTC market intel remained publishable.",
+              content: "### ON-CHAIN\nFixture article body.\n\n### The Edge\nFixture article edge.",
+            },
+          };
+        }
+
+        if (nodeKey === "publisher-agent") {
+          return {
+            outcome: "approved",
+            packet: {
+              drafts: [
+                {
+                  kind: "signal_alert",
+                  headline: "BTC fixture signal",
+                  summary: "BTC fixture signal approved.",
+                  text: "BTC fixture signal approved.",
+                },
+              ],
+              approvedReview: state.criticReviews.at(-1) ?? null,
+            },
+            drafts: [
+              {
+                kind: "signal_alert",
+                headline: "BTC fixture signal",
+                summary: "BTC fixture signal approved.",
+                text: "BTC fixture signal approved.",
+              },
+            ],
           };
         }
 

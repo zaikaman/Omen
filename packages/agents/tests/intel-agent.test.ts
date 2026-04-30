@@ -181,7 +181,7 @@ describe("intel agent", () => {
         },
         state,
       ),
-    ).rejects.toThrow("Intel generation requires a configured LLM client.");
+    ).rejects.toThrow("Intel research enrichment requires a configured LLM client.");
   });
 
   it("passes recent post context while asking the model to use built-in X search", async () => {

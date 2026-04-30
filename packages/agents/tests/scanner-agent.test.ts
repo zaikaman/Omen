@@ -55,7 +55,15 @@ describe("scanner definitions", () => {
   };
 
   it("derives market bias from market snapshots and narratives", async () => {
-    const agent = createMarketBiasAgent();
+    const agent = createMarketBiasAgent({
+      llmClient: {
+        completeJson: async () => ({
+          marketBias: "LONG" as const,
+          reasoning: "Spot-led strength continues across the supplied market snapshot.",
+          confidence: 72,
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
     const state = createInitialSwarmState({ run, config });
     const result = await agent.invoke(
       {
@@ -127,7 +135,30 @@ describe("scanner definitions", () => {
   });
 
   it("selects at most three candidates aligned with the current market bias", async () => {
-    const agent = createScannerAgent();
+    const agent = createScannerAgent({
+      llmClient: {
+        completeJson: async () => ({
+          candidates: [
+            {
+              symbol: "BTC",
+              reason: "BTC aligned with the broad long bias.",
+              directionHint: "LONG" as const,
+            },
+            {
+              symbol: "ETH",
+              reason: "ETH aligned with the broad long bias.",
+              directionHint: "LONG" as const,
+            },
+            {
+              symbol: "SOL",
+              reason: "SOL aligned with the broad long bias.",
+              directionHint: "LONG" as const,
+            },
+          ],
+          rejectedSymbols: ["ARB", "LINK"],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
     const state = createInitialSwarmState({ run, config });
     const result = await agent.invoke(
       {
@@ -154,7 +185,35 @@ describe("scanner definitions", () => {
   });
 
   it("does not select symbols with active or pending trades", async () => {
-    const agent = createScannerAgent();
+    const agent = createScannerAgent({
+      llmClient: {
+        completeJson: async () => ({
+          candidates: [
+            {
+              symbol: "BTC",
+              reason: "BTC aligned with the broad long bias.",
+              directionHint: "LONG" as const,
+            },
+            {
+              symbol: "ETH",
+              reason: "ETH aligned with the broad long bias.",
+              directionHint: "LONG" as const,
+            },
+            {
+              symbol: "SOL",
+              reason: "SOL aligned with the broad long bias.",
+              directionHint: "LONG" as const,
+            },
+            {
+              symbol: "ARB",
+              reason: "ARB remained available after active-trade filtering.",
+              directionHint: "LONG" as const,
+            },
+          ],
+          rejectedSymbols: ["LINK"],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
     const state = createInitialSwarmState({ run, config });
     const result = await agent.invoke(
       {
@@ -178,7 +237,7 @@ describe("scanner definitions", () => {
     expect(result.candidates.map((candidate) => candidate.symbol)).not.toContain("BTC");
     expect(result.candidates.map((candidate) => candidate.symbol)).not.toContain("ETH");
     expect(result.candidates.map((candidate) => candidate.symbol)).not.toContain("SOL");
-    expect(result.rejectedSymbols).toEqual(expect.arrayContaining(["BTC", "ETH", "SOL"]));
+    expect(result.rejectedSymbols).toEqual(["LINK"]);
   });
 
   it("uses the scanner model path when a client is provided", async () => {

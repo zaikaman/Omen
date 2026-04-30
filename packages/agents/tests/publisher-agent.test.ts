@@ -51,9 +51,33 @@ const config = {
 
 describe("publisher agent", () => {
   const state = createInitialSwarmState({ run, config });
-  const agent = createPublisherAgent();
+  const createModelBackedPublisherAgent = () =>
+    createPublisherAgent({
+      llmClient: {
+        completeJson: async (input: { userPrompt: string }) => {
+          const payload = JSON.parse(input.userPrompt) as {
+            drafts: Array<{
+              kind: "signal_alert" | "intel_summary" | "no_conviction";
+              headline: string;
+              summary: string;
+              text: string;
+            }>;
+          };
+
+          return {
+            drafts: payload.drafts.map((draft) => ({
+              kind: draft.kind,
+              headline: draft.headline,
+              summary: draft.summary,
+              text: draft.text,
+            })),
+          };
+        },
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
 
   it("builds a publishable packet for approved signals", async () => {
+    const agent = createModelBackedPublisherAgent();
     const result = await agent.invoke(
       {
         context: {
@@ -106,6 +130,7 @@ describe("publisher agent", () => {
   });
 
   it("compacts verbose chart thesis drafts for signal publication", async () => {
+    const agent = createModelBackedPublisherAgent();
     const result = await agent.invoke(
       {
         context: {
@@ -156,6 +181,7 @@ describe("publisher agent", () => {
   });
 
   it("builds a single intel summary draft for intel-ready runs", async () => {
+    const agent = createModelBackedPublisherAgent();
     const result = await agent.invoke(
       {
         context: {
@@ -186,6 +212,7 @@ describe("publisher agent", () => {
   });
 
   it("preserves generated intel tweet text without publisher truncation", async () => {
+    const agent = createModelBackedPublisherAgent();
     const generatedTweetText = [
       "interoperability and launchpad momentum in thin liquidity",
       "",
@@ -231,6 +258,7 @@ describe("publisher agent", () => {
   });
 
   it("keeps rejected outcomes off the publishing packet", async () => {
+    const agent = createModelBackedPublisherAgent();
     const result = await agent.invoke(
       {
         context: {

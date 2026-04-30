@@ -53,7 +53,23 @@ describe("research agent", () => {
 
   it("builds a normalized research bundle with researched candidate state", async () => {
     const state = createInitialSwarmState({ run, config });
-    const agent = createResearchAgent();
+    const agent = createResearchAgent({
+      llmClient: {
+        completeJson: async () => ({
+          evidence: [
+            {
+              category: "market" as const,
+              summary: "BTC showed constructive live market momentum.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: { symbol: "BTC" },
+            },
+          ],
+          narrativeSummary: "BTC showed constructive live market momentum.",
+          missingDataNotes: [],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
 
     const result = await agent.invoke(
       {
@@ -113,6 +129,21 @@ describe("research agent", () => {
           throw new Error("protocol lookup should not be called for BTC");
         },
       } as unknown as DefiLlamaMarketService,
+      llmClient: {
+        completeJson: async () => ({
+          evidence: [
+            {
+              category: "market" as const,
+              summary: "BTC spot snapshot remained usable without protocol lookup.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: { symbol: "BTC" },
+            },
+          ],
+          narrativeSummary: "BTC remained usable without a DeFiLlama protocol lookup.",
+          missingDataNotes: [],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
     });
 
     const result = await agent.invoke(

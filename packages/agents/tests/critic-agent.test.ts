@@ -52,7 +52,19 @@ describe("critic agent", () => {
 
   it("approves a thesis that clears the hard quality gates", async () => {
     const state = createInitialSwarmState({ run, config });
-    const agent = createCriticAgent();
+    const agent = createCriticAgent({
+      llmClient: {
+        completeJson: async () => ({
+          review: {
+            candidateId: "candidate-btc-1",
+            decision: "approved" as const,
+            objections: [],
+            forcedOutcomeReason: null,
+          },
+          blockingReasons: [],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
 
     const result = await agent.invoke(
       {
@@ -108,7 +120,19 @@ describe("critic agent", () => {
 
   it("rejects a thesis that fails the hard quality gates", async () => {
     const state = createInitialSwarmState({ run, config });
-    const agent = createCriticAgent();
+    const agent = createCriticAgent({
+      llmClient: {
+        completeJson: async () => ({
+          review: {
+            candidateId: "candidate-sol-1",
+            decision: "approved" as const,
+            objections: [],
+            forcedOutcomeReason: null,
+          },
+          blockingReasons: [],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
 
     const result = await agent.invoke(
       {
