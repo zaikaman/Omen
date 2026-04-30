@@ -25,6 +25,7 @@ export const zeroGAdjudicationInputSchema = z.object({
 export type ZeroGAdjudicationInput = z.infer<typeof zeroGAdjudicationInputSchema>;
 
 export type ZeroGAdjudicationResult = {
+  prompt: string;
   output: string;
   proof: ComputeProof;
   artifact: ProofArtifact;
@@ -71,14 +72,16 @@ export class ZeroGAdjudication {
     input: z.input<typeof zeroGAdjudicationInputSchema>,
   ): Promise<Result<ZeroGAdjudicationResult, Error>> {
     const parsed = zeroGAdjudicationInputSchema.parse(input);
+    const prompt = parsed.prompt ?? buildPrompt(parsed);
     const computed = await this.adapter.requestCompute({
       model: parsed.model,
-      prompt: parsed.prompt ?? buildPrompt(parsed),
+      prompt,
       metadata: {
+        ...parsed.metadata,
         runId: parsed.runId,
         stage: "adjudication",
+        stepName: "0G Compute Adjudication",
         priorDecision: parsed.priorDecision ?? null,
-        ...parsed.metadata,
       },
     });
 
@@ -103,17 +106,28 @@ export class ZeroGAdjudication {
       key: `runs/${parsed.runId}/compute/${computed.value.jobId}/adjudication`,
       locator: `0g://compute/${computed.value.jobId}/adjudication`,
       metadata: {
+        ...parsed.metadata,
         stage: "adjudication",
+        stepName: "0G Compute Adjudication",
+        label: "0G Compute Adjudication",
+        prompt,
+        output: computed.value.output,
+        provider: computed.value.provider,
+        model: computed.value.model,
+        jobId: computed.value.jobId,
+        requestHash: computed.value.requestHash,
+        responseHash: computed.value.responseHash,
+        verificationMode: computed.value.verificationMode,
         thesisLength: parsed.thesis.length,
         evidenceCount: parsed.evidence.length,
         priorDecision: parsed.priorDecision ?? null,
-        ...parsed.metadata,
       },
       compute: proof,
       createdAt: new Date().toISOString(),
     });
 
     return ok({
+      prompt,
       output: computed.value.output,
       proof,
       artifact,

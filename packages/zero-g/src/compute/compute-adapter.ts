@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { err, ok, type Result } from "@omen/shared";
 import { z } from "zod";
 
@@ -27,6 +29,8 @@ export type ZeroGComputeConfig = z.infer<typeof zeroGComputeConfigSchema>;
 export type ZeroGComputeRequest = z.infer<typeof zeroGComputeRequestSchema>;
 export type ZeroGComputeResult = z.infer<typeof zeroGComputeResultSchema>;
 
+const sha256 = (value: string) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+
 export class ZeroGComputeAdapter {
   private readonly config: ZeroGComputeConfig;
 
@@ -44,27 +48,28 @@ export class ZeroGComputeAdapter {
     }, this.config.requestTimeoutMs);
 
     try {
+      const requestBody = {
+        model: parsed.model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are the 0G Compute reasoning engine. Return a concise, directly usable result.",
+          },
+          {
+            role: "user",
+            content: parsed.prompt,
+          },
+        ],
+        metadata: parsed.metadata,
+      };
       const response = await fetch(this.buildInferenceUrl(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(this.config.apiKey ? { Authorization: `Bearer ${this.config.apiKey}` } : {}),
         },
-        body: JSON.stringify({
-          model: parsed.model,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are the 0G Compute reasoning engine. Return a concise, directly usable result.",
-            },
-            {
-              role: "user",
-              content: parsed.prompt,
-            },
-          ],
-          metadata: parsed.metadata,
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
 
@@ -124,9 +129,11 @@ export class ZeroGComputeAdapter {
           output: content,
           verificationMode,
           requestHash:
-            typeof payload.requestHash === "string" ? payload.requestHash : null,
+            typeof payload.requestHash === "string"
+              ? payload.requestHash
+              : sha256(JSON.stringify(requestBody)),
           responseHash:
-            typeof payload.responseHash === "string" ? payload.responseHash : null,
+            typeof payload.responseHash === "string" ? payload.responseHash : sha256(content),
         }),
       );
     } catch (error) {

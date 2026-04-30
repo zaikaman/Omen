@@ -253,6 +253,33 @@ const summarizeEvidenceForCompute = (evidence: SwarmState["evidenceItems"]) =>
       )
     : ["No evidence items were supplied."];
 
+const buildZeroGComputeAdjudicationPrompt = (input: {
+  runId: string;
+  localDecision: "approved" | "rejected" | "watchlist_only";
+  localObjections: string[];
+  localBlockingReasons: string[];
+  thesis: CriticInput["evaluation"]["thesis"];
+  evidence: CriticInput["evaluation"]["evidence"];
+}) =>
+  [
+    "STEP: 0G Compute Adjudication",
+    "You are an independent 0G Compute adjudicator inside the Omen agent loop, after research and critic review and before routing or publishing.",
+    "Review the final thesis against the research evidence and local critic decision only.",
+    "Return a concise risk review with these exact fields:",
+    "VERDICT: approved | rejected | watchlist_only",
+    "CONFIDENCE: integer 0-100",
+    "RATIONALE: one sentence",
+    "Do not invent data. Prefer downgrading when evidence, confluence, or risk/reward is weak.",
+    `Run ID: ${input.runId}`,
+    `Local critic decision: ${input.localDecision}`,
+    `Local objections: ${input.localObjections.join("; ") || "none"}`,
+    `Local blocking reasons: ${input.localBlockingReasons.join("; ") || "none"}`,
+    "Final thesis JSON:",
+    JSON.stringify(input.thesis, null, 2),
+    "Research evidence JSON:",
+    JSON.stringify(input.evidence, null, 2),
+  ].join("\n");
+
 const truncateComputeOutputPreview = (value: string, maxLength = 500) =>
   value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 
@@ -1215,35 +1242,27 @@ class LivePipelineExecutionContext {
 
     const thesis = input.nodeInput.evaluation.thesis;
     const evidence = input.nodeInput.evaluation.evidence;
+    const prompt = buildZeroGComputeAdjudicationPrompt({
+      runId: input.runId,
+      localDecision: parsedOutput.review.decision,
+      localObjections: parsedOutput.review.objections,
+      localBlockingReasons: parsedOutput.blockingReasons,
+      thesis,
+      evidence,
+    });
     const result = await this.zeroGAdjudication.adjudicate({
       runId: input.runId,
       thesis: summarizeThesisForCompute(thesis),
       evidence: summarizeEvidenceForCompute(evidence),
       priorDecision: parsedOutput.review.decision,
       model: this.input.env.zeroG.computeModel,
-      prompt: [
-        "You are a sealed 0G Compute critic inside the Omen agent loop, before routing or publishing.",
-        "Review the local critic decision against the thesis and evidence only.",
-        "Return a concise result with these exact fields:",
-        "VERDICT: approved | rejected | watchlist_only",
-        "CONFIDENCE: integer 0-100",
-        "RATIONALE: one sentence",
-        "Do not invent data. Prefer downgrading when evidence, confluence, or risk/reward is weak.",
-        `Run ID: ${input.runId}`,
-        `Local critic decision: ${parsedOutput.review.decision}`,
-        `Local objections: ${parsedOutput.review.objections.join("; ") || "none"}`,
-        `Local blocking reasons: ${parsedOutput.blockingReasons.join("; ") || "none"}`,
-        "Thesis:",
-        summarizeThesisForCompute(thesis),
-        "Evidence:",
-        ...summarizeEvidenceForCompute(evidence).map(
-          (item, index) => `${(index + 1).toString()}. ${item}`,
-        ),
-      ].join("\n"),
+      prompt,
       signalId: null,
       intelId: null,
       metadata: {
-        stage: "critic_reflection",
+        stage: "adjudication",
+        stepName: "0G Compute Adjudication",
+        label: "0G Compute Adjudication",
         localDecision: parsedOutput.review.decision,
         candidateId: thesis.candidateId,
         asset: thesis.asset,
@@ -1251,11 +1270,7 @@ class LivePipelineExecutionContext {
     });
 
     if (!result.ok) {
-      this.logger.warn(
-        "0G critic reflection failed; continuing with local critic output.",
-        result.error,
-      );
-      return parsedOutput;
+      throw new Error(`0G Compute Adjudication failed: ${result.error.message}`);
     }
 
     await this.safeRecordArtifact(result.value.artifact);
@@ -1268,8 +1283,38 @@ class LivePipelineExecutionContext {
     const decision = shouldUseZeroGDecision ? zeroGDecision : localDecision;
     const zeroGPreview = truncateComputeOutputPreview(result.value.output);
     const zeroGNote = shouldUseZeroGDecision
-      ? `0G Compute sealed critic downgraded ${localDecision} to ${zeroGDecision}: ${zeroGPreview}`
-      : `0G Compute verified critic decision ${localDecision}: ${zeroGPreview}`;
+      ? `0G Compute Adjudication downgraded ${localDecision} to ${zeroGDecision}: ${zeroGPreview}`
+      : `0G Compute Adjudication verified critic decision ${localDecision}: ${zeroGPreview}`;
+
+    if (this.eventPublisher) {
+      await this.safePublishEvent({
+        id: `event-${randomUUID()}`,
+        runId: input.runId,
+        agentId: "agent-zero-g-compute-adjudication",
+        agentRole: "monitor",
+        eventType: "critic_decision",
+        status: "success",
+        summary: `0G Compute Adjudication completed with verdict ${zeroGDecision}.`,
+        payload: {
+          stepName: "0G Compute Adjudication",
+          localDecision,
+          zeroGDecision,
+          appliedDecision: decision,
+          model: result.value.proof.model,
+          jobId: result.value.proof.jobId,
+          requestHash: result.value.proof.requestHash,
+          responseHash: result.value.proof.responseHash,
+          verificationMode: result.value.proof.verificationMode,
+          outputPreview: zeroGPreview,
+        },
+        timestamp: result.value.artifact.createdAt,
+        correlationId: `${input.runId}:0g-compute-adjudication`,
+        axlMessageId: null,
+        proofRefId: result.value.artifact.id,
+        signalId: null,
+        intelId: null,
+      });
+    }
 
     return criticOutputSchema.parse({
       ...parsedOutput,

@@ -398,8 +398,59 @@ describe("zero-g adapter", () => {
     if (result.ok) {
       expect(result.value.artifact.refType).toBe("compute_result");
       expect(result.value.artifact.metadata.stage).toBe("adjudication");
+      expect(result.value.artifact.metadata.stepName).toBe("0G Compute Adjudication");
+      expect(result.value.artifact.metadata.prompt).toContain("BTC long");
+      expect(result.value.artifact.metadata.output).toBe(
+        "Approved because confluence and evidence remain strong.",
+      );
       expect(result.value.decisionHint).toBe("approved");
       expect(result.value.proof.jobId).toBe("job-2");
+    }
+  });
+
+  it("derives compute request and response hashes when the provider omits them", async () => {
+    const computeAdapter = new ZeroGClientAdapter({
+      storage: {
+        indexerUrl: "https://indexer-storage-testnet.0g.ai",
+      },
+      log: {
+        baseUrl: "https://indexer-storage-testnet.0g.ai",
+      },
+      compute: {
+        baseUrl: "https://compute.0g.ai/infer",
+      },
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        ({
+          ok: true,
+          headers: new Headers({
+            "ZG-Res-Key": "job-3",
+          }),
+          json: async () => ({
+            choices: [
+              {
+                message: {
+                  content: "Risk review complete",
+                },
+              },
+            ],
+          }),
+        }) as Response,
+    );
+
+    const result = await computeAdapter.requestCompute({
+      model: "glm-5",
+      prompt: "Review this thesis",
+      metadata: { stage: "adjudication" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.requestHash).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(result.value.responseHash).toMatch(/^sha256:[a-f0-9]{64}$/);
     }
   });
 
