@@ -1,19 +1,19 @@
 [
     {
         "name":  "router",
-        "pid":  5876,
+        "pid":  28196,
         "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\scanner-router.out.log",
         "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\scanner-router.err.log"
     },
     {
         "name":  "mcp",
-        "pid":  16544,
+        "pid":  24180,
         "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\scanner-mcp.out.log",
         "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\scanner-mcp.err.log"
     },
     {
         "name":  "node",
-        "pid":  4504,
+        "pid":  27996,
         "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\scanner-node.out.log",
         "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\scanner-node.err.log"
     }

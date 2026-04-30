@@ -25,5 +25,6 @@
     "a2a_addr":  "http://127.0.0.1",
     "a2a_port":  9004,
     "a2a_peer_timeout_secs":  300,
-    "mcp_peer_timeout_secs":  300
+    "mcp_peer_timeout_secs":  300,
+    "PrivateKeyPath":  "D:\\Omen\\local\\axl\\demo\\market_bias\\private.pem"
 }

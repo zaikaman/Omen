@@ -1,19 +1,19 @@
 [
     {
         "name":  "router",
-        "pid":  9484,
+        "pid":  29872,
         "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\market_bias-router.out.log",
         "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\market_bias-router.err.log"
     },
     {
         "name":  "mcp",
-        "pid":  14364,
+        "pid":  21076,
         "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\market_bias-mcp.out.log",
         "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\market_bias-mcp.err.log"
     },
     {
         "name":  "node",
-        "pid":  35028,
+        "pid":  8332,
         "stdout":  "D:\\Omen\\local\\logs\\axl-demo\\market_bias-node.out.log",
         "stderr":  "D:\\Omen\\local\\logs\\axl-demo\\market_bias-node.err.log"
     }
