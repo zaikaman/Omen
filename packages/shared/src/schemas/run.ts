@@ -21,6 +21,25 @@ export const candidateSummarySchema = z.object({
   confidenceHint: z.number().min(0).max(100).nullable(),
 });
 
+export const proofFinalizationStatusSchema = z.enum([
+  "not_configured",
+  "publishing",
+  "anchoring",
+  "complete",
+  "partial",
+  "failed",
+]);
+
+export const proofFinalizationSchema = z.object({
+  status: proofFinalizationStatusSchema,
+  artifactCount: z.number().int().min(0),
+  manifestRefId: z.string().min(1).nullable(),
+  chainRefId: z.string().min(1).nullable(),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+  error: z.string().min(1).nullable(),
+});
+
 export const runOutcomeSchema = z.object({
   outcomeType: z.enum(["signal", "intel", "no_conviction", "failed"]),
   summary: z.string().min(1),
@@ -29,6 +48,7 @@ export const runOutcomeSchema = z.object({
   postId: z.string().min(1).nullable().optional(),
   postStatus: z.string().min(1).nullable().optional(),
   publishedUrl: z.string().url().nullable().optional(),
+  proofFinalization: proofFinalizationSchema.optional(),
 });
 
 export const runBaseSchema = z.object({
@@ -82,6 +102,8 @@ export type RunStatus = z.infer<typeof runStatusSchema>;
 export type RunTrigger = z.infer<typeof runTriggerSchema>;
 export type MarketBias = z.infer<typeof marketBiasSchema>;
 export type CandidateSummary = z.infer<typeof candidateSummarySchema>;
+export type ProofFinalizationStatus = z.infer<typeof proofFinalizationStatusSchema>;
+export type ProofFinalization = z.infer<typeof proofFinalizationSchema>;
 export type RunOutcome = z.infer<typeof runOutcomeSchema>;
 export type Run = z.infer<typeof runSchema>;
 export type RunListItem = z.infer<typeof runListItemSchema>;

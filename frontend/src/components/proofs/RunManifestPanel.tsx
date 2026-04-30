@@ -9,6 +9,8 @@ type RunManifestPanelProps = {
   manifest?: ZeroGRunManifest | null;
   isLoading?: boolean;
   error?: Error | null;
+  emptyMessage?: string;
+  emptyStatus?: string;
   className?: string;
 };
 
@@ -33,7 +35,14 @@ const shorten = (value: string | null | undefined) => {
   return value.length > 18 ? `${value.slice(0, 10)}...${value.slice(-6)}` : value;
 };
 
-export function RunManifestPanel({ manifest, isLoading, error, className }: RunManifestPanelProps) {
+export function RunManifestPanel({
+  manifest,
+  isLoading,
+  error,
+  emptyMessage = 'No run manifest has been assembled yet.',
+  emptyStatus = 'NO MANIFEST',
+  className,
+}: RunManifestPanelProps) {
   if (isLoading && !manifest) {
     return (
       <Card className={cn('bg-gray-900/50 border-gray-800', className)}>
@@ -66,7 +75,7 @@ export function RunManifestPanel({ manifest, isLoading, error, className }: RunM
             </p>
           </div>
           <Badge className="border-cyan-500/40 bg-cyan-500/10 text-cyan-300">
-            {manifest ? `${manifest.summary.artifactCount} ARTIFACTS` : 'NO MANIFEST'}
+            {manifest ? `${manifest.summary.artifactCount} ARTIFACTS` : emptyStatus}
           </Badge>
         </div>
       </CardHeader>
@@ -79,7 +88,7 @@ export function RunManifestPanel({ manifest, isLoading, error, className }: RunM
         ) : !manifest ? (
           <div className="flex h-36 flex-col items-center justify-center rounded-lg border border-gray-800 bg-gray-950/40 text-center">
             <Layers className="mb-3 h-8 w-8 text-gray-600" />
-            <p className="text-sm text-gray-500">No run manifest has been assembled yet.</p>
+            <p className="text-sm text-gray-500">{emptyMessage}</p>
           </div>
         ) : (
           <div className="space-y-4">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { ProofArtifact } from '@omen/shared';
+import type { ProofArtifact, ProofFinalization } from '@omen/shared';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Certificate01Icon,
@@ -105,6 +105,27 @@ const chainExplorerLink = (artifact: ProofArtifact | null) => {
   return null;
 };
 
+const proofStatusLabel: Record<ProofFinalization['status'], string> = {
+  not_configured: 'not configured',
+  publishing: 'finalizing',
+  anchoring: 'anchoring',
+  complete: 'complete',
+  partial: 'partial',
+  failed: 'failed',
+};
+
+const proofStatusBadgeClass: Record<ProofFinalization['status'], string> = {
+  not_configured: 'border-gray-500/40 bg-gray-500/10 text-gray-300',
+  publishing: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200',
+  anchoring: 'border-orange-500/40 bg-orange-500/10 text-orange-200',
+  complete: 'border-green-500/40 bg-green-500/10 text-green-300',
+  partial: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-200',
+  failed: 'border-red-500/40 bg-red-500/10 text-red-300',
+};
+
+const isProofFinalizingStatus = (status: ProofFinalization['status']) =>
+  status === 'publishing' || status === 'anchoring';
+
 export function EvidencePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRunId = searchParams.get('runId');
@@ -169,6 +190,9 @@ export function EvidencePage() {
   const chainArtifacts = filterArtifacts(proofDetail.artifacts, ['chain_proof']);
   const isRefreshing = proofFeed.isRefreshing || proofDetail.isRefreshing || topology.isRefreshing;
   const selectedProof = proofFeed.proofs.find((proof) => proof.runId === activeRunId) ?? proofFeed.proofs[0] ?? null;
+  const proofFinalization = proofDetail.proofFinalization ?? selectedProof?.proofFinalization ?? null;
+  const isProofFinalizing = proofFinalization ? isProofFinalizingStatus(proofFinalization.status) : false;
+  const proofStatusText = proofFinalization ? proofStatusLabel[proofFinalization.status] : 'unknown';
   const onlinePeers = topology.peers.filter((peer) => peer.status === 'online').length;
   const deliveredRoutes = topology.routes.filter((route) => route.deliveryStatus === 'delivered').length;
   const isAxlUnverified = Boolean(topology.snapshot && !topology.isVerified);
@@ -195,9 +219,9 @@ export function EvidencePage() {
     },
     {
       label: 'Chain',
-      value: chainArtifact ? 'anchored' : 'not set',
+      value: chainArtifact ? 'anchored' : isProofFinalizing ? proofStatusText : 'not set',
       icon: Network,
-      className: chainArtifact ? 'text-orange-300' : 'text-gray-500',
+      className: chainArtifact || isProofFinalizing ? 'text-orange-300' : 'text-gray-500',
     },
     {
       label: 'AXL peers',
@@ -235,7 +259,7 @@ export function EvidencePage() {
     {
       id: 'chain',
       label: '0G Chain',
-      detail: chainCount > 0 ? 'anchored' : 'not set',
+      detail: chainCount > 0 ? 'anchored' : isProofFinalizing ? proofStatusText : 'not set',
       icon: Network,
     },
     {
@@ -293,6 +317,41 @@ export function EvidencePage() {
             </div>
             <Badge className="w-fit border-yellow-500/40 bg-yellow-500/10 text-yellow-200">
               {topology.source ?? 'axl-service-registry'}
+            </Badge>
+          </div>
+        </div>
+      )}
+
+      {proofFinalization && proofFinalization.status !== 'complete' && (
+        <div
+          className={cn(
+            'rounded-lg border px-4 py-3',
+            proofFinalization.status === 'failed'
+              ? 'border-red-500/30 bg-red-500/10'
+              : proofFinalization.status === 'partial'
+                ? 'border-yellow-500/30 bg-yellow-500/10'
+                : 'border-cyan-500/30 bg-cyan-500/10',
+          )}
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex gap-3">
+              {proofFinalization.status === 'failed' || proofFinalization.status === 'partial' ? (
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-300" />
+              ) : (
+                <History className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
+              )}
+              <div>
+                <div className="text-sm font-semibold text-white">
+                  0G evidence {proofStatusText}
+                </div>
+                <p className="mt-1 text-sm text-gray-300">
+                  {proofFinalization.error ??
+                    'The run output is ready while storage, compute, manifest, and chain refs are still being finalized.'}
+                </p>
+              </div>
+            </div>
+            <Badge className={cn('w-fit uppercase', proofStatusBadgeClass[proofFinalization.status])}>
+              {proofStatusText}
             </Badge>
           </div>
         </div>
@@ -520,12 +579,23 @@ export function EvidencePage() {
                 manifest={proofDetail.manifest}
                 isLoading={proofDetail.isLoading}
                 error={proofDetail.error}
+                emptyMessage={
+                  isProofFinalizing
+                    ? '0G manifest is still being assembled for this run.'
+                    : 'No run manifest has been assembled yet.'
+                }
+                emptyStatus={isProofFinalizing ? 'FINALIZING' : 'NO MANIFEST'}
               />
               <ArtifactList
                 artifacts={storageArtifacts}
                 title="0G Storage Refs"
                 isLoading={proofDetail.isLoading}
                 error={proofDetail.error}
+                emptyMessage={
+                  isProofFinalizing
+                    ? '0G storage refs are still being recorded for this run.'
+                    : 'No 0G artifact refs recorded.'
+                }
               />
             </div>
           )}
@@ -542,6 +612,11 @@ export function EvidencePage() {
                 title="0G Compute Refs"
                 isLoading={proofDetail.isLoading}
                 error={proofDetail.error}
+                emptyMessage={
+                  isProofFinalizing
+                    ? '0G compute proof is still being recorded for this run.'
+                    : 'No 0G artifact refs recorded.'
+                }
               />
             </div>
           )}
@@ -552,12 +627,23 @@ export function EvidencePage() {
                 anchor={chainArtifact}
                 isLoading={proofDetail.isLoading}
                 error={proofDetail.error}
+                emptyMessage={
+                  isProofFinalizing
+                    ? '0G chain anchor is queued after the manifest is recorded.'
+                    : 'This manifest has no chain anchor.'
+                }
+                emptyStatus={isProofFinalizing ? proofStatusText : 'not set'}
               />
               <ArtifactList
                 artifacts={chainArtifacts}
                 title="0G Chain Refs"
                 isLoading={proofDetail.isLoading}
                 error={proofDetail.error}
+                emptyMessage={
+                  isProofFinalizing
+                    ? '0G chain ref is still being recorded for this run.'
+                    : 'No 0G artifact refs recorded.'
+                }
               />
             </div>
           )}

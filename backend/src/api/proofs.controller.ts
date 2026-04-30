@@ -6,6 +6,7 @@ import {
   createSupabaseServiceRoleClient,
 } from "@omen/db";
 import {
+  type ProofFinalization,
   type ProofArtifact,
   type Run,
 } from "@omen/shared";
@@ -32,6 +33,7 @@ type ProofSummary = {
   computeCount: number;
   chainCount: number;
   postCount: number;
+  proofFinalization: ProofFinalization;
   createdAt: string;
 };
 
@@ -56,6 +58,58 @@ const createRepositories = (env: Pick<BackendEnv, "supabase">) => {
 
 const sortArtifacts = (artifacts: ProofArtifact[]) =>
   [...artifacts].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+
+const deriveProofFinalization = (
+  run: Run,
+  artifacts: ProofArtifact[],
+  requireChainAnchor: boolean,
+): ProofFinalization => {
+  const manifestRef =
+    artifacts.find((artifact) => artifact.refType === "manifest") ?? null;
+  const chainRef =
+    artifacts.find((artifact) => artifact.refType === "chain_proof") ?? null;
+  const recorded = run.outcome?.proofFinalization;
+
+  if (recorded) {
+    return {
+      ...recorded,
+      artifactCount: artifacts.length,
+      manifestRefId: recorded.manifestRefId ?? manifestRef?.id ?? null,
+      chainRefId: recorded.chainRefId ?? chainRef?.id ?? null,
+    };
+  }
+
+  if (manifestRef) {
+    return {
+      status: requireChainAnchor && !chainRef ? "partial" : "complete",
+      artifactCount: artifacts.length,
+      manifestRefId: manifestRef.id,
+      chainRefId: chainRef?.id ?? null,
+      startedAt: null,
+      completedAt: sortArtifacts(artifacts).at(-1)?.createdAt ?? run.updatedAt,
+      error:
+        requireChainAnchor && !chainRef
+          ? "0G chain anchoring is configured, but no chain proof was recorded for this run."
+          : null,
+    };
+  }
+
+  return {
+    status:
+      run.status === "completed" || run.status === "failed"
+        ? "partial"
+        : "publishing",
+    artifactCount: artifacts.length,
+    manifestRefId: null,
+    chainRefId: chainRef?.id ?? null,
+    startedAt: null,
+    completedAt: null,
+    error:
+      run.status === "completed" || run.status === "failed"
+        ? "Run reached a terminal state before a 0G manifest was recorded."
+        : null,
+  };
+};
 
 const buildManifest = (run: Run, artifacts: ProofArtifact[], environment: string) => {
   const manifestArtifact =
@@ -82,7 +136,18 @@ const buildManifest = (run: Run, artifacts: ProofArtifact[], environment: string
   });
 };
 
-const buildProofSummary = (run: Run, artifacts: ProofArtifact[]) =>
+const isChainAnchoringConfigured = (env: Pick<BackendEnv, "zeroG">) =>
+  Boolean(
+    env.zeroG.rpcUrl &&
+      env.zeroG.privateKey &&
+      env.zeroG.runRegistryAddress,
+  );
+
+const buildProofSummary = (
+  run: Run,
+  artifacts: ProofArtifact[],
+  requireChainAnchor: boolean,
+) =>
   ({
     runId: run.id,
     manifestRefId:
@@ -103,13 +168,19 @@ const buildProofSummary = (run: Run, artifacts: ProofArtifact[]) =>
     postCount: artifacts.filter((artifact) =>
       ["post_payload", "post_result"].includes(artifact.refType),
     ).length,
+    proofFinalization: deriveProofFinalization(run, artifacts, requireChainAnchor),
     createdAt:
       sortArtifacts(artifacts).at(-1)?.createdAt ??
       run.completedAt ??
       run.updatedAt,
   }) satisfies ProofSummary;
 
-const buildProofDetail = (run: Run, artifacts: ProofArtifact[], environment: string) => {
+const buildProofDetail = (
+  run: Run,
+  artifacts: ProofArtifact[],
+  environment: string,
+  requireChainAnchor: boolean,
+) => {
   const sortedArtifacts = sortArtifacts(artifacts);
 
   return {
@@ -122,13 +193,15 @@ const buildProofDetail = (run: Run, artifacts: ProofArtifact[], environment: str
     },
     artifacts: sortedArtifacts,
     manifest: buildManifest(run, sortedArtifacts, environment),
+    proofFinalization: deriveProofFinalization(run, sortedArtifacts, requireChainAnchor),
   };
 };
 
 export const createProofFeedController =
-  (env: Pick<BackendEnv, "supabase" | "nodeEnv">) =>
+  (env: Pick<BackendEnv, "supabase" | "nodeEnv" | "zeroG">) =>
   async (req: Request, res: Response) => {
     const limit = parseLimit(req.query.limit, 20);
+    const requireChainAnchor = isChainAnchoringConfigured(env);
 
     if (!isPersistenceConfigured(env)) {
       res.status(503).json({
@@ -170,6 +243,7 @@ export const createProofFeedController =
           buildProofSummary(
             entry.run,
             entry.artifacts.ok ? entry.artifacts.value : [],
+            requireChainAnchor,
           ),
         ),
         nextCursor: null,
@@ -178,9 +252,10 @@ export const createProofFeedController =
   };
 
 export const createProofDetailController =
-  (env: Pick<BackendEnv, "supabase" | "nodeEnv">) =>
+  (env: Pick<BackendEnv, "supabase" | "nodeEnv" | "zeroG">) =>
   async (req: Request, res: Response) => {
     const runId = typeof req.params.runId === "string" ? req.params.runId : "";
+    const requireChainAnchor = isChainAnchoringConfigured(env);
 
     if (!isPersistenceConfigured(env)) {
       res.status(503).json({
@@ -213,6 +288,11 @@ export const createProofDetailController =
 
     res.json({
       success: true,
-      data: buildProofDetail(run.value, artifacts.value, env.nodeEnv),
+      data: buildProofDetail(
+        run.value,
+        artifacts.value,
+        env.nodeEnv,
+        requireChainAnchor,
+      ),
     });
   };

@@ -12,6 +12,7 @@ type ArtifactListProps = {
   title?: string;
   isLoading?: boolean;
   error?: Error | null;
+  emptyMessage?: string;
   className?: string;
 };
 
@@ -69,6 +70,7 @@ export function ArtifactList({
   title = '0G Artifact Refs',
   isLoading,
   error,
+  emptyMessage = 'No 0G artifact refs recorded.',
   className,
 }: ArtifactListProps) {
   const normalizedArtifacts = links?.map((link) => link.artifact) ?? artifacts;
@@ -118,7 +120,7 @@ export function ArtifactList({
         ) : orderedArtifacts.length === 0 ? (
           <div className="flex h-36 flex-col items-center justify-center rounded-lg border border-gray-800 bg-gray-950/40 text-center">
             <ListChecks className="mb-3 h-8 w-8 text-gray-600" />
-            <p className="text-sm text-gray-500">No 0G artifact refs recorded.</p>
+            <p className="text-sm text-gray-500">{emptyMessage}</p>
           </div>
         ) : (
           <ScrollArea className="h-[360px] pr-3">

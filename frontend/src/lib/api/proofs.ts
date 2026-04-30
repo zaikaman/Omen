@@ -1,8 +1,10 @@
 import {
   proofArtifactSchema,
+  proofFinalizationSchema,
   runProofBundleSchema,
   runSchema,
   zeroGRunManifestSchema,
+  type ProofFinalization,
   type ProofArtifact,
   type Run,
   type RunProofBundle,
@@ -21,6 +23,7 @@ export type ProofSummary = {
   computeCount: number;
   chainCount: number;
   postCount: number;
+  proofFinalization: ProofFinalization;
   createdAt: string;
 };
 
@@ -34,7 +37,25 @@ export type ProofDetailResponse = {
   proofBundle: RunProofBundle;
   artifacts: ProofArtifact[];
   manifest: ZeroGRunManifest | null;
+  proofFinalization: ProofFinalization;
 };
+
+const fallbackProofFinalization = (input: {
+  artifactCount: number;
+  manifestRefId?: string | null;
+  createdAt?: string | null;
+}) =>
+  proofFinalizationSchema.parse({
+    status: input.manifestRefId ? 'complete' : 'partial',
+    artifactCount: input.artifactCount,
+    manifestRefId: input.manifestRefId ?? null,
+    chainRefId: null,
+    startedAt: null,
+    completedAt: input.createdAt ?? null,
+    error: input.manifestRefId
+      ? null
+      : 'Run proof manifest has not been recorded yet.',
+  });
 
 const proofSummarySchema = {
   parse: (input: unknown): ProofSummary => {
@@ -62,6 +83,16 @@ const proofSummarySchema = {
         typeof value.chainCount === 'number' ? value.chainCount : 0,
       postCount:
         typeof value.postCount === 'number' ? value.postCount : 0,
+      proofFinalization: proofFinalizationSchema.parse(
+        value.proofFinalization ??
+          fallbackProofFinalization({
+            artifactCount:
+              typeof value.artifactCount === 'number' ? value.artifactCount : 0,
+            manifestRefId:
+              typeof value.manifestRefId === 'string' ? value.manifestRefId : null,
+            createdAt: value.createdAt,
+          }),
+      ),
       createdAt: value.createdAt,
     };
   },
@@ -86,18 +117,29 @@ const proofDetailResponseSchema = {
       proofBundle?: unknown;
       artifacts?: unknown;
       manifest?: unknown;
+      proofFinalization?: unknown;
     };
+    const artifacts = Array.isArray(payload.artifacts)
+      ? payload.artifacts.map((artifact) => proofArtifactSchema.parse(artifact))
+      : [];
+    const manifest =
+      payload.manifest === null || payload.manifest === undefined
+        ? null
+        : zeroGRunManifestSchema.parse(payload.manifest);
 
     return {
       run: runSchema.parse(payload.run),
       proofBundle: runProofBundleSchema.parse(payload.proofBundle),
-      artifacts: Array.isArray(payload.artifacts)
-        ? payload.artifacts.map((artifact) => proofArtifactSchema.parse(artifact))
-        : [],
-      manifest:
-        payload.manifest === null || payload.manifest === undefined
-          ? null
-          : zeroGRunManifestSchema.parse(payload.manifest),
+      artifacts,
+      manifest,
+      proofFinalization: proofFinalizationSchema.parse(
+        payload.proofFinalization ??
+          fallbackProofFinalization({
+            artifactCount: artifacts.length,
+            manifestRefId: manifest?.manifestArtifact?.artifact.id ?? null,
+            createdAt: manifest?.createdAt ?? null,
+          }),
+      ),
     };
   },
 };

@@ -10,6 +10,8 @@ type ChainAnchorCardProps = {
   title?: string;
   isLoading?: boolean;
   error?: Error | null;
+  emptyMessage?: string;
+  emptyStatus?: string;
   className?: string;
 };
 
@@ -110,6 +112,8 @@ export function ChainAnchorCard({
   title = 'Optional Chain Anchor',
   isLoading,
   error,
+  emptyMessage = 'This manifest has no chain anchor.',
+  emptyStatus = 'not set',
   className,
 }: ChainAnchorCardProps) {
   const proof = resolveAnchor(anchor);
@@ -146,7 +150,7 @@ export function ChainAnchorCard({
             </p>
           </div>
           <Badge className={proof ? cn('uppercase', statusClassName[proof.status]) : 'border-gray-500/40 bg-gray-500/10 text-gray-300'}>
-            {proof ? proof.status : 'not set'}
+            {proof ? proof.status : emptyStatus}
           </Badge>
         </div>
       </CardHeader>
@@ -159,7 +163,7 @@ export function ChainAnchorCard({
         ) : !proof ? (
           <div className="flex h-36 flex-col items-center justify-center rounded-lg border border-gray-800 bg-gray-950/40 text-center">
             <Link2Off className="mb-3 h-8 w-8 text-gray-600" />
-            <p className="text-sm text-gray-500">This manifest has no chain anchor.</p>
+            <p className="text-sm text-gray-500">{emptyMessage}</p>
           </div>
         ) : (
           <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-4">

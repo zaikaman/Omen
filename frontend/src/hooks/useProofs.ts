@@ -144,6 +144,7 @@ export const useProofDetail = (
     proofBundle: response?.proofBundle ?? null,
     artifacts: response?.artifacts ?? [],
     manifest: response?.manifest ?? null,
+    proofFinalization: response?.proofFinalization ?? null,
     isLoading,
     isRefreshing,
     error,

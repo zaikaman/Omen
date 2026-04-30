@@ -54,6 +54,7 @@ import type {
   Intel,
   Signal,
   ProofArtifact,
+  ProofFinalization,
 } from "@omen/shared";
 
 import type { BackendEnv } from "../bootstrap/env.js";
@@ -217,6 +218,32 @@ const deriveManifestAnchorRoot = (artifact: ProofArtifact) => {
   }
 
   return artifact.locator || artifact.key || artifact.id;
+};
+
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
+const buildProofFinalization = (input: {
+  status: ProofFinalization["status"];
+  artifacts: ProofArtifact[];
+  startedAt: string | null;
+  completedAt: string | null;
+  error: string | null;
+}): ProofFinalization => {
+  const manifestRef =
+    input.artifacts.find((artifact) => artifact.refType === "manifest") ?? null;
+  const chainRef =
+    input.artifacts.find((artifact) => artifact.refType === "chain_proof") ?? null;
+
+  return {
+    status: input.status,
+    artifactCount: input.artifacts.length,
+    manifestRefId: manifestRef?.id ?? null,
+    chainRefId: chainRef?.id ?? null,
+    startedAt: input.startedAt,
+    completedAt: input.completedAt,
+    error: input.error,
+  };
 };
 
 const escapePromptRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1261,7 +1288,27 @@ class LivePipelineExecutionContext {
       await this.safePersistRun(persistedRun);
     }
 
+    const proofStartedAt = new Date().toISOString();
+
     if (this.zeroGPublisher) {
+      persistedRun = {
+        ...persistedRun,
+        outcome: persistedRun.outcome
+          ? {
+              ...persistedRun.outcome,
+              proofFinalization: buildProofFinalization({
+                status: "publishing",
+                artifacts: this.artifacts,
+                startedAt: proofStartedAt,
+                completedAt: null,
+                error: null,
+              }),
+            }
+          : null,
+        updatedAt: proofStartedAt,
+      };
+      await this.safePersistRun(persistedRun);
+
       const zeroGPublishResult = await this.safePublishFinalArtifacts({
         ...finalState,
         run: persistedRun,
@@ -1278,8 +1325,19 @@ class LivePipelineExecutionContext {
           currentCheckpointRefId: finalCheckpointArtifact.id,
           updatedAt: new Date().toISOString(),
         };
-        await this.safePersistRun(persistedRun);
       }
+
+      persistedRun = {
+        ...persistedRun,
+        outcome: persistedRun.outcome
+          ? {
+              ...persistedRun.outcome,
+              proofFinalization: zeroGPublishResult.proofFinalization,
+            }
+          : null,
+        updatedAt: zeroGPublishResult.proofFinalization.completedAt ?? new Date().toISOString(),
+      };
+      await this.safePersistRun(persistedRun);
 
       if (zeroGArtifacts.length > 0 && this.eventPublisher) {
         await this.safePublishEvent(
@@ -1290,6 +1348,7 @@ class LivePipelineExecutionContext {
             status: "success",
             payload: {
               artifactCount: zeroGArtifacts.length,
+              proofFinalization: zeroGPublishResult.proofFinalization,
               computeStatus: zeroGPublishResult.computeError ? "failed" : "ok",
               computeError: zeroGPublishResult.computeError,
             },
@@ -1312,6 +1371,23 @@ class LivePipelineExecutionContext {
           }),
         );
       }
+    } else if (persistedRun.outcome) {
+      const completedAt = new Date().toISOString();
+      persistedRun = {
+        ...persistedRun,
+        outcome: {
+          ...persistedRun.outcome,
+          proofFinalization: buildProofFinalization({
+            status: "not_configured",
+            artifacts: [],
+            startedAt: proofStartedAt,
+            completedAt,
+            error: "0G proof publishing is not configured.",
+          }),
+        },
+        updatedAt: completedAt,
+      };
+      await this.safePersistRun(persistedRun);
     }
 
     if (this.eventPublisher) {
@@ -2205,15 +2281,26 @@ class LivePipelineExecutionContext {
   }
 
   private async safePublishFinalArtifacts(finalState: SwarmState) {
+    const startedAt =
+      finalState.run.outcome?.proofFinalization?.startedAt ?? new Date().toISOString();
+
     if (!this.zeroGPublisher) {
       return {
         artifacts: [],
         computeError: null,
+        proofFinalization: buildProofFinalization({
+          status: "not_configured",
+          artifacts: [],
+          startedAt,
+          completedAt: new Date().toISOString(),
+          error: "0G proof publishing is not configured.",
+        }),
       };
     }
 
     try {
       const finalArtifacts = [...this.artifacts];
+      const publishErrors: string[] = [];
       const appendRecordedArtifacts = async (artifacts: ProofArtifact[]) => {
         for (const artifact of artifacts) {
           await this.safeRecordArtifact(artifact);
@@ -2249,6 +2336,9 @@ class LivePipelineExecutionContext {
 
           await appendRecordedArtifacts(evidenceBundle.artifacts);
         } catch (error) {
+          publishErrors.push(
+            `evidence bundle: ${errorMessage(error, "0G evidence bundle publish failed.")}`,
+          );
           this.logger.warn(
             "0G evidence bundle publish failed; continuing with final run artifacts.",
             error,
@@ -2273,6 +2363,9 @@ class LivePipelineExecutionContext {
 
           await appendRecordedArtifacts(reportBundle.artifacts);
         } catch (error) {
+          publishErrors.push(
+            `report bundle: ${errorMessage(error, "0G report bundle publish failed.")}`,
+          );
           this.logger.warn(
             "0G report bundle publish failed; continuing with available final artifacts.",
             error,
@@ -2286,6 +2379,8 @@ class LivePipelineExecutionContext {
           .find((artifact) => artifact.metadata?.artifactType === "evidence_pack") ?? null;
 
       if (this.runManifestPublisher) {
+        let manifestArtifact: ProofArtifact | null = null;
+
         try {
           const manifestBundle = await this.runManifestPublisher.publish({
             environment: this.environment,
@@ -2294,39 +2389,129 @@ class LivePipelineExecutionContext {
           });
 
           await appendRecordedArtifacts([manifestBundle.manifestArtifact]);
+          manifestArtifact = manifestBundle.manifestArtifact;
+        } catch (error) {
+          const message = errorMessage(error, "0G run manifest publish failed.");
+          publishErrors.push(`manifest: ${message}`);
+          this.logger.warn("0G run manifest publish failed.", error);
 
-          if (this.zeroGProofAnchor) {
+          if (this.eventPublisher) {
+            await this.safePublishEvent(
+              createRunLifecycleEvent({
+                runId: finalState.run.id,
+                timestamp: new Date().toISOString(),
+                summary: `0G run manifest was not recorded: ${message}`,
+                status: "warning",
+                payload: {
+                  provider: "0g-storage",
+                  error: message,
+                },
+              }),
+            );
+          }
+        }
+
+        if (manifestArtifact && this.zeroGProofAnchor) {
+          try {
             const anchored = await this.zeroGProofAnchor.anchorManifest({
               runId: finalState.run.id,
               signalId: finalState.run.finalSignalId,
               intelId: finalState.run.finalIntelId,
-              manifestRoot: deriveManifestAnchorRoot(manifestBundle.manifestArtifact),
-              locator: manifestBundle.manifestArtifact.locator,
+              manifestRoot: deriveManifestAnchorRoot(manifestArtifact),
+              locator: manifestArtifact.locator,
               metadata: {
-                manifestArtifactId: manifestBundle.manifestArtifact.id,
-                manifestLocator: manifestBundle.manifestArtifact.locator,
-                manifestKey: manifestBundle.manifestArtifact.key,
+                manifestArtifactId: manifestArtifact.id,
+                manifestLocator: manifestArtifact.locator,
+                manifestKey: manifestArtifact.key,
               },
             });
 
             if (anchored.ok && anchored.value) {
               await appendRecordedArtifacts([anchored.value.artifact]);
+            } else if (!anchored.ok) {
+              const message = anchored.error.message;
+              publishErrors.push(`chain anchor: ${message}`);
+              this.logger.warn("0G chain anchor failed.", anchored.error);
+
+              if (this.eventPublisher) {
+                await this.safePublishEvent(
+                  createRunLifecycleEvent({
+                    runId: finalState.run.id,
+                    timestamp: new Date().toISOString(),
+                    summary: `0G chain anchor was not recorded: ${message}`,
+                    status: "warning",
+                    payload: {
+                      provider: "0g-chain",
+                      error: message,
+                      manifestArtifactId: manifestArtifact.id,
+                    },
+                  }),
+                );
+              }
+            }
+          } catch (error) {
+            const message = errorMessage(error, "0G chain anchor failed.");
+            publishErrors.push(`chain anchor: ${message}`);
+            this.logger.warn("0G chain anchor failed.", error);
+
+            if (this.eventPublisher) {
+              await this.safePublishEvent(
+                createRunLifecycleEvent({
+                  runId: finalState.run.id,
+                  timestamp: new Date().toISOString(),
+                  summary: `0G chain anchor was not recorded: ${message}`,
+                  status: "warning",
+                  payload: {
+                    provider: "0g-chain",
+                    error: message,
+                    manifestArtifactId: manifestArtifact.id,
+                  },
+                }),
+              );
             }
           }
-        } catch (error) {
-          this.logger.warn("0G run manifest publish or chain anchor failed.", error);
         }
       }
+
+      const completedAt = new Date().toISOString();
+      const manifestRecorded = finalArtifacts.some(
+        (artifact) => artifact.refType === "manifest",
+      );
+      const chainConfigured =
+        this.zeroGProofAnchor?.requireConfiguredAdapter().ok ?? false;
+      const chainRecorded = finalArtifacts.some(
+        (artifact) => artifact.refType === "chain_proof",
+      );
+      const proofStatus: ProofFinalization["status"] = !manifestRecorded
+        ? "failed"
+        : publishErrors.length > 0 || (chainConfigured && !chainRecorded)
+          ? "partial"
+          : "complete";
 
       return {
         artifacts: finalArtifacts,
         computeError: runArtifacts.computeError,
+        proofFinalization: buildProofFinalization({
+          status: proofStatus,
+          artifacts: finalArtifacts,
+          startedAt,
+          completedAt,
+          error: publishErrors.length > 0 ? publishErrors.join("; ") : null,
+        }),
       };
     } catch (error) {
+      const message = errorMessage(error, "0G final artifact publishing failed.");
+
       return {
         artifacts: [],
-        computeError:
-          error instanceof Error ? error.message : "0G final artifact publishing failed.",
+        computeError: message,
+        proofFinalization: buildProofFinalization({
+          status: "failed",
+          artifacts: [],
+          startedAt,
+          completedAt: new Date().toISOString(),
+          error: message,
+        }),
       };
     }
   }
