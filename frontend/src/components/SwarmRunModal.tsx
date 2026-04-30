@@ -479,7 +479,7 @@ export function SwarmRunModal({
               <aside className="min-h-0 bg-gray-950/95">
                 <ScrollArea className="h-full">
                   <div className="space-y-4 p-4">
-                    <div className="rounded-lg border border-gray-800 bg-black/40 p-3">
+                    <div className="min-w-0 overflow-hidden rounded-lg border border-gray-800 bg-black/40 p-3">
                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                         <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
                         Latest judge trace
@@ -487,9 +487,11 @@ export function SwarmRunModal({
                       <div className="mt-3 space-y-2">
                         {latestTrace.length > 0 ? (
                           latestTrace.map((item) => (
-                            <div key={item.label} className="rounded border border-cyan-500/10 bg-gray-950/70 p-2">
+                            <div key={item.label} className="min-w-0 overflow-hidden rounded border border-cyan-500/10 bg-gray-950/70 p-2">
                               <div className="text-[10px] uppercase tracking-wider text-cyan-300/70">{item.label}</div>
-                              <div className="mt-1 line-clamp-4 text-xs leading-relaxed text-gray-300">{item.value}</div>
+                              <div className="mt-1 line-clamp-4 break-words text-xs leading-relaxed text-gray-300 [overflow-wrap:anywhere]">
+                                {item.value}
+                              </div>
                             </div>
                           ))
                         ) : (
@@ -500,7 +502,7 @@ export function SwarmRunModal({
                       </div>
                     </div>
 
-                    <div className="rounded-lg border border-gray-800 bg-black/40 p-3">
+                    <div className="min-w-0 overflow-hidden rounded-lg border border-gray-800 bg-black/40 p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                           <Network className="h-3.5 w-3.5 text-purple-300" />
@@ -523,9 +525,9 @@ export function SwarmRunModal({
                           </div>
                         )}
                         {topology.isVerified && topology.peers.map((peer) => (
-                          <div key={peer.peerId} className="rounded border border-gray-800 bg-gray-950/70 p-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate font-mono text-xs text-gray-200">{peer.peerId}</span>
+                          <div key={peer.peerId} className="min-w-0 overflow-hidden rounded border border-gray-800 bg-gray-950/70 p-2">
+                            <div className="flex min-w-0 items-center justify-between gap-2">
+                              <span className="min-w-0 truncate font-mono text-xs text-gray-200">{peer.peerId}</span>
                               <span
                                 className={cn(
                                   'shrink-0 text-[10px] uppercase',
@@ -550,16 +552,16 @@ export function SwarmRunModal({
                       </div>
                     </div>
 
-                    <div className="rounded-lg border border-gray-800 bg-black/40 p-3">
+                    <div className="min-w-0 overflow-hidden rounded-lg border border-gray-800 bg-black/40 p-3">
                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                         <Layers3 className="h-3.5 w-3.5 text-cyan-300" />
                         AXL services and routes
                       </div>
                       <div className="mt-3 space-y-2">
                         {topology.services.slice(0, 8).map((service) => (
-                          <div key={service.registrationId} className="rounded border border-cyan-500/10 bg-gray-950/70 p-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-xs text-gray-200">{service.service}</span>
+                          <div key={service.registrationId} className="min-w-0 overflow-hidden rounded border border-cyan-500/10 bg-gray-950/70 p-2">
+                            <div className="flex min-w-0 items-center justify-between gap-2">
+                              <span className="min-w-0 truncate text-xs text-gray-200">{service.service}</span>
                               <span className="shrink-0 text-[10px] uppercase text-cyan-300">{service.status}</span>
                             </div>
                             <div className="mt-1 text-[10px] text-gray-500">
@@ -568,9 +570,9 @@ export function SwarmRunModal({
                           </div>
                         ))}
                         {topology.routes.slice(0, 8).map((routeRecord, index) => (
-                          <div key={`${routeRecord.peerId}-${routeRecord.observedAt}-${index}`} className="rounded border border-purple-500/10 bg-gray-950/70 p-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-xs text-gray-200">{routeRecord.operation}</span>
+                          <div key={`${routeRecord.peerId}-${routeRecord.observedAt}-${index}`} className="min-w-0 overflow-hidden rounded border border-purple-500/10 bg-gray-950/70 p-2">
+                            <div className="flex min-w-0 items-center justify-between gap-2">
+                              <span className="min-w-0 truncate text-xs text-gray-200">{routeRecord.operation}</span>
                               <span className="shrink-0 text-[10px] uppercase text-purple-300">{routeRecord.kind}</span>
                             </div>
                             <div className="mt-1 text-[10px] text-gray-500">
@@ -586,19 +588,19 @@ export function SwarmRunModal({
                       </div>
                     </div>
 
-                    <div className="rounded-lg border border-gray-800 bg-black/40 p-3">
+                    <div className="min-w-0 overflow-hidden rounded-lg border border-gray-800 bg-black/40 p-3">
                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                         <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
                         0G proof trail
                       </div>
                       <div className="mt-3 space-y-2">
                         {proofRefs.slice(-8).reverse().map((event) => (
-                          <div key={event.id} className="rounded border border-emerald-500/10 bg-gray-950/70 p-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate font-mono text-xs text-emerald-200">{shorten(event.proofRefId, 30)}</span>
+                          <div key={event.id} className="min-w-0 overflow-hidden rounded border border-emerald-500/10 bg-gray-950/70 p-2">
+                            <div className="flex min-w-0 items-center justify-between gap-2">
+                              <span className="min-w-0 truncate font-mono text-xs text-emerald-200">{shorten(event.proofRefId, 30)}</span>
                               <span className="shrink-0 text-[10px] text-gray-500">{formatTime(event.timestamp)}</span>
                             </div>
-                            <div className="mt-1 line-clamp-2 text-[10px] text-gray-500">{event.summary}</div>
+                            <div className="mt-1 line-clamp-2 break-words text-[10px] text-gray-500 [overflow-wrap:anywhere]">{event.summary}</div>
                           </div>
                         ))}
                         {proofRefs.length === 0 && (
@@ -609,7 +611,7 @@ export function SwarmRunModal({
                       </div>
                     </div>
 
-                    <div className="rounded-lg border border-gray-800 bg-black/40 p-3">
+                    <div className="min-w-0 overflow-hidden rounded-lg border border-gray-800 bg-black/40 p-3">
                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                         <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
                         Backend path
@@ -624,12 +626,12 @@ export function SwarmRunModal({
                           const Icon = item.icon;
 
                           return (
-                            <div key={item.label} className="flex items-center justify-between gap-3 rounded border border-gray-800 bg-gray-950/70 px-2 py-2">
+                            <div key={item.label} className="flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded border border-gray-800 bg-gray-950/70 px-2 py-2">
                               <span className="flex items-center gap-2 text-gray-500">
                                 <Icon className="h-3.5 w-3.5 text-cyan-300" />
                                 {item.label}
                               </span>
-                              <span className="text-right font-mono text-gray-300">{item.value}</span>
+                              <span className="min-w-0 break-words text-right font-mono text-gray-300 [overflow-wrap:anywhere]">{item.value}</span>
                             </div>
                           );
                         })}

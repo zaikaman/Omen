@@ -15,7 +15,7 @@ type MCPStream struct {
 }
 
 func NewMCPStream(routerURL string, timeouts ...time.Duration) *MCPStream {
-	timeout := 30 * time.Second
+	timeout := 300 * time.Second
 	if len(timeouts) > 0 {
 		timeout = timeouts[0]
 	}

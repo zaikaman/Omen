@@ -58,6 +58,8 @@ The config file is shared between Yggdrasil's own settings and the node's API/tr
 | `max_concurrent_conns` | `128` | Max concurrent inbound TCP connections |
 | `conn_read_timeout_secs` | `60` | Read timeout per connection (seconds) |
 | `conn_idle_timeout_secs` | `300` | Idle timeout per connection (seconds) |
+| `a2a_peer_timeout_secs` | `300` | A2A request/response timeout per peer connection (seconds) |
+| `mcp_peer_timeout_secs` | `300` | MCP request/response timeout per peer connection (seconds) |
 
 ### Example
 
@@ -68,7 +70,9 @@ The config file is shared between Yggdrasil's own settings and the node's API/tr
   "router_addr": "http://127.0.0.1",
   "router_port": 9003,
   "a2a_addr": "http://127.0.0.1",
-  "a2a_port": 9004
+  "a2a_port": 9004,
+  "a2a_peer_timeout_secs": 300,
+  "mcp_peer_timeout_secs": 300
 }
 ```
 

@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 from typing import Any
 
 import httpx
@@ -60,7 +61,9 @@ class MCPRouterAgentExecutor(AgentExecutor):
 
     def __init__(self, router_url: str):
         self.router_url = router_url
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.client = httpx.AsyncClient(
+            timeout=float(os.environ.get("AXL_A2A_ROUTER_TIMEOUT_SECONDS", "300"))
+        )
 
     async def execute(
         self,

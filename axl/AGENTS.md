@@ -53,7 +53,7 @@ Use `our_public_key` to identify this node. Share it with other nodes so they ca
 POST http://127.0.0.1:9002/mcp/{peer_id}/{service}   # JSON-RPC → remote MCP service
 POST http://127.0.0.1:9002/a2a/{peer_id}              # JSON-RPC → remote A2A server
 ```
-These are request/response (30s timeout). The node wraps your JSON-RPC body in a transport envelope, sends it, waits for the response, unwraps it, and returns it.
+These are request/response (300s timeout by default). The node wraps your JSON-RPC body in a transport envelope, sends it, waits for the response, unwraps it, and returns it.
 
 ## Building an Application
 

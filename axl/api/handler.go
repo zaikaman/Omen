@@ -11,8 +11,8 @@ import (
 // NewHandler creates the HTTP handler with all API routes configured.
 // This is extracted from main to enable testing of HTTP routing.
 func NewHandler(yggCore *core.Core, tcpPort int, netStack *stack.Stack, peerTimeouts ...time.Duration) http.Handler {
-	mcpPeerTimeout := 30 * time.Second
-	a2aPeerTimeout := 30 * time.Second
+	mcpPeerTimeout := 300 * time.Second
+	a2aPeerTimeout := 300 * time.Second
 	if len(peerTimeouts) > 0 {
 		mcpPeerTimeout = peerTimeouts[0]
 	}

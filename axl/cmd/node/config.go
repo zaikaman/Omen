@@ -20,8 +20,8 @@ const (
 	defaultMaxConcConns    = 128
 	defaultConnReadTimeout = 60  // seconds
 	defaultConnIdleTimeout = 300 // seconds
-	defaultA2APeerTimeout  = 30  // seconds
-	defaultMCPPeerTimeout  = 30  // seconds
+	defaultA2APeerTimeout  = 300 // seconds
+	defaultMCPPeerTimeout  = 300 // seconds
 )
 
 // ApiConfig holds the HTTP API and TCP configuration for the node.

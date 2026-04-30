@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PUBLIC_PORT = int(os.environ.get("AXL_PUBLIC_PROXY_PORT", "8080"))
 BRIDGE_HOST = os.environ.get("AXL_BRIDGE_PROXY_HOST", "127.0.0.1")
 BRIDGE_PORT = int(os.environ.get("AXL_API_PORT", "9002"))
-TIMEOUT_SECONDS = float(os.environ.get("AXL_PUBLIC_PROXY_TIMEOUT_SECONDS", "10"))
+TIMEOUT_SECONDS = float(os.environ.get("AXL_PUBLIC_PROXY_TIMEOUT_SECONDS", "300"))
 TOPOLOGY_TIMEOUT_SECONDS = float(
     os.environ.get("AXL_PUBLIC_PROXY_TOPOLOGY_TIMEOUT_SECONDS", "3")
 )

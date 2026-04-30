@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Default router port
 ROUTER_PORT = 9003
-DEFAULT_FORWARD_TIMEOUT_SECS = 30
+DEFAULT_FORWARD_TIMEOUT_SECS = 300
 
 # Service registry: service_name -> service_info
 services: dict[str, dict] = {}

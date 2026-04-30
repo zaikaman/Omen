@@ -4,7 +4,7 @@ const publicPort = Number.parseInt(process.env.AXL_PUBLIC_PROXY_PORT ?? "8080", 
 const bridgeHost = process.env.AXL_BRIDGE_PROXY_HOST ?? "127.0.0.1";
 const bridgePort = Number.parseInt(process.env.AXL_API_PORT ?? "9002", 10);
 const timeoutMs = Math.round(
-  Number.parseFloat(process.env.AXL_PUBLIC_PROXY_TIMEOUT_SECONDS ?? "10") * 1000,
+  Number.parseFloat(process.env.AXL_PUBLIC_PROXY_TIMEOUT_SECONDS ?? "300") * 1000,
 );
 const topologyTimeoutMs = Math.round(
   Number.parseFloat(process.env.AXL_PUBLIC_PROXY_TOPOLOGY_TIMEOUT_SECONDS ?? "3") * 1000,

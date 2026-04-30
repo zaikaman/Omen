@@ -40,7 +40,7 @@ for site_dir in site.getsitepackages():
         text = text.replace("import logging\n", "import logging\nimport os\n")
         text = text.replace(
             "ClientTimeout(total=30)",
-            "ClientTimeout(total=float(os.environ.get('AXL_ROUTER_SERVICE_TIMEOUT_SECONDS', '30')))",
+            "ClientTimeout(total=float(os.environ.get('AXL_ROUTER_SERVICE_TIMEOUT_SECONDS', '300')))",
         )
         router.write_text(text)
 
@@ -49,7 +49,7 @@ for site_dir in site.getsitepackages():
         text = text.replace("import logging\n", "import logging\nimport os\n")
         text = text.replace(
             "self.client = httpx.AsyncClient(timeout=30.0)",
-            "self.client = httpx.AsyncClient(timeout=float(os.environ.get('AXL_A2A_ROUTER_TIMEOUT_SECONDS', '30')))",
+            "self.client = httpx.AsyncClient(timeout=float(os.environ.get('AXL_A2A_ROUTER_TIMEOUT_SECONDS', '300')))",
         )
         a2a.write_text(text)
 PY

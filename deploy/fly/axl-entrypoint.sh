@@ -10,6 +10,8 @@ ROUTER_PORT="${AXL_ROUTER_PORT:-9003}"
 A2A_ADDR="${AXL_A2A_ADDR:-http://127.0.0.1}"
 A2A_PORT="${AXL_A2A_PORT:-9004}"
 PUBLIC_PROXY_PORT="${AXL_PUBLIC_PROXY_PORT:-8080}"
+A2A_PEER_TIMEOUT_SECS="${AXL_A2A_PEER_TIMEOUT_SECONDS:-300}"
+MCP_PEER_TIMEOUT_SECS="${AXL_MCP_PEER_TIMEOUT_SECONDS:-300}"
 
 mkdir -p "$DATA_DIR" "$RUNTIME_DIR"
 
@@ -35,7 +37,9 @@ cat > "$CONFIG_PATH" <<EOF
   "router_addr": "$ROUTER_ADDR",
   "router_port": ${ROUTER_PORT},
   "a2a_addr": "$A2A_ADDR",
-  "a2a_port": ${A2A_PORT}
+  "a2a_port": ${A2A_PORT},
+  "a2a_peer_timeout_secs": ${A2A_PEER_TIMEOUT_SECS},
+  "mcp_peer_timeout_secs": ${MCP_PEER_TIMEOUT_SECS}
 }
 EOF
 

@@ -15,7 +15,7 @@ type A2AStream struct {
 }
 
 func NewA2AStream(a2aURL string, timeouts ...time.Duration) *A2AStream {
-	timeout := 30 * time.Second
+	timeout := 300 * time.Second
 	if len(timeouts) > 0 {
 		timeout = timeouts[0]
 	}

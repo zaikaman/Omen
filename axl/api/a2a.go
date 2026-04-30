@@ -37,7 +37,7 @@ type A2AResponse struct {
 // POST: forwards a JSON-RPC request to the remote peer's A2A server.
 // GET:  fetches the remote peer's agent card (/.well-known/agent-card.json) for discovery.
 func HandleA2A(tcpPort int, netStack *stack.Stack, peerTimeouts ...time.Duration) http.HandlerFunc {
-	peerTimeout := 30 * time.Second
+	peerTimeout := 300 * time.Second
 	if len(peerTimeouts) > 0 {
 		peerTimeout = peerTimeouts[0]
 	}

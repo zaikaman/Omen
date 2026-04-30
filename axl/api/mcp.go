@@ -42,7 +42,7 @@ type MCPResponse struct {
 // URL format: /mcp/{peer_id}/{service}
 // Claude Code connects here as a remote MCP server via HTTP transport.
 func HandleMCP(TCPPort int, netStack *stack.Stack, peerTimeouts ...time.Duration) http.HandlerFunc {
-	peerTimeout := 30 * time.Second
+	peerTimeout := 300 * time.Second
 	if len(peerTimeouts) > 0 {
 		peerTimeout = peerTimeouts[0]
 	}
