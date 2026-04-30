@@ -8,7 +8,7 @@ playwright-report
 template
 .env
 local/logs/axl-demo/
-local/axl/demo/*/private.pem
+local/axl/
 0g-ts-sdk
 0g-doc
 !scripts/axl/
