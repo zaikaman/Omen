@@ -11,6 +11,7 @@ import {
 } from "./base-repository.js";
 import type { OmenSupabaseClient } from "../client/supabase.js";
 import { err, ok, type Result } from "@omen/shared";
+import { normalizeDatabaseTimestamp } from "./timestamp.js";
 
 type ServiceRegistrySnapshotRow = {
   id: string;
@@ -26,7 +27,7 @@ type ServiceRegistrySnapshotInsert = Omit<ServiceRegistrySnapshotRow, "id">;
 
 const toSnapshot = (row: ServiceRegistrySnapshotRow): AxlServiceRegistrySnapshot =>
   axlServiceRegistrySnapshotSchema.parse({
-    capturedAt: row.captured_at,
+    capturedAt: normalizeDatabaseTimestamp(row.captured_at),
     source: row.source,
     peers: row.peers,
     services: row.services,

@@ -6,8 +6,22 @@ import {
   Database01Icon,
   Link01Icon,
 } from '@hugeicons/core-free-icons';
-import { CheckCircle2, Database, ExternalLink, FileJson, Network, ServerCrash, Zap } from 'lucide-react';
+import {
+  Boxes,
+  CheckCircle2,
+  Database,
+  ExternalLink,
+  FileJson,
+  History,
+  Network,
+  RadioTower,
+  ServerCrash,
+  Zap,
+} from 'lucide-react';
 
+import { PeerTopologyPanel } from '../components/network/PeerTopologyPanel';
+import { RouteTimeline } from '../components/network/RouteTimeline';
+import { ServiceRegistryPanel } from '../components/network/ServiceRegistryPanel';
 import { ArtifactList } from '../components/proofs/ArtifactList';
 import { ChainAnchorCard } from '../components/proofs/ChainAnchorCard';
 import { ComputeProofCard } from '../components/proofs/ComputeProofCard';
@@ -15,9 +29,18 @@ import { RunManifestPanel } from '../components/proofs/RunManifestPanel';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useProofDetail, useProofFeed } from '../hooks/useProofs';
+import { useTopology } from '../hooks/useTopology';
 import { cn } from '../lib/utils';
 
 const REFRESH_INTERVAL_MS = 30_000;
+
+type ConsoleSectionId =
+  | 'storage'
+  | 'compute'
+  | 'chain'
+  | 'axl-peers'
+  | 'axl-services'
+  | 'axl-routes';
 
 const shorten = (value: string | null | undefined) => {
   if (!value) {
@@ -45,6 +68,9 @@ const getArtifact = (artifacts: ProofArtifact[], refTypes: ProofArtifact['refTyp
 
 const countArtifacts = (artifacts: ProofArtifact[], refTypes: ProofArtifact['refType'][]) =>
   artifacts.filter((artifact) => refTypes.includes(artifact.refType)).length;
+
+const filterArtifacts = (artifacts: ProofArtifact[], refTypes: ProofArtifact['refType'][]) =>
+  artifacts.filter((artifact) => refTypes.includes(artifact.refType));
 
 const metadataLink = (artifact: ProofArtifact | null, key: string) => {
   const value = artifact?.metadata[key];
@@ -75,7 +101,11 @@ export function EvidencePage() {
     limit: 10,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
+  const topology = useTopology({
+    refreshIntervalMs: REFRESH_INTERVAL_MS,
+  });
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<ConsoleSectionId>('storage');
   const activeRunId = selectedRunId ?? proofFeed.proofs[0]?.runId ?? null;
   const proofDetail = useProofDetail(activeRunId, {
     enabled: Boolean(activeRunId),
@@ -100,9 +130,23 @@ export function EvidencePage() {
   const explorerUrl = chainExplorerLink(chainArtifact);
   const storageCount = countArtifacts(proofDetail.artifacts, ['kv_state', 'log_entry', 'log_bundle', 'file_artifact']);
   const computeCount = countArtifacts(proofDetail.artifacts, ['compute_result', 'compute_job']);
+  const chainCount = countArtifacts(proofDetail.artifacts, ['chain_proof']);
   const postCount = countArtifacts(proofDetail.artifacts, ['post_result', 'post_payload']);
-  const isRefreshing = proofFeed.isRefreshing || proofDetail.isRefreshing;
+  const storageArtifacts = filterArtifacts(proofDetail.artifacts, [
+    'kv_state',
+    'log_entry',
+    'log_bundle',
+    'file_artifact',
+    'manifest',
+    'post_payload',
+    'post_result',
+  ]);
+  const computeArtifacts = filterArtifacts(proofDetail.artifacts, ['compute_result', 'compute_job']);
+  const chainArtifacts = filterArtifacts(proofDetail.artifacts, ['chain_proof']);
+  const isRefreshing = proofFeed.isRefreshing || proofDetail.isRefreshing || topology.isRefreshing;
   const selectedProof = proofFeed.proofs.find((proof) => proof.runId === activeRunId) ?? proofFeed.proofs[0] ?? null;
+  const onlinePeers = topology.peers.filter((peer) => peer.status === 'online').length;
+  const deliveredRoutes = topology.routes.filter((route) => route.deliveryStatus === 'delivered').length;
 
   const overviewItems = [
     {
@@ -129,7 +173,69 @@ export function EvidencePage() {
       icon: Network,
       className: chainArtifact ? 'text-orange-300' : 'text-gray-500',
     },
+    {
+      label: 'AXL peers',
+      value: `${onlinePeers}/${topology.peers.length}`,
+      icon: RadioTower,
+      className: topology.peers.length > 0 ? 'text-cyan-300' : 'text-gray-500',
+    },
+    {
+      label: 'Services',
+      value: topology.services.length.toString(),
+      icon: Boxes,
+      className: topology.services.length > 0 ? 'text-purple-300' : 'text-gray-500',
+    },
+    {
+      label: 'Routes',
+      value: `${deliveredRoutes}/${topology.routes.length}`,
+      icon: History,
+      className: topology.routes.length > 0 ? 'text-green-300' : 'text-gray-500',
+    },
   ];
+
+  const consoleSections = [
+    {
+      id: 'storage',
+      label: '0G Storage',
+      detail: `${storageCount} refs`,
+      icon: FileJson,
+    },
+    {
+      id: 'compute',
+      label: '0G Compute',
+      detail: computeCount > 0 ? `${computeCount} proofs` : 'none',
+      icon: Zap,
+    },
+    {
+      id: 'chain',
+      label: '0G Chain',
+      detail: chainCount > 0 ? 'anchored' : 'not set',
+      icon: Network,
+    },
+    {
+      id: 'axl-peers',
+      label: 'AXL Peer Graph',
+      detail: `${onlinePeers}/${topology.peers.length} online`,
+      icon: RadioTower,
+    },
+    {
+      id: 'axl-services',
+      label: 'AXL Service Registry',
+      detail: `${topology.services.length} services`,
+      icon: Boxes,
+    },
+    {
+      id: 'axl-routes',
+      label: 'AXL Route Receipts',
+      detail: `${topology.routes.length} routes`,
+      icon: History,
+    },
+  ] satisfies Array<{
+    id: ConsoleSectionId;
+    label: string;
+    detail: string;
+    icon: typeof FileJson;
+  }>;
 
   return (
     <div className="space-y-6">
@@ -137,13 +243,13 @@ export function EvidencePage() {
         <div>
           <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white">
             <HugeiconsIcon icon={Certificate01Icon} className="h-6 w-6 text-cyan-500" />
-            0G Activity
+            Proof Console
           </h2>
           <p className="mt-1 max-w-3xl text-gray-400">
-            Runtime storage, compute, and chain records for recent swarm runs.
+            Live 0G storage, compute, chain, and AXL routing evidence for recent swarm runs.
           </p>
         </div>
-        {isRefreshing && <span className="text-xs text-gray-500">Syncing 0G activity...</span>}
+        {isRefreshing && <span className="text-xs text-gray-500">Syncing proof console...</span>}
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -207,6 +313,42 @@ export function EvidencePage() {
                   );
                 })
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-gray-800 bg-gray-900/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-gray-400">
+                Console
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
+              {consoleSections.map((section) => {
+                const Icon = section.icon;
+                const isActive = activeSection === section.id;
+
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => setActiveSection(section.id)}
+                    className={cn(
+                      'flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                      isActive
+                        ? 'border-cyan-500/40 bg-cyan-500/10 text-white'
+                        : 'border-gray-800 bg-gray-950/40 text-gray-400 hover:border-gray-700 hover:bg-gray-900/60 hover:text-white',
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-cyan-300' : 'text-gray-500')} />
+                      <span className="truncate text-sm font-medium">{section.label}</span>
+                    </span>
+                    <span className="shrink-0 font-mono text-[10px] uppercase text-gray-500">
+                      {section.detail}
+                    </span>
+                  </button>
+                );
+              })}
             </CardContent>
           </Card>
 
@@ -298,31 +440,105 @@ export function EvidencePage() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
-            <RunManifestPanel
-              manifest={proofDetail.manifest}
-              isLoading={proofDetail.isLoading}
-              error={proofDetail.error}
-            />
-            <ComputeProofCard
-              artifact={computeArtifact}
-              isLoading={proofDetail.isLoading}
-              error={proofDetail.error}
-            />
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
+            {consoleSections.map((section) => {
+              const Icon = section.icon;
+              const isActive = activeSection === section.id;
+
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    'rounded-lg border px-3 py-3 text-left transition-colors',
+                    isActive
+                      ? 'border-cyan-500/40 bg-cyan-500/10'
+                      : 'border-gray-800 bg-gray-950/30 hover:border-gray-700 hover:bg-gray-900/50',
+                  )}
+                >
+                  <Icon className={cn('h-4 w-4', isActive ? 'text-cyan-300' : 'text-gray-500')} />
+                  <div className="mt-2 text-xs font-semibold text-white">{section.label}</div>
+                  <div className="mt-1 font-mono text-[10px] uppercase text-gray-500">{section.detail}</div>
+                </button>
+              );
+            })}
           </div>
 
-          <ChainAnchorCard
-            anchor={chainArtifact}
-            isLoading={proofDetail.isLoading}
-            error={proofDetail.error}
-          />
+          {activeSection === 'storage' && (
+            <div className="space-y-6">
+              <RunManifestPanel
+                manifest={proofDetail.manifest}
+                isLoading={proofDetail.isLoading}
+                error={proofDetail.error}
+              />
+              <ArtifactList
+                artifacts={storageArtifacts}
+                title="0G Storage Refs"
+                isLoading={proofDetail.isLoading}
+                error={proofDetail.error}
+              />
+            </div>
+          )}
 
-          <ArtifactList
-            artifacts={proofDetail.artifacts}
-            title="0G Refs"
-            isLoading={proofDetail.isLoading}
-            error={proofDetail.error}
-          />
+          {activeSection === 'compute' && (
+            <div className="space-y-6">
+              <ComputeProofCard
+                artifact={computeArtifact}
+                isLoading={proofDetail.isLoading}
+                error={proofDetail.error}
+              />
+              <ArtifactList
+                artifacts={computeArtifacts}
+                title="0G Compute Refs"
+                isLoading={proofDetail.isLoading}
+                error={proofDetail.error}
+              />
+            </div>
+          )}
+
+          {activeSection === 'chain' && (
+            <div className="space-y-6">
+              <ChainAnchorCard
+                anchor={chainArtifact}
+                isLoading={proofDetail.isLoading}
+                error={proofDetail.error}
+              />
+              <ArtifactList
+                artifacts={chainArtifacts}
+                title="0G Chain Refs"
+                isLoading={proofDetail.isLoading}
+                error={proofDetail.error}
+              />
+            </div>
+          )}
+
+          {activeSection === 'axl-peers' && (
+            <PeerTopologyPanel
+              nodes={topology.nodes}
+              peers={topology.peers}
+              capturedAt={topology.capturedAt}
+              isLoading={topology.isLoading}
+              error={topology.error}
+            />
+          )}
+
+          {activeSection === 'axl-services' && (
+            <ServiceRegistryPanel
+              services={topology.services}
+              capturedAt={topology.capturedAt}
+              isLoading={topology.isLoading}
+              error={topology.error}
+            />
+          )}
+
+          {activeSection === 'axl-routes' && (
+            <RouteTimeline
+              routes={topology.routes}
+              isLoading={topology.isLoading}
+              error={topology.error}
+            />
+          )}
         </div>
       </div>
     </div>
