@@ -35,9 +35,10 @@ const env = {
     `http://127.0.0.1:${parsePort(process.env.OMEN_MCP_PORT, 7100).toString()}`,
   registerRetries: parsePort(process.env.OMEN_MCP_REGISTER_RETRIES, 20),
   registerRetryDelayMs: parsePort(process.env.OMEN_MCP_REGISTER_RETRY_DELAY_MS, 1_500),
+  services: process.env.OMEN_MCP_SERVICES ?? "",
 };
 
-const services: HostedService[] = [
+const allServices: HostedService[] = [
   {
     service: "market_bias",
     path: "/mcp/market_bias",
@@ -105,6 +106,23 @@ const services: HostedService[] = [
     handle: (request) => new PublisherMcpService().handle(request),
   },
 ];
+
+const requestedServices = new Set(
+  env.services
+    .split(",")
+    .map((service) => service.trim())
+    .filter(Boolean),
+);
+const services =
+  requestedServices.size === 0
+    ? allServices
+    : allServices.filter((service) => requestedServices.has(service.service));
+
+if (requestedServices.size > 0 && services.length === 0) {
+  throw new Error(
+    `OMEN_MCP_SERVICES did not match any known service: ${Array.from(requestedServices).join(", ")}`,
+  );
+}
 
 const wait = (ms: number) =>
   new Promise<void>((resolve) => {
@@ -177,6 +195,7 @@ app.get("/health", (_req, res) => {
     service: "omen-mcp-host",
     status: "ok",
     routerUrl: env.routerUrl,
+    serviceFilter: Array.from(requestedServices),
     services: services.map((service) => ({
       service: service.service,
       path: service.path,

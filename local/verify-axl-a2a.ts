@@ -27,6 +27,19 @@ const adapter = new AxlHttpNodeAdapter({
   },
 });
 const client = new AxlA2AClient(adapter);
+const peerEnvByRole: Record<string, string> = {
+  market_bias: "AXL_MARKET_BIAS_NODE_ID",
+  scanner: "AXL_SCANNER_NODE_ID",
+  research: "AXL_RESEARCH_NODE_ID",
+  chart_vision: "AXL_CHART_VISION_NODE_ID",
+  analyst: "AXL_ANALYST_NODE_ID",
+  critic: "AXL_CRITIC_NODE_ID",
+  intel: "AXL_INTEL_NODE_ID",
+  generator: "AXL_GENERATOR_NODE_ID",
+  writer: "AXL_WRITER_NODE_ID",
+  memory: "AXL_MEMORY_NODE_ID",
+  publisher: "AXL_PUBLISHER_NODE_ID",
+};
 const runId = `manual-a2a-${Date.now().toString()}`;
 const context = {
   runId,
@@ -114,7 +127,7 @@ const generatedContent = {
   logMessage: null,
 } as const;
 
-const tasks = [
+const allTasks = [
   {
     role: "market_bias",
     taskType: "market_bias.derive",
@@ -212,6 +225,12 @@ const tasks = [
     payload: { context, thesis, review, intelSummary: report, generatedContent },
   },
 ] as const;
+const verifyProfile = process.env.AXL_VERIFY_PROFILE ?? "core";
+const coreVerificationRoles = new Set(["market_bias", "scanner", "research", "analyst", "critic"]);
+const tasks =
+  verifyProfile === "all"
+    ? allTasks
+    : allTasks.filter((task) => coreVerificationRoles.has(task.role));
 
 const summarize = (role: string, output: Record<string, unknown>) => {
   if (role === "market_bias")
@@ -230,25 +249,39 @@ const summarize = (role: string, output: Record<string, unknown>) => {
   return {};
 };
 
-const main = async () => {
-  const topology = await adapter.client.getTopology();
+const resolvePeerIdForRole = (role: string, fallbackPeerId: string) => {
+  const envName = peerEnvByRole[role];
+  const configured = envName ? process.env[envName]?.trim() : null;
 
-  if (!topology.ok) {
-    throw topology.error;
+  return configured || fallbackPeerId;
+};
+
+const main = async () => {
+  const topologyResponse = await fetch(new URL("/topology", baseUrl));
+  if (!topologyResponse.ok) {
+    throw new Error(`AXL topology request failed with HTTP ${topologyResponse.status}`);
   }
 
-  const peerId = topology.value.our_public_key;
+  const topology = (await topologyResponse.json()) as { our_public_key?: unknown };
+  const peerId =
+    process.env.AXL_SERVICE_PEER_ID?.trim() ||
+    (typeof topology.our_public_key === "string" ? topology.our_public_key : "");
+
+  if (!peerId) {
+    throw new Error("Could not resolve the orchestrator AXL peer id.");
+  }
   const results = [];
 
   for (const task of tasks) {
     const started = Date.now();
+    const targetPeerId = resolvePeerIdForRole(task.role, peerId);
     const request = createDelegationRequest({
       delegationId: `${runId}:${task.role}`,
       runId,
       correlationId: `${runId}:${task.role}`,
       fromPeerId: peerId,
       fromRole: "orchestrator",
-      toPeerId: peerId,
+      toPeerId: targetPeerId,
       requestedRole: task.role,
       taskType: task.taskType,
       requiredServices: [task.taskType],
@@ -256,12 +289,13 @@ const main = async () => {
       timeoutMs,
       routeHints: ["manual-live-a2a-verification"],
     });
-    const delegated = await client.delegate({ peerId, request });
+    const delegated = await client.delegate({ peerId: targetPeerId, request });
 
     if (!delegated.ok) {
       results.push({
         role: task.role,
         taskType: task.taskType,
+        targetPeerId,
         ok: false,
         elapsedMs: Date.now() - started,
         error: delegated.error.message,
@@ -274,6 +308,7 @@ const main = async () => {
     results.push({
       role: task.role,
       taskType: task.taskType,
+      targetPeerId,
       ok: result?.state === "completed" && parsed.success,
       state: result?.state ?? null,
       responderRole: result?.responderRole ?? null,
@@ -300,6 +335,6 @@ const main = async () => {
 };
 
 void main().catch((error) => {
-  console.error(error);
+  console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
   process.exitCode = 1;
 });

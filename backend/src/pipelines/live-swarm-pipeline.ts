@@ -1303,7 +1303,13 @@ class LivePipelineExecutionContext {
       peerRegistry: this.axlPeerRegistry,
     });
     const fromPeerId = this.axlServicePeerId;
-    const preferredPeerId = this.axlServicePeerId;
+    const resolvePreferredPeerId = (role: Exclude<AgentRole, "monitor">) => {
+      const rolePeerId = resolveAxlNodePeerId(this.input.env.axl.nodes, role);
+
+      return rolePeerId && !rolePeerId.startsWith("omen-")
+        ? rolePeerId
+        : this.axlServicePeerId;
+    };
 
     const failAxlDelegation = (input: { nodeKey: string; role: string; error: Error }): never => {
       throw new Error(
@@ -1329,7 +1335,7 @@ class LivePipelineExecutionContext {
               correlationId: `${state.run.id}:market-bias-agent`,
             },
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("market_bias"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1357,7 +1363,7 @@ class LivePipelineExecutionContext {
           const delegated = await delegator.delegateScanner({
             context,
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("scanner"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1385,7 +1391,7 @@ class LivePipelineExecutionContext {
           const delegated = await delegator.delegateResearch({
             context,
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("research"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1416,7 +1422,7 @@ class LivePipelineExecutionContext {
               correlationId: `${state.run.id}:chart-vision-agent`,
             },
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("chart_vision"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1444,7 +1450,7 @@ class LivePipelineExecutionContext {
           const delegated = await delegator.delegateAnalyst({
             context,
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("analyst"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1472,7 +1478,7 @@ class LivePipelineExecutionContext {
           const delegated = await delegator.delegateCritic({
             context,
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("critic"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1504,7 +1510,7 @@ class LivePipelineExecutionContext {
           const delegated = await delegator.delegateIntel({
             context,
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("intel"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1532,7 +1538,7 @@ class LivePipelineExecutionContext {
           const delegated = await delegator.delegateGenerator({
             context,
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("generator"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1560,7 +1566,7 @@ class LivePipelineExecutionContext {
           const delegated = await delegator.delegateWriter({
             context,
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("writer"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1588,7 +1594,7 @@ class LivePipelineExecutionContext {
           const delegated = await delegator.delegateMemory({
             context,
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("memory"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
@@ -1616,7 +1622,7 @@ class LivePipelineExecutionContext {
           const delegated = await delegator.delegatePublisher({
             context,
             payload,
-            preferredPeerId,
+            preferredPeerId: resolvePreferredPeerId("publisher"),
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",

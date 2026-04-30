@@ -7,9 +7,12 @@ dist
 playwright-report
 template
 .env
+local/logs/axl-demo/
 0g-ts-sdk
 0g-doc
 axl
+!scripts/axl/
+!scripts/axl/**
 !packages/axl/
 !packages/axl/**
 packages/axl/node_modules/

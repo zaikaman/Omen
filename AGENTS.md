@@ -2,3 +2,4 @@
 - twitterapi-io is the folder where you're supposed to look at for docs when you want to work with the twitterapi.
 - The packages/db/current_schema.sql is the current database.
 - For UI tasks, just make sure you're creating UI that matches the design of the current app.
+- The current AXL node is hosted at https://omen-axl-node.fly.dev
