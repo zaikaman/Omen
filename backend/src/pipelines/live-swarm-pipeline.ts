@@ -1181,6 +1181,16 @@ class LivePipelineExecutionContext {
     const fromPeerId = this.axlServicePeerId;
     const preferredPeerId = this.axlServicePeerId;
 
+    const failAxlDelegation = (input: {
+      nodeKey: string;
+      role: string;
+      error: Error;
+    }): never => {
+      throw new Error(
+        `AXL A2A ${input.role} delegation failed for ${input.nodeKey}: ${input.error.message}`,
+      );
+    };
+
     return async ({ nodeKey, nodeInput, state, threadId }) => {
       const context = {
         runId: state.run.id,
@@ -1215,10 +1225,11 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A market bias delegation failed; falling back to local market bias: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "market_bias",
+            error: delegated.error,
+          });
         }
 
         if (nodeKey === "scanner-agent") {
@@ -1242,10 +1253,11 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A scanner delegation failed; falling back to local scanner: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "scanner",
+            error: delegated.error,
+          });
         }
 
         if (nodeKey === "research-agent") {
@@ -1269,10 +1281,11 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A research delegation failed; falling back to local research: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "research",
+            error: delegated.error,
+          });
         }
 
         if (nodeKey === "chart-vision-agent") {
@@ -1299,10 +1312,11 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A chart vision delegation failed; falling back to local chart vision: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "chart_vision",
+            error: delegated.error,
+          });
         }
 
         if (nodeKey === "analyst-agent") {
@@ -1323,10 +1337,11 @@ class LivePipelineExecutionContext {
           });
 
           if (!delegated.ok) {
-            this.logger.warn(
-              `AXL A2A analyst delegation failed; falling back to local analyst: ${delegated.error.message}`,
-            );
-            return null;
+            return failAxlDelegation({
+              nodeKey,
+              role: "analyst",
+              error: delegated.error,
+            });
           }
 
           return delegated.value.output;
@@ -1353,10 +1368,11 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A critic delegation failed; falling back to local critic: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "critic",
+            error: delegated.error,
+          });
         }
 
         if (nodeKey === "intel-agent") {
@@ -1380,10 +1396,11 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A intel delegation failed; falling back to local intel: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "intel",
+            error: delegated.error,
+          });
         }
 
         if (nodeKey === "generator-agent") {
@@ -1407,10 +1424,11 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A generator delegation failed; falling back to local generator: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "generator",
+            error: delegated.error,
+          });
         }
 
         if (nodeKey === "writer-agent") {
@@ -1434,10 +1452,11 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A writer delegation failed; falling back to local writer: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "writer",
+            error: delegated.error,
+          });
         }
 
         if (nodeKey === "memory-agent") {
@@ -1461,10 +1480,11 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A memory delegation failed; falling back to local memory: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "memory",
+            error: delegated.error,
+          });
         }
 
         if (nodeKey === "publisher-agent") {
@@ -1488,20 +1508,19 @@ class LivePipelineExecutionContext {
             return delegated.value.output;
           }
 
-          this.logger.warn(
-            `AXL A2A publisher delegation failed; falling back to local publisher: ${delegated.error.message}`,
-          );
-          return null;
+          return failAxlDelegation({
+            nodeKey,
+            role: "publisher",
+            error: delegated.error,
+          });
         }
       } catch (error) {
-        this.logger.warn(
-          `AXL A2A node invocation failed for ${nodeKey}; falling back locally.`,
-          error,
-        );
-        return null;
+        throw error instanceof Error
+          ? error
+          : new Error(`AXL A2A node invocation failed for ${nodeKey}.`);
       }
 
-      return null;
+      throw new Error(`AXL A2A node invocation does not support ${nodeKey}.`);
     };
   }
 
@@ -2297,12 +2316,17 @@ export class DefaultLiveSwarmRunPipeline implements LiveSwarmPipeline {
     await executionContext.prepareRun(initialState.run);
 
     const nodeInvoker = executionContext.createAxlNodeInvoker();
+    if (nodeInvoker === null) {
+      throw new Error(
+        "Live swarm requires AXL A2A delegation, but no healthy AXL node invoker is available.",
+      );
+    }
     const checkpointStore =
       this.input.checkpointStoreFactory?.() ?? executionContext.createCheckpointStore();
     const runtime = graphFactory.createRuntime({
       checkpointStore,
       runtimeName: this.input.runtimeName ?? "backend-live-swarm-pipeline",
-      ...(nodeInvoker ? { nodeInvoker } : {}),
+      nodeInvoker,
     });
     try {
       const finalState = await runtime.invoke({

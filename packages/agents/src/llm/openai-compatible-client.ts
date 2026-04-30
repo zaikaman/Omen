@@ -20,11 +20,30 @@ const openAiCompatibleResponseSchema = z.object({
     .min(1),
 });
 
+const geminiContentResponseSchema = z.object({
+  candidates: z
+    .array(
+      z.object({
+        content: z.object({
+          parts: z
+            .array(
+              z.object({
+                text: z.string().optional(),
+              }),
+            )
+            .default([]),
+        }),
+      }),
+    )
+    .min(1),
+});
+
 export const openAiCompatibleClientConfigSchema = z.object({
   apiKey: z.string().min(1),
   baseUrl: z.string().url(),
   model: z.string().min(1),
   timeoutMs: z.number().int().min(1000).default(300_000),
+  disableTimeout: z.boolean().optional().default(false),
 });
 
 export type OpenAiCompatibleClientConfig = z.infer<
@@ -38,6 +57,9 @@ const parseTimeoutMs = (value: string | undefined, defaultValue: number) => {
 
   return Number.isFinite(parsed) && parsed >= 1000 ? parsed : defaultValue;
 };
+
+const parseModelFallbackEnabled = (value: string | undefined) =>
+  value !== "0" && value !== "false";
 
 export const buildTemperaturePayload = (
   model: string,
@@ -80,6 +102,14 @@ const extractJsonString = (content: string) => {
   throw new Error("The model response did not contain a parseable JSON object.");
 };
 
+const extractGeminiMessageText = (
+  content: z.infer<typeof geminiContentResponseSchema>["candidates"][number]["content"],
+) =>
+  content.parts
+    .map((part) => part.text?.trim() ?? "")
+    .filter((part) => part.length > 0)
+    .join("\n");
+
 const rawLlmLoggingEnabled = () =>
   process.env.OMEN_LLM_RAW_LOG === "1" || process.env.OMEN_LLM_RAW_LOG === "full";
 
@@ -98,6 +128,16 @@ const MAX_JSON_COMPLETION_ATTEMPTS =
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
+
+class GeminiProviderError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GeminiProviderError";
+  }
+}
+
+const isGeminiProviderFailure = (error: unknown) =>
+  error instanceof GeminiProviderError || error instanceof TypeError;
 
 const isSchemaLikeError = (message: string) =>
   /schema|validation|parse|zod|invalid_type|too_small|too_big|required|expected/i.test(message);
@@ -170,7 +210,7 @@ export class OpenAiCompatibleJsonClient {
       return null;
     }
 
-    return new OpenAiCompatibleJsonClient({
+    const fallback = new OpenAiCompatibleJsonClient({
       apiKey,
       baseUrl,
       model,
@@ -179,6 +219,24 @@ export class OpenAiCompatibleJsonClient {
           ? parseTimeoutMs(env.SCANNER_TIMEOUT_MS ?? env.OPENAI_TIMEOUT_MS, 300_000)
           : parseTimeoutMs(env.OPENAI_TIMEOUT_MS, 300_000),
     });
+
+    if (
+      role === "reasoning" &&
+      env.SCANNER_API_KEY &&
+      parseModelFallbackEnabled(env.GEMINI_REASONING_ENABLED)
+    ) {
+      return new GeminiFirstJsonClient({
+        primary: new GeminiContentJsonClient({
+          apiKey: env.SCANNER_API_KEY,
+          baseUrl: env.GEMINI_BASE_URL ?? "https://v98store.com/v1beta",
+          model: env.GEMINI_REASONING_MODEL ?? "gemini-3.1-flash-lite-preview",
+          disableTimeout: true,
+        }),
+        fallback,
+      });
+    }
+
+    return fallback;
   }
 
   async completeJson<T>(input: JsonCompletionInput<T>) {
@@ -283,6 +341,123 @@ export class OpenAiCompatibleJsonClient {
       return input.schema.parse(json);
     } finally {
       clearTimeout(timeout);
+    }
+  }
+}
+
+export class GeminiContentJsonClient {
+  readonly config: OpenAiCompatibleClientConfig;
+
+  constructor(config: z.input<typeof openAiCompatibleClientConfigSchema>) {
+    this.config = openAiCompatibleClientConfigSchema.parse(config);
+  }
+
+  async completeJson<T>(input: JsonCompletionInput<T>) {
+    const controller = this.config.disableTimeout ? null : new AbortController();
+    const timeout =
+      controller === null
+        ? null
+        : setTimeout(() => controller.abort(), this.config.timeoutMs);
+
+    try {
+      logRawLlmPayload("gemini-request", {
+        model: this.config.model,
+        baseUrl: this.config.baseUrl,
+        systemPrompt: input.systemPrompt,
+        userPrompt: input.userPrompt,
+      });
+
+      const response = await fetch(
+        `${ensureTrailingSlashRemoved(this.config.baseUrl)}/models/${encodeURIComponent(
+          this.config.model,
+        )}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.config.apiKey}`,
+          },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [
+                {
+                  text: `${input.systemPrompt}\nReturn valid JSON only.`,
+                },
+              ],
+            },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: input.userPrompt,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: input.temperature ?? 0,
+              topP: 1,
+            },
+          }),
+          signal: controller?.signal,
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new GeminiProviderError(
+          `Gemini request failed with ${response.status.toString()}: ${errorBody}`,
+        );
+      }
+
+      const payload = geminiContentResponseSchema.parse(await response.json());
+      const rawMessage = extractGeminiMessageText(payload.candidates[0].content);
+      logRawLlmPayload("gemini-raw-response", {
+        model: this.config.model,
+        rawMessage,
+      });
+      const json = JSON.parse(extractJsonString(rawMessage));
+
+      logRawLlmPayload("gemini-response", {
+        model: this.config.model,
+        rawMessage,
+        parsedJson: json,
+      });
+
+      return input.schema.parse(json);
+    } finally {
+      if (timeout !== null) {
+        clearTimeout(timeout);
+      }
+    }
+  }
+}
+
+export class GeminiFirstJsonClient extends OpenAiCompatibleJsonClient {
+  constructor(
+    private readonly input: {
+      primary: GeminiContentJsonClient;
+      fallback: OpenAiCompatibleJsonClient;
+    },
+  ) {
+    super(input.fallback.config);
+  }
+
+  override async completeJson<T>(input: JsonCompletionInput<T>) {
+    try {
+      return await this.input.primary.completeJson(input);
+    } catch (error) {
+      if (!isGeminiProviderFailure(error)) {
+        throw error;
+      }
+
+      console.warn("[omen-llm] Gemini reasoning request failed; falling back to GPT.", {
+        geminiModel: this.input.primary.config.model,
+        fallbackModel: this.input.fallback.config.model,
+        error: getErrorMessage(error),
+      });
+      return this.input.fallback.completeJson(input);
     }
   }
 }

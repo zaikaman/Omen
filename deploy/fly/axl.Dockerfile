@@ -26,6 +26,33 @@ COPY deploy/fly/axl-public-proxy.mjs /app/axl-public-proxy.mjs
 
 RUN python3 -m venv /opt/venv
 RUN pip install "protobuf>=5.29.5,<7" /app/integrations "sse-starlette>=2.1.3"
+RUN python3 - <<'PY'
+from pathlib import Path
+import site
+
+for site_dir in site.getsitepackages():
+    root = Path(site_dir)
+    router = root / "mcp_routing" / "mcp_router.py"
+    a2a = root / "a2a_serving" / "a2a_server.py"
+
+    if router.exists():
+        text = router.read_text()
+        text = text.replace("import logging\n", "import logging\nimport os\n")
+        text = text.replace(
+            "ClientTimeout(total=30)",
+            "ClientTimeout(total=float(os.environ.get('AXL_ROUTER_SERVICE_TIMEOUT_SECONDS', '30')))",
+        )
+        router.write_text(text)
+
+    if a2a.exists():
+        text = a2a.read_text()
+        text = text.replace("import logging\n", "import logging\nimport os\n")
+        text = text.replace(
+            "self.client = httpx.AsyncClient(timeout=30.0)",
+            "self.client = httpx.AsyncClient(timeout=float(os.environ.get('AXL_A2A_ROUTER_TIMEOUT_SECONDS', '30')))",
+        )
+        a2a.write_text(text)
+PY
 RUN corepack enable && pnpm install --frozen-lockfile
 RUN chmod +x /app/axl-entrypoint.sh
 
