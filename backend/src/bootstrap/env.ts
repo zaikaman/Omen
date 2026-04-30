@@ -48,6 +48,7 @@ export type BackendEnv = {
     computeModel: string;
     privateKey: string | null;
     flowContractAddress: string | null;
+    runRegistryAddress: string | null;
     chainId: string;
     chainExplorerBaseUrl: string | null;
     checkpointStrategy: "milestone" | "all";
@@ -261,6 +262,7 @@ export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendE
       computeModel: env.ZERO_G_COMPUTE_MODEL ?? "qwen/qwen-2.5-7b-instruct",
       privateKey: env.ZERO_G_PRIVATE_KEY ?? null,
       flowContractAddress: env.ZERO_G_FLOW_CONTRACT_ADDRESS ?? null,
+      runRegistryAddress: env.ZERO_G_RUN_REGISTRY_ADDRESS ?? null,
       chainId: env.ZERO_G_CHAIN_ID ?? "16602",
       chainExplorerBaseUrl: env.ZERO_G_CHAIN_EXPLORER_BASE_URL ?? null,
       checkpointStrategy: normalizeZeroGCheckpointStrategy(env.ZERO_G_CHECKPOINT_STRATEGY),

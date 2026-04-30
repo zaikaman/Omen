@@ -27,7 +27,11 @@ export class ZeroGProofAnchor {
       return ok(null);
     }
 
-    const anchored = await this.adapter.createProofAnchor(input.manifestRoot);
+    const anchored = await this.adapter.createProofAnchor({
+      runId: input.runId,
+      manifestRoot: input.manifestRoot,
+      manifestUri: input.locator?.trim() ? input.locator : input.manifestRoot,
+    });
 
     if (!anchored.ok) {
       return anchored;

@@ -13,6 +13,7 @@ import {
   ZeroGProofRegistry,
   ZeroGReportSynthesis,
   ZeroGStateStore,
+  normalizeManifestRootForContract,
 } from "../src/index.js";
 import { ZeroGLogAdapter } from "../src/storage/log-adapter.js";
 import { ZeroGStorageAdapter } from "../src/storage/storage-adapter.js";
@@ -631,22 +632,32 @@ describe("zero-g adapter", () => {
     expect(finalized.summary.artifactCount).toBe(4);
   });
 
-  it("creates a chain proof artifact when anchoring is configured", async () => {
+  it("normalizes non-bytes32 manifest roots before contract anchoring", () => {
+    expect(normalizeManifestRootForContract(`0x${"a".repeat(64)}`)).toBe(
+      `0x${"a".repeat(64)}`,
+    );
+    expect(normalizeManifestRootForContract("0g://file/manifest.json")).toMatch(
+      /^0x[a-f0-9]{64}$/,
+    );
+  });
+
+  it("requires a deployed run registry for chain anchoring", async () => {
     const proofAnchor = new ZeroGProofAnchor({
       rpcUrl: "https://rpc.0g.ai",
       chainId: 16601,
+      privateKey: `0x${"1".repeat(64)}`,
     });
 
     const result = await proofAnchor.anchorManifest({
       runId: "run-1",
       manifestRoot: "root-1",
+      locator: "0g://file/manifest.json",
       metadata: { source: "manifest" },
     });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value?.chainProof.status).toBe("anchored");
-      expect(result.value?.artifact.refType).toBe("chain_proof");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toMatch(/ZERO_G_RUN_REGISTRY_ADDRESS/);
     }
   });
 });

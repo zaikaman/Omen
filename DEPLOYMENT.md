@@ -91,7 +91,16 @@ ZERO_G_KV_NODE_URL=<your-0g-kv-node>
 ZERO_G_COMPUTE_URL=<your-0g-compute-endpoint>
 ZERO_G_COMPUTE_API_KEY=<key>
 ZERO_G_PRIVATE_KEY=<wallet-private-key>
+ZERO_G_RUN_REGISTRY_ADDRESS=<deployed OmenRunRegistry address>
 ```
+
+Deploy the run registry once before enabling chain anchoring:
+
+```bash
+pnpm --filter @omen/zero-g deploy:run-registry
+```
+
+The deploy script prints the contract address. Set that value as `ZERO_G_RUN_REGISTRY_ADDRESS` on Heroku.
 
 `PORT` is supplied by Heroku. Do not hard-code it in Heroku config unless you are debugging locally.
 

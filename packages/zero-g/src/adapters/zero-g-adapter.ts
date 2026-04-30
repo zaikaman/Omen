@@ -43,7 +43,11 @@ export interface ZeroGAdapter {
   appendLog(input: ZeroGLogAppendInput): Promise<Result<ProofArtifact, Error>>;
   uploadFile(input: ZeroGFileUploadInput): Promise<Result<ProofArtifact, Error>>;
   requestCompute(input: ZeroGComputeRequest): Promise<Result<ZeroGComputeResult, Error>>;
-  anchorManifest(manifestRoot: string): Promise<Result<ZeroGChainProof, Error>>;
+  anchorManifest(input: {
+    runId: string;
+    manifestRoot: string;
+    manifestUri: string;
+  }): Promise<Result<ZeroGChainProof, Error>>;
 }
 
 export class ZeroGClientAdapter implements ZeroGAdapter {
@@ -159,12 +163,16 @@ export class ZeroGClientAdapter implements ZeroGAdapter {
     return this.compute.requestInference(input);
   }
 
-  async anchorManifest(manifestRoot: string) {
+  async anchorManifest(input: {
+    runId: string;
+    manifestRoot: string;
+    manifestUri: string;
+  }) {
     if (!this.chain) {
       return err(new Error("0G chain adapter is not configured."));
     }
 
-    return this.chain.createProofAnchor(manifestRoot);
+    return this.chain.createProofAnchor(input);
   }
 }
 

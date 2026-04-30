@@ -109,6 +109,9 @@
     "ZERO_G_FLOW_CONTRACT_ADDRESS": {
       "required": false
     },
+    "ZERO_G_RUN_REGISTRY_ADDRESS": {
+      "required": true
+    },
     "ZERO_G_CHECKPOINT_STRATEGY": {
       "value": "milestone"
     },

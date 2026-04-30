@@ -346,6 +346,7 @@ const buildZeroGAdapterConfig = (env: BackendEnv): ZeroGAdapterConfig | null => 
             rpcUrl: env.zeroG.rpcUrl,
             chainId: env.zeroG.chainId,
             privateKey: env.zeroG.privateKey,
+            runRegistryAddress: env.zeroG.runRegistryAddress ?? undefined,
             explorerBaseUrl: env.zeroG.chainExplorerBaseUrl ?? undefined,
           }
         : undefined,
