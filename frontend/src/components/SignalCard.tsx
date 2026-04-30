@@ -5,7 +5,6 @@ import {
   Cpu,
   FileCheck2,
   RadioTower,
-  Send,
   Target,
   ShieldAlert,
   Maximize2,
@@ -17,6 +16,7 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { XLogo } from './ui/XLogo';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Calendar01Icon } from '@hugeicons/core-free-icons';
 import type { SignalCardItem } from '../types/ui-models';
@@ -128,8 +128,8 @@ export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardPro
         {
           label: 'Post Proof',
           isVisible: proofBadges.hasPostProof,
-          section: 'storage',
-          icon: Send,
+          href: proofBadges.postProofUrl,
+          icon: XLogo,
           className: 'border-pink-500/30 bg-pink-500/10 text-pink-200 hover:border-pink-400/50',
         },
       ].filter((badge) => badge.isVisible)
@@ -182,7 +182,23 @@ export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardPro
             <div className="flex flex-wrap gap-2">
               {visibleProofBadges.map((proofBadge) => {
                 const Icon = proofBadge.icon;
-                const href = proofHref(proofBadge.section);
+                const href = 'href' in proofBadge ? proofBadge.href : proofHref(proofBadge.section);
+
+                if (href?.startsWith('http')) {
+                  return (
+                    <a
+                      key={proofBadge.label}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors ${proofBadge.className}`}
+                      aria-label={`Open ${proofBadge.label} for this signal`}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {proofBadge.label}
+                    </a>
+                  );
+                }
 
                 return (
                   <Link

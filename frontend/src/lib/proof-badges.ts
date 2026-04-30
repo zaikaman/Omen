@@ -34,6 +34,7 @@ export const getProofBadgesForRun = (
     hasManifest: Boolean(proof?.manifestRefId),
     hasComputeHash: (proof?.computeCount ?? 0) > 0,
     hasAxlRoute: index.axlRoutedRunIds.has(runId),
-    hasPostProof: (proof?.postCount ?? 0) > 0,
+    hasPostProof: Boolean(proof?.postUrl),
+    postProofUrl: proof?.postUrl ?? null,
   };
 };

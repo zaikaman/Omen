@@ -23,6 +23,7 @@ export type ProofSummary = {
   computeCount: number;
   chainCount: number;
   postCount: number;
+  postUrl: string | null;
   proofFinalization: ProofFinalization;
   createdAt: string;
 };
@@ -83,6 +84,10 @@ const proofSummarySchema = {
         typeof value.chainCount === 'number' ? value.chainCount : 0,
       postCount:
         typeof value.postCount === 'number' ? value.postCount : 0,
+      postUrl:
+        typeof value.postUrl === 'string' && value.postUrl.startsWith('http')
+          ? value.postUrl
+          : null,
       proofFinalization: proofFinalizationSchema.parse(
         value.proofFinalization ??
           fallbackProofFinalization({

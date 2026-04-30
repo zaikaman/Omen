@@ -33,6 +33,7 @@ type ProofSummary = {
   computeCount: number;
   chainCount: number;
   postCount: number;
+  postUrl: string | null;
   proofFinalization: ProofFinalization;
   createdAt: string;
 };
@@ -143,6 +144,18 @@ const isChainAnchoringConfigured = (env: Pick<BackendEnv, "zeroG">) =>
       env.zeroG.runRegistryAddress,
   );
 
+const isPostArtifact = (artifact: ProofArtifact) =>
+  artifact.refType === "post_payload" || artifact.refType === "post_result";
+
+const getPublishedPostUrl = (artifacts: ProofArtifact[]) =>
+  artifacts
+    .filter(isPostArtifact)
+    .map((artifact) => artifact.metadata.publishedUrl)
+    .find(
+      (url): url is string =>
+        typeof url === "string" && url.startsWith("http"),
+    ) ?? null;
+
 const buildProofSummary = (
   run: Run,
   artifacts: ProofArtifact[],
@@ -168,6 +181,7 @@ const buildProofSummary = (
     postCount: artifacts.filter((artifact) =>
       ["post_payload", "post_result"].includes(artifact.refType),
     ).length,
+    postUrl: getPublishedPostUrl(artifacts),
     proofFinalization: deriveProofFinalization(run, artifacts, requireChainAnchor),
     createdAt:
       sortArtifacts(artifacts).at(-1)?.createdAt ??

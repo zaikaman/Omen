@@ -68,6 +68,7 @@ export interface ProofBadgeState {
   hasComputeHash: boolean;
   hasAxlRoute: boolean;
   hasPostProof: boolean;
+  postProofUrl: string | null;
 }
 
 export type LogType = 'signal' | 'intel' | 'skip';
