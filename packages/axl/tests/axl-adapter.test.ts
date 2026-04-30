@@ -264,40 +264,30 @@ describe("axl adapter", () => {
     });
   });
 
-  it("parses A2A delegation envelopes returned by the transport", async () => {
+  it("delegates through AXL SendMessage and parses MCP artifacts", async () => {
     const transport = {
       callA2A: vi.fn().mockResolvedValue({
         ok: true,
         value: {
-          request: {
-            delegationId: "delegation-2",
-            runId: "run-2",
-            correlationId: "corr-2",
-            fromPeerId: "peer-orchestrator",
-            fromRole: "orchestrator",
-            toPeerId: "peer-analyst",
-            requestedRole: "analyst",
-            taskType: "thesis.generate",
-            requiredServices: ["thesis.generate"],
-            payload: { thesisId: "draft-1" },
-            timeoutMs: 10000,
-            routeHints: [],
-          },
-          receipt: {
-            delegationId: "delegation-2",
-            state: "accepted",
-            assignedPeerId: "peer-analyst",
-            assignedRole: "analyst",
-            acceptedAt: "2026-04-25T08:00:01.000Z",
-          },
+          jsonrpc: "2.0",
+          id: "delegation-2:send",
           result: {
-            delegationId: "delegation-2",
-            state: "completed",
-            responderPeerId: "peer-analyst",
-            responderRole: "analyst",
-            output: { thesis: { symbol: "BTC" }, analystNotes: [] },
-            error: null,
-            completedAt: "2026-04-25T08:00:05.000Z",
+            artifacts: [
+              {
+                name: "mcp_response",
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      jsonrpc: "2.0",
+                      id: "delegation-2",
+                      result: {
+                        output: { thesis: { symbol: "BTC" }, analystNotes: [] },
+                      },
+                    }),
+                  },
+                ],
+              },
+            ],
           },
         },
       }),
@@ -323,9 +313,25 @@ describe("axl adapter", () => {
     });
 
     expect(transport.callA2A).toHaveBeenCalledOnce();
+    expect(transport.callA2A).toHaveBeenCalledWith({
+      peerId: "peer-analyst",
+      request: expect.objectContaining({
+        jsonrpc: "2.0",
+        method: "SendMessage",
+        params: {
+          message: expect.objectContaining({
+            role: "ROLE_USER",
+            messageId: "delegation-2",
+          }),
+        },
+      }),
+    });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.result?.responderRole).toBe("analyst");
+      expect(result.value.result?.output).toMatchObject({
+        thesis: { symbol: "BTC" },
+      });
     }
   });
 

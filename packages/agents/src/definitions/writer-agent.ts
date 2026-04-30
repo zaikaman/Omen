@@ -198,7 +198,9 @@ export class WriterAgentFactory {
   constructor(input: zod.input<typeof writerAgentOptionsSchema> = {}) {
     const parsed = writerAgentOptionsSchema.parse(input);
     this.llmClient =
-      parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("writer"));
+      "llmClient" in input
+        ? (parsed.llmClient ?? null)
+        : OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("writer"));
   }
 
   createDefinition(): RuntimeNodeDefinition<

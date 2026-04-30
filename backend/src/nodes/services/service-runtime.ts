@@ -61,3 +61,12 @@ export const createServiceSwarmState = (input: {
     }),
   });
 };
+
+export const isAxlOptionalLlmDisabled = (role: string) => {
+  const raw = process.env.AXL_DISABLE_OPTIONAL_LLM_ROLES ?? "";
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .includes(role);
+};

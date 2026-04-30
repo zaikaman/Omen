@@ -93,7 +93,10 @@ export class ChartVisionAgentFactory {
     const parsed = chartVisionAgentOptionsSchema.parse(input);
     this.marketData = parsed.marketData ?? new BinanceMarketService();
     this.chartImageService = parsed.chartImageService ?? new ChartImageService();
-    this.visionClient = parsed.visionClient ?? OpenAiCompatibleVisionClient.fromEnv();
+    this.visionClient =
+      "visionClient" in input
+        ? (parsed.visionClient ?? null)
+        : OpenAiCompatibleVisionClient.fromEnv();
   }
 
   createDefinition(): RuntimeNodeDefinition<

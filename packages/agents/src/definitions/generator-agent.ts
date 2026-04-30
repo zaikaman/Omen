@@ -263,9 +263,14 @@ export class GeneratorAgentFactory {
   constructor(input: zod.input<typeof generatorAgentOptionsSchema> = {}) {
     const parsed = generatorAgentOptionsSchema.parse(input);
     this.llmClient =
-      parsed.llmClient ?? OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("generator"));
+      "llmClient" in input
+        ? (parsed.llmClient ?? null)
+        : OpenAiCompatibleJsonClient.fromEnv(resolveModelProfileForRole("generator"));
     this.shortenerAgent = new ShortenerAgentFactory({
-      llmClient: parsed.shortenerClient ?? this.llmClient,
+      llmClient:
+        "shortenerClient" in input
+          ? (parsed.shortenerClient ?? null)
+          : this.llmClient,
     });
   }
 
