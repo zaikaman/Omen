@@ -537,26 +537,21 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(result.content.imagePrompt).toContain(
-      "single cinematic visual-only market-intelligence scene",
-    );
-    expect(result.content.imagePrompt).toContain("relevant, distinct, creative visual metaphor");
+    expect(result.content.imagePrompt).toContain("PREMIUM COVER IMAGE");
+    expect(result.content.imagePrompt).toContain("Financial Times, Bloomberg Markets");
+    expect(result.content.imagePrompt).toContain("make it look like a $10,000 stock photo");
     expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
     expect(result.content.imagePrompt).toContain("the scene should be driven by");
-    expect(result.content.imagePrompt).toContain("no title card");
-    expect(result.content.imagePrompt).toContain("competing forces");
-    expect(result.content.imagePrompt).toContain("strictly visual-only full-bleed scene");
-    expect(result.content.imagePrompt).toContain("no logos");
+    expect(result.content.imagePrompt).toContain("single sophisticated editorial cover image");
+    expect(result.content.imagePrompt).toContain("capital rotation");
+    expect(result.content.imagePrompt).toContain("luxury research-report cover aesthetic");
+    expect(result.content.imagePrompt).toContain("no readable text");
+    expect(result.content.imagePrompt).toContain("no letters");
+    expect(result.content.imagePrompt).toContain("no numbers");
     expect(result.content.imagePrompt).toContain("no ticker symbols");
-    expect(result.content.imagePrompt).toContain("no dashboard UI");
-    expect(result.content.imagePrompt).toContain("no screens");
-    expect(result.content.imagePrompt).toContain("blank unmarked surfaces");
+    expect(result.content.imagePrompt).toContain("no logos containing text");
     expect(result.content.imagePrompt).not.toContain("$SUI");
     expect(result.content.imagePrompt).not.toMatch(/with the words/i);
-    expect(result.content.imagePrompt).not.toMatch(/trading screen/i);
-    expect(result.content.imagePrompt).not.toMatch(
-      /dashboard UI, chart axes, and poster typography/i,
-    );
     expect(result.content.imagePrompt).not.toMatch(/visual thesis:/i);
     expect(result.content.imagePrompt).not.toMatch(/secondary style direction/i);
   });

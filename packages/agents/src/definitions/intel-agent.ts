@@ -182,22 +182,21 @@ const templateIntelToReport = (input: {
     confidence: Math.min(95, Math.max(60, input.template.importance_score * 10)),
     symbols,
     imagePrompt: [
-      "strictly visual-only full-bleed scene with no title card, no banner, no header strip, no lower third, no text panel, no article layout, no news card, no readable or pseudo-readable text",
-      "single cinematic visual-only market-intelligence scene, not a poster, not an infographic, not a presentation slide, not a webpage, not an article thumbnail",
-      "relevant, distinct, creative visual metaphor; vary the setting, subject, scale, materials, lighting, camera angle, and mood for each report; suitable styles include cinematic realism, surreal physical scenes, speculative architecture, macro material studies, symbolic environments, industrial systems, orbital scenes, underwater scenes, landscapes, or other fitting non-textual imagery",
+      "PREMIUM COVER IMAGE, sophisticated editorial-style image prompt; think Financial Times, Bloomberg Markets, or premium research report covers; avoid crypto cliches such as coins, generic blockchain visuals, mascot art, meme art, and obvious AI crypto art; use cinematic lighting, architectural elements, abstract financial concepts, luxury aesthetic, premium editorial photography, high-end materials, and a clear focal composition; make it look like a $10,000 stock photo, not AI crypto art",
+      "no readable text, no pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no watermarks, no signatures, no ticker symbols, no logos containing text",
+      "single sophisticated editorial cover image, not a poster, not an infographic, not a UI screenshot, not a social media card",
       `depict ${replaceImagePromptSymbolMentions(title, symbols)
         .replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset")
         .toLowerCase()} as visual metaphor only`,
       `the scene should be driven by ${trimToLength(replaceImagePromptSymbolMentions(insight, symbols).replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset"), 180).toLowerCase()}`,
       symbols.length > 0
-        ? "depict the specific named-asset thesis as a visual story with unmarked competing forces, changing momentum, capital rotation, and risk/attention pressure matching the report"
+        ? "depict the specific named-asset thesis as a premium editorial cover scene with capital rotation, changing momentum, and risk/attention pressure matching the report"
         : "depict the specific market thesis through macro pressure, liquidity depth, narrative attention, and risk rotation matching the report",
       symbols.length > 0
-        ? "represent the tracked crypto assets as separate unmarked forces, materials, structures, weather systems, vessels, energy sources, or ecosystems; make them visually distinguishable without symbols or writing"
-        : "represent broad crypto market narrative through institutional liquidity, macro pressure, social attention, risk rotation, and tension between buyers and sellers without symbols or writing",
-      "avoid defaulting to a neon trading-room, holographic chart, dashboard wall, or generic light-trail market grid; pick a fresh composition tied to this report",
-      "realistic lighting, strong depth, clear focal subject, sharp composition, 16:9",
-      "no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends, no dashboard UI, no screens, no monitors, no terminal windows, no documents, no posters, no signs, no coins with markings",
+        ? "represent the tracked crypto assets through abstract financial concepts, architectural contrast, premium materials, directional light, and institutional-scale tension without writing or marked coins"
+        : "represent broad crypto market narrative through institutional liquidity, macro pressure, social attention, risk rotation, and tension between buyers and sellers without writing",
+      "hyperrealistic, ultra-detailed, cinematic lighting, luxury research-report cover aesthetic, strong depth, clear focal subject, full-bleed 16:9 composition",
+      "no readable text, no pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no watermarks, no signatures, no ticker symbols, no logos containing text",
     ].join(", "),
   };
 };
