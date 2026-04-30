@@ -64,32 +64,37 @@ export function IntelCard({ intel, isLoading, error, onClick }: IntelCardProps) 
   const gradient = gradients[gradientIndex];
   const imageUrl = content.image_url;
   const proofBadges = intel.proofBadges;
-  const proofHref = proofBadges
-    ? `/app/evidence?runId=${encodeURIComponent(proofBadges.runId)}`
-    : null;
+  const proofHref = (section: string) =>
+    proofBadges
+      ? `/app/evidence?runId=${encodeURIComponent(proofBadges.runId)}&section=${encodeURIComponent(section)}`
+      : null;
   const visibleProofBadges = proofBadges
     ? [
         {
           label: '0G Manifest',
           isVisible: proofBadges.hasManifest,
+          section: 'storage',
           icon: FileCheck2,
           className: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:border-cyan-400/50',
         },
         {
           label: 'Compute Hash',
           isVisible: proofBadges.hasComputeHash,
+          section: 'compute',
           icon: Cpu,
           className: 'border-green-500/30 bg-green-500/10 text-green-200 hover:border-green-400/50',
         },
         {
           label: 'AXL Routed',
           isVisible: proofBadges.hasAxlRoute,
+          section: 'axl-routes',
           icon: RadioTower,
           className: 'border-purple-500/30 bg-purple-500/10 text-purple-200 hover:border-purple-400/50',
         },
         {
           label: 'Post Proof',
           isVisible: proofBadges.hasPostProof,
+          section: 'storage',
           icon: Send,
           className: 'border-pink-500/30 bg-pink-500/10 text-pink-200 hover:border-pink-400/50',
         },
@@ -129,15 +134,16 @@ export function IntelCard({ intel, isLoading, error, onClick }: IntelCardProps) 
           {excerpt}
         </p>
 
-        {proofHref && visibleProofBadges.length > 0 && (
+        {proofBadges && visibleProofBadges.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {visibleProofBadges.map((proofBadge) => {
               const Icon = proofBadge.icon;
+              const href = proofHref(proofBadge.section);
 
               return (
                 <Link
                   key={proofBadge.label}
-                  to={proofHref}
+                  to={href ?? '/app/evidence'}
                   onClick={(event) => event.stopPropagation()}
                   className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors ${proofBadge.className}`}
                   aria-label={`Open ${proofBadge.label} evidence for this report`}

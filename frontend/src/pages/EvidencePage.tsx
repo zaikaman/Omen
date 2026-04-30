@@ -36,13 +36,20 @@ import { cn } from '../lib/utils';
 
 const REFRESH_INTERVAL_MS = 30_000;
 
+const consoleSectionIds = [
+  'storage',
+  'compute',
+  'chain',
+  'axl-peers',
+  'axl-services',
+  'axl-routes',
+] as const;
+
 type ConsoleSectionId =
-  | 'storage'
-  | 'compute'
-  | 'chain'
-  | 'axl-peers'
-  | 'axl-services'
-  | 'axl-routes';
+  (typeof consoleSectionIds)[number];
+
+const isConsoleSectionId = (value: string | null): value is ConsoleSectionId =>
+  consoleSectionIds.includes(value as ConsoleSectionId);
 
 const shorten = (value: string | null | undefined) => {
   if (!value) {
@@ -101,6 +108,7 @@ const chainExplorerLink = (artifact: ProofArtifact | null) => {
 export function EvidencePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRunId = searchParams.get('runId');
+  const querySection = searchParams.get('section');
   const proofFeed = useProofFeed({
     limit: 10,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
@@ -121,6 +129,12 @@ export function EvidencePage() {
       setSelectedRunId(queryRunId);
     }
   }, [queryRunId]);
+
+  useEffect(() => {
+    if (isConsoleSectionId(querySection)) {
+      setActiveSection(querySection);
+    }
+  }, [querySection]);
 
   const chainArtifact = useMemo(
     () => getArtifact(proofDetail.artifacts, ['chain_proof']),
@@ -316,7 +330,7 @@ export function EvidencePage() {
                       type="button"
                       onClick={() => {
                         setSelectedRunId(proof.runId);
-                        setSearchParams({ runId: proof.runId });
+                        setSearchParams({ runId: proof.runId, section: activeSection });
                       }}
                       className={cn(
                         'w-full rounded-lg border p-3 text-left transition-colors',
