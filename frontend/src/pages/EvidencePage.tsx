@@ -27,9 +27,11 @@ import { ServiceRegistryPanel } from '../components/network/ServiceRegistryPanel
 import { ArtifactList } from '../components/proofs/ArtifactList';
 import { ChainAnchorCard } from '../components/proofs/ChainAnchorCard';
 import { ComputeProofCard } from '../components/proofs/ComputeProofCard';
+import { InftProofCard } from '../components/proofs/InftProofCard';
 import { RunManifestPanel } from '../components/proofs/RunManifestPanel';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { useInftProof } from '../hooks/useInft';
 import { useProofDetail, useProofFeed } from '../hooks/useProofs';
 import { useTopology } from '../hooks/useTopology';
 import { cn } from '../lib/utils';
@@ -137,6 +139,9 @@ export function EvidencePage() {
   const topology = useTopology({
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
+  const inftProof = useInftProof({
+    refreshIntervalMs: REFRESH_INTERVAL_MS,
+  });
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<ConsoleSectionId>('storage');
   const activeRunId = selectedRunId ?? queryRunId ?? proofFeed.proofs[0]?.runId ?? null;
@@ -188,7 +193,11 @@ export function EvidencePage() {
   ]);
   const computeArtifacts = filterArtifacts(proofDetail.artifacts, ['compute_result', 'compute_job']);
   const chainArtifacts = filterArtifacts(proofDetail.artifacts, ['chain_proof']);
-  const isRefreshing = proofFeed.isRefreshing || proofDetail.isRefreshing || topology.isRefreshing;
+  const isRefreshing =
+    proofFeed.isRefreshing ||
+    proofDetail.isRefreshing ||
+    topology.isRefreshing ||
+    inftProof.isRefreshing;
   const selectedProof = proofFeed.proofs.find((proof) => proof.runId === activeRunId) ?? proofFeed.proofs[0] ?? null;
   const proofFinalization = proofDetail.proofFinalization ?? selectedProof?.proofFinalization ?? null;
   const isProofFinalizing = proofFinalization ? isProofFinalizingStatus(proofFinalization.status) : false;
@@ -504,6 +513,12 @@ export function EvidencePage() {
         </aside>
 
         <div className="space-y-6">
+          <InftProofCard
+            proof={inftProof.proof}
+            isLoading={inftProof.isLoading}
+            error={inftProof.error}
+          />
+
           <Card className="border-gray-800 bg-gray-900/40">
             <CardContent className="p-5">
               <div className="flex flex-col gap-5">

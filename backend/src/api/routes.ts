@@ -16,6 +16,7 @@ import {
   createIntelDetailController,
   createIntelFeedController,
 } from "./intel.controller.js";
+import { createInftController } from "./inft.controller.js";
 import { createLogsController } from "./logs.controller.js";
 import {
   createProofDetailController,
@@ -61,6 +62,7 @@ export const createApiRouter = (context: {
   router.get("/signals/:id", createSignalDetailController(context.env));
   router.get("/intel", createIntelFeedController(context.env));
   router.get("/intel/:id", createIntelDetailController(context.env));
+  router.get("/inft", createInftController(context.env));
   router.get("/topology", createTopologyController(context.env));
   router.get("/proofs", createProofFeedController(context.env));
   router.get("/proofs/:runId", createProofDetailController(context.env));

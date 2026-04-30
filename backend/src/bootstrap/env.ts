@@ -53,6 +53,17 @@ export type BackendEnv = {
     chainExplorerBaseUrl: string | null;
     checkpointStrategy: "milestone" | "all";
   };
+  inft: {
+    attestorAddress: string | null;
+    contractAddress: string | null;
+    tokenId: string | null;
+    ownerAddress: string | null;
+    encryptedIntelligenceUri: string | null;
+    memoryRoot: string | null;
+    proofManifestUri: string | null;
+    latestRunId: string | null;
+    mintTransactionHash: string | null;
+  };
   providers: {
     openaiApiKey: string | null;
     openaiBaseUrl: string;
@@ -266,6 +277,17 @@ export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendE
       chainId: env.ZERO_G_CHAIN_ID ?? "16602",
       chainExplorerBaseUrl: env.ZERO_G_CHAIN_EXPLORER_BASE_URL ?? null,
       checkpointStrategy: normalizeZeroGCheckpointStrategy(env.ZERO_G_CHECKPOINT_STRATEGY),
+    },
+    inft: {
+      attestorAddress: env.OMEN_INFT_ATTESTOR_ADDRESS ?? null,
+      contractAddress: env.OMEN_INFT_CONTRACT_ADDRESS ?? null,
+      tokenId: env.OMEN_INFT_TOKEN_ID ?? null,
+      ownerAddress: env.OMEN_INFT_OWNER_ADDRESS ?? null,
+      encryptedIntelligenceUri: env.OMEN_INFT_ENCRYPTED_INTELLIGENCE_URI ?? null,
+      memoryRoot: env.OMEN_INFT_MEMORY_ROOT ?? null,
+      proofManifestUri: env.OMEN_INFT_PROOF_MANIFEST_URI ?? null,
+      latestRunId: env.OMEN_INFT_LATEST_RUN_ID ?? null,
+      mintTransactionHash: env.OMEN_INFT_MINT_TRANSACTION_HASH ?? null,
     },
     providers: {
       openaiApiKey: env.OPENAI_API_KEY ?? null,
