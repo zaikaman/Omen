@@ -17,6 +17,10 @@ export type ProofSummary = {
   finalSignalId: string | null;
   finalIntelId: string | null;
   artifactCount: number;
+  storageCount: number;
+  computeCount: number;
+  chainCount: number;
+  postCount: number;
   createdAt: string;
 };
 
@@ -50,6 +54,14 @@ const proofSummarySchema = {
         typeof value.finalIntelId === 'string' ? value.finalIntelId : null,
       artifactCount:
         typeof value.artifactCount === 'number' ? value.artifactCount : 0,
+      storageCount:
+        typeof value.storageCount === 'number' ? value.storageCount : 0,
+      computeCount:
+        typeof value.computeCount === 'number' ? value.computeCount : 0,
+      chainCount:
+        typeof value.chainCount === 'number' ? value.chainCount : 0,
+      postCount:
+        typeof value.postCount === 'number' ? value.postCount : 0,
       createdAt: value.createdAt,
     };
   },

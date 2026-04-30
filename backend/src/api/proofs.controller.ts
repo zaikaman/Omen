@@ -28,6 +28,10 @@ type ProofSummary = {
   finalSignalId: string | null;
   finalIntelId: string | null;
   artifactCount: number;
+  storageCount: number;
+  computeCount: number;
+  chainCount: number;
+  postCount: number;
   createdAt: string;
 };
 
@@ -86,6 +90,19 @@ const buildProofSummary = (run: Run, artifacts: ProofArtifact[]) =>
     finalSignalId: run.finalSignalId,
     finalIntelId: run.finalIntelId,
     artifactCount: artifacts.length,
+    storageCount: artifacts.filter((artifact) =>
+      ["kv_state", "log_entry", "log_bundle", "file_artifact"].includes(
+        artifact.refType,
+      ),
+    ).length,
+    computeCount: artifacts.filter((artifact) =>
+      ["compute_job", "compute_result"].includes(artifact.refType),
+    ).length,
+    chainCount: artifacts.filter((artifact) => artifact.refType === "chain_proof")
+      .length,
+    postCount: artifacts.filter((artifact) =>
+      ["post_payload", "post_result"].includes(artifact.refType),
+    ).length,
     createdAt:
       sortArtifacts(artifacts).at(-1)?.createdAt ??
       run.completedAt ??

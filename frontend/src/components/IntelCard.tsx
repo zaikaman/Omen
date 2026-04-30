@@ -1,9 +1,10 @@
+import { Link } from 'react-router-dom';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Calendar01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
-import { Newspaper } from 'lucide-react';
+import { Cpu, FileCheck2, Newspaper, RadioTower, Send } from 'lucide-react';
 import type { IntelCardItem } from '../types/ui-models';
 
 const AGENT_AVATAR = '/generated/omen-logo-v2.png';
@@ -62,6 +63,38 @@ export function IntelCard({ intel, isLoading, error, onClick }: IntelCardProps) 
   const gradientIndex = (intel.id.charCodeAt(0) || 0) % gradients.length;
   const gradient = gradients[gradientIndex];
   const imageUrl = content.image_url;
+  const proofBadges = intel.proofBadges;
+  const proofHref = proofBadges
+    ? `/app/evidence?runId=${encodeURIComponent(proofBadges.runId)}`
+    : null;
+  const visibleProofBadges = proofBadges
+    ? [
+        {
+          label: '0G Manifest',
+          isVisible: proofBadges.hasManifest,
+          icon: FileCheck2,
+          className: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:border-cyan-400/50',
+        },
+        {
+          label: 'Compute Hash',
+          isVisible: proofBadges.hasComputeHash,
+          icon: Cpu,
+          className: 'border-green-500/30 bg-green-500/10 text-green-200 hover:border-green-400/50',
+        },
+        {
+          label: 'AXL Routed',
+          isVisible: proofBadges.hasAxlRoute,
+          icon: RadioTower,
+          className: 'border-purple-500/30 bg-purple-500/10 text-purple-200 hover:border-purple-400/50',
+        },
+        {
+          label: 'Post Proof',
+          isVisible: proofBadges.hasPostProof,
+          icon: Send,
+          className: 'border-pink-500/30 bg-pink-500/10 text-pink-200 hover:border-pink-400/50',
+        },
+      ].filter((badge) => badge.isVisible)
+    : [];
 
   return (
     <Card
@@ -95,6 +128,27 @@ export function IntelCard({ intel, isLoading, error, onClick }: IntelCardProps) 
         <p className="text-gray-400 line-clamp-2 text-sm leading-relaxed">
           {excerpt}
         </p>
+
+        {proofHref && visibleProofBadges.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {visibleProofBadges.map((proofBadge) => {
+              const Icon = proofBadge.icon;
+
+              return (
+                <Link
+                  key={proofBadge.label}
+                  to={proofHref}
+                  onClick={(event) => event.stopPropagation()}
+                  className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors ${proofBadge.className}`}
+                  aria-label={`Open ${proofBadge.label} evidence for this report`}
+                >
+                  <Icon className="h-3 w-3" />
+                  {proofBadge.label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex items-center justify-between pt-3 border-t border-gray-800">
           <div className="flex items-center gap-2.5">

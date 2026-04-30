@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Home01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import type { AgentEvent, Intel, Signal } from '@omen/shared';
@@ -7,13 +8,20 @@ import { IntelCard } from '../components/IntelCard';
 import { TerminalLog } from '../components/TerminalLog';
 import { useIntelDetail } from '../hooks/useIntel';
 import { useLogs } from '../hooks/useLogs';
+import { useProofFeed } from '../hooks/useProofs';
 import { useRunStatus } from '../hooks/useRunStatus';
 import { useSignalDetail } from '../hooks/useSignals';
+import { useTopology } from '../hooks/useTopology';
+import { buildProofBadgeIndex, getProofBadgesForRun } from '../lib/proof-badges';
+import type { ProofBadgeState } from '../types/ui-models';
 import type { IntelCardItem, LogEntry, SignalCardItem } from '../types/ui-models';
 
 const REFRESH_INTERVAL_MS = 30_000;
 
-const toSignalCardItem = (signal: Signal | null): SignalCardItem | null => {
+const toSignalCardItem = (
+    signal: Signal | null,
+    proofBadges?: ProofBadgeState,
+): SignalCardItem | null => {
     if (!signal) {
         return null;
     }
@@ -22,7 +30,9 @@ const toSignalCardItem = (signal: Signal | null): SignalCardItem | null => {
 
     return {
         id: signal.id,
+        runId: signal.runId,
         created_at: signal.publishedAt ?? signal.updatedAt ?? signal.createdAt,
+        proofBadges,
         content: {
             token: {
                 symbol: signal.asset,
@@ -42,15 +52,20 @@ const toSignalCardItem = (signal: Signal | null): SignalCardItem | null => {
     };
 };
 
-const toIntelCardItem = (intel: Intel | null): IntelCardItem | null => {
+const toIntelCardItem = (
+    intel: Intel | null,
+    proofBadges?: ProofBadgeState,
+): IntelCardItem | null => {
     if (!intel) {
         return null;
     }
 
     return {
         id: intel.id,
+        runId: intel.runId,
         type: intel.category === 'opportunity' ? 'deep_dive' : 'alpha_report',
         created_at: intel.publishedAt ?? intel.createdAt,
+        proofBadges,
         content: {
             topic: intel.title,
             tweet_text: intel.summary,
@@ -156,9 +171,24 @@ export function DashboardHome() {
         runId: runStatus.activeRunId,
         refreshIntervalMs: REFRESH_INTERVAL_MS,
     });
+    const proofFeed = useProofFeed({
+        limit: 50,
+        refreshIntervalMs: REFRESH_INTERVAL_MS,
+    });
+    const topology = useTopology({ refreshIntervalMs: REFRESH_INTERVAL_MS });
 
-    const latestSignal = toSignalCardItem(signalDetail.signal);
-    const latestIntel = toIntelCardItem(intelDetail.intel);
+    const proofBadgeIndex = useMemo(
+        () => buildProofBadgeIndex(proofFeed.proofs, topology.routes),
+        [proofFeed.proofs, topology.routes],
+    );
+    const latestSignal = toSignalCardItem(
+        signalDetail.signal,
+        getProofBadgesForRun(signalDetail.signal?.runId, proofBadgeIndex),
+    );
+    const latestIntel = toIntelCardItem(
+        intelDetail.intel,
+        getProofBadgesForRun(intelDetail.intel?.runId, proofBadgeIndex),
+    );
     const logEntries = logs.logs.map(toLogEntry);
     const hasRunStatusError = runStatus.error !== null;
     const latestPost = runStatus.dashboardSummary?.latestPost ?? null;

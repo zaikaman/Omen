@@ -11,8 +11,11 @@ import {
   ArrowRight01Icon,
 } from "@hugeicons/core-free-icons";
 import type { SignalListItem } from "@omen/shared";
+import { useProofFeed } from "../hooks/useProofs";
 import { useSignals } from "../hooks/useSignals";
-import type { SignalCardItem } from "../types/ui-models";
+import { useTopology } from "../hooks/useTopology";
+import { buildProofBadgeIndex, getProofBadgesForRun } from "../lib/proof-badges";
+import type { ProofBadgeState, SignalCardItem } from "../types/ui-models";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -82,12 +85,17 @@ const signalMatchesHistoryQuery = (
   );
 };
 
-const toSignalCardItem = (signal: SignalListItem): SignalCardItem => {
+const toSignalCardItem = (
+  signal: SignalListItem,
+  proofBadges?: ProofBadgeState,
+): SignalCardItem => {
   const primaryTarget = signal.targetPrice ?? signal.targets[0]?.price;
 
   return {
     id: signal.id,
+    runId: signal.runId,
     created_at: signal.publishedAt ?? signal.updatedAt ?? signal.createdAt,
+    proofBadges,
     content: {
       token: {
         symbol: signal.asset,
@@ -138,9 +146,23 @@ export function SignalsPage() {
     status: filters.status,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
+  const proofFeed = useProofFeed({
+    limit: 50,
+    refreshIntervalMs: REFRESH_INTERVAL_MS,
+  });
+  const topology = useTopology({ refreshIntervalMs: REFRESH_INTERVAL_MS });
 
   const latestRawSignal = latestQuery.signals[0] ?? null;
-  const latestSignal = latestRawSignal ? toSignalCardItem(latestRawSignal) : null;
+  const proofBadgeIndex = useMemo(
+    () => buildProofBadgeIndex(proofFeed.proofs, topology.routes),
+    [proofFeed.proofs, topology.routes],
+  );
+  const latestSignal = latestRawSignal
+    ? toSignalCardItem(
+        latestRawSignal,
+        getProofBadgesForRun(latestRawSignal.runId, proofBadgeIndex),
+      )
+    : null;
   const latestMatchesHistory = signalMatchesHistoryQuery(latestRawSignal, {
     direction: filters.direction,
     query: searchQuery,
@@ -150,8 +172,13 @@ export function SignalsPage() {
     () =>
       historyQuery.signals
         .filter((signal) => signal.id !== latestRawSignal?.id)
-        .map(toSignalCardItem),
-    [historyQuery.signals, latestRawSignal?.id],
+        .map((signal) =>
+          toSignalCardItem(
+            signal,
+            getProofBadgesForRun(signal.runId, proofBadgeIndex),
+          ),
+        ),
+    [historyQuery.signals, latestRawSignal?.id, proofBadgeIndex],
   );
   const historyTotal = Math.max(0, historyQuery.total - (latestMatchesHistory ? 1 : 0));
   const totalPages = Math.max(1, Math.ceil(historyTotal / ITEMS_PER_PAGE));

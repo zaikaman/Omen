@@ -40,8 +40,10 @@ export interface SignalContent {
 
 export interface SignalCardItem {
   id: string;
+  runId?: string;
   created_at: string;
   content: SignalContent;
+  proofBadges?: ProofBadgeState;
 }
 
 export interface IntelContent {
@@ -53,9 +55,19 @@ export interface IntelContent {
 
 export interface IntelCardItem {
   id: string;
+  runId?: string;
   type?: string;
   created_at: string;
   content: IntelContent;
+  proofBadges?: ProofBadgeState;
+}
+
+export interface ProofBadgeState {
+  runId: string;
+  hasManifest: boolean;
+  hasComputeHash: boolean;
+  hasAxlRoute: boolean;
+  hasPostProof: boolean;
 }
 
 export type LogType = 'signal' | 'intel' | 'skip';

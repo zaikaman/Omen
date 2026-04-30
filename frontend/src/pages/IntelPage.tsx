@@ -15,6 +15,10 @@ import {
 import { Button } from "../components/ui/button";
 import type { Intel, IntelListItem } from "@omen/shared";
 import { useIntel, useIntelDetail } from "../hooks/useIntel";
+import { useProofFeed } from "../hooks/useProofs";
+import { useTopology } from "../hooks/useTopology";
+import { buildProofBadgeIndex, getProofBadgesForRun } from "../lib/proof-badges";
+import type { ProofBadgeState } from "../types/ui-models";
 
 const ITEMS_PER_PAGE = 9;
 const REFRESH_INTERVAL_MS = 30_000;
@@ -41,6 +45,7 @@ type CardIntel = {
   confidence: number;
   sources?: Intel["sources"];
   proofRefIds?: string[];
+  proofBadges?: ProofBadgeState;
 };
 
 const SORT_OPTIONS: SortOption[] = [
@@ -60,7 +65,10 @@ const FILTER_CONFIG: FilterConfig[] = [
   },
 ];
 
-const toCardIntel = (intel: Intel | IntelListItem): CardIntel => ({
+const toCardIntel = (
+  intel: Intel | IntelListItem,
+  proofBadges?: ProofBadgeState,
+): CardIntel => ({
   id: intel.id,
   runId: intel.runId,
   slug: intel.slug,
@@ -80,6 +88,7 @@ const toCardIntel = (intel: Intel | IntelListItem): CardIntel => ({
   confidence: intel.confidence,
   sources: "sources" in intel ? intel.sources : undefined,
   proofRefIds: "proofRefIds" in intel ? intel.proofRefIds : undefined,
+  proofBadges,
 });
 
 export function IntelPage() {
@@ -109,13 +118,36 @@ export function IntelPage() {
     enabled: Boolean(id),
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
+  const proofFeed = useProofFeed({
+    limit: 50,
+    refreshIntervalMs: REFRESH_INTERVAL_MS,
+  });
+  const topology = useTopology({ refreshIntervalMs: REFRESH_INTERVAL_MS });
 
-  const intelItems = useMemo(() => feedQuery.intel.map(toCardIntel), [feedQuery.intel]);
+  const proofBadgeIndex = useMemo(
+    () => buildProofBadgeIndex(proofFeed.proofs, topology.routes),
+    [proofFeed.proofs, topology.routes],
+  );
+  const intelItems = useMemo(
+    () =>
+      feedQuery.intel.map((intel) =>
+        toCardIntel(
+          intel,
+          getProofBadgesForRun(intel.runId, proofBadgeIndex),
+        ),
+      ),
+    [feedQuery.intel, proofBadgeIndex],
+  );
   const cachedSelectedIntel = useMemo(
     () => intelItems.find((item) => item.id === id || item.slug === id) ?? null,
     [id, intelItems],
   );
-  const selectedIntel = detailQuery.intel ? toCardIntel(detailQuery.intel) : cachedSelectedIntel;
+  const selectedIntel = detailQuery.intel
+    ? toCardIntel(
+        detailQuery.intel,
+        getProofBadgesForRun(detailQuery.intel.runId, proofBadgeIndex),
+      )
+    : cachedSelectedIntel;
 
   const hasActiveFilters =
     searchQuery.trim() !== "" || sortBy !== "newest" || filters.type !== "all";

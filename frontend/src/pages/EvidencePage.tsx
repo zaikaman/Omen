@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { ProofArtifact } from '@omen/shared';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -97,6 +98,8 @@ const chainExplorerLink = (artifact: ProofArtifact | null) => {
 };
 
 export function EvidencePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryRunId = searchParams.get('runId');
   const proofFeed = useProofFeed({
     limit: 10,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
@@ -106,11 +109,17 @@ export function EvidencePage() {
   });
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<ConsoleSectionId>('storage');
-  const activeRunId = selectedRunId ?? proofFeed.proofs[0]?.runId ?? null;
+  const activeRunId = selectedRunId ?? queryRunId ?? proofFeed.proofs[0]?.runId ?? null;
   const proofDetail = useProofDetail(activeRunId, {
     enabled: Boolean(activeRunId),
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
+
+  useEffect(() => {
+    if (queryRunId) {
+      setSelectedRunId(queryRunId);
+    }
+  }, [queryRunId]);
 
   const chainArtifact = useMemo(
     () => getArtifact(proofDetail.artifacts, ['chain_proof']),
@@ -282,7 +291,10 @@ export function EvidencePage() {
                     <button
                       key={proof.runId}
                       type="button"
-                      onClick={() => setSelectedRunId(proof.runId)}
+                      onClick={() => {
+                        setSelectedRunId(proof.runId);
+                        setSearchParams({ runId: proof.runId });
+                      }}
                       className={cn(
                         'w-full rounded-lg border p-3 text-left transition-colors',
                         isActive

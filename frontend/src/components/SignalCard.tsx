@@ -1,4 +1,17 @@
-import { ArrowUpRight, Activity, Target, ShieldAlert, Maximize2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  ArrowUpRight,
+  Activity,
+  Cpu,
+  FileCheck2,
+  RadioTower,
+  Send,
+  Target,
+  ShieldAlert,
+  Maximize2,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -35,6 +48,10 @@ export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardPro
 
   const { token, confidence, analysis, entry_price, target_price, stop_loss, status, pnl_percent, current_price, direction } = signal.content;
   const confidenceScore = confidence ?? signal.content.confidence_score ?? 0;
+  const proofBadges = signal.proofBadges;
+  const proofHref = proofBadges
+    ? `/app/evidence?runId=${encodeURIComponent(proofBadges.runId)}`
+    : null;
 
   // Format the timestamp
   const date = new Date(signal.created_at).toLocaleDateString(undefined, {
@@ -84,6 +101,34 @@ export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardPro
   };
 
   const pnlColor = (pnl_percent || 0) >= 0 ? 'text-green-400' : 'text-red-400';
+  const visibleProofBadges = proofBadges
+    ? [
+        {
+          label: '0G Manifest',
+          isVisible: proofBadges.hasManifest,
+          icon: FileCheck2,
+          className: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:border-cyan-400/50',
+        },
+        {
+          label: 'Compute Hash',
+          isVisible: proofBadges.hasComputeHash,
+          icon: Cpu,
+          className: 'border-green-500/30 bg-green-500/10 text-green-200 hover:border-green-400/50',
+        },
+        {
+          label: 'AXL Routed',
+          isVisible: proofBadges.hasAxlRoute,
+          icon: RadioTower,
+          className: 'border-purple-500/30 bg-purple-500/10 text-purple-200 hover:border-purple-400/50',
+        },
+        {
+          label: 'Post Proof',
+          isVisible: proofBadges.hasPostProof,
+          icon: Send,
+          className: 'border-pink-500/30 bg-pink-500/10 text-pink-200 hover:border-pink-400/50',
+        },
+      ].filter((badge) => badge.isVisible)
+    : [];
 
   return (
     <Card className="bg-gray-900/50 border-gray-800 overflow-hidden relative group">
@@ -127,6 +172,26 @@ export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardPro
               {analysis || 'Signal report is pending final analysis.'}
             </p>
           </div>
+
+          {proofHref && visibleProofBadges.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {visibleProofBadges.map((proofBadge) => {
+                const Icon = proofBadge.icon;
+
+                return (
+                  <Link
+                    key={proofBadge.label}
+                    to={proofHref}
+                    className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors ${proofBadge.className}`}
+                    aria-label={`Open ${proofBadge.label} evidence for this signal`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {proofBadge.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col p-2 bg-gray-800/30 rounded border border-gray-800/50">
