@@ -83,6 +83,33 @@ function Build-AxlNode {
   }
 }
 
+function New-Ed25519PrivateKey {
+  param(
+    [Parameter(Mandatory = $true)][string]$OutputPath
+  )
+
+  if (Test-Path $OutputPath) {
+    return
+  }
+
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutputPath) | Out-Null
+
+  $escapedPath = $OutputPath.Replace("\", "\\").Replace("'", "\'")
+  $generateCommand = "const { generateKeyPairSync } = require('node:crypto'); const { writeFileSync } = require('node:fs'); const { privateKey } = generateKeyPairSync('ed25519'); writeFileSync('$escapedPath', privateKey.export({ type: 'pkcs8', format: 'pem' }), { encoding: 'ascii', mode: 0o600 });"
+
+  Push-Location $Root
+  try {
+    & node -e $generateCommand
+    $exitCode = $LASTEXITCODE
+  } finally {
+    Pop-Location
+  }
+
+  if ($exitCode -ne 0) {
+    throw "Failed to generate persistent ed25519 private key at $OutputPath"
+  }
+}
+
 if (!(Test-Path $nodeExe)) {
   Build-AxlNode -SourceDir $axlSourceDir -OutputPath $nodeExe
 } else {
@@ -96,6 +123,8 @@ if (!(Test-Path $nodeExe)) {
 New-Item -ItemType Directory -Force -Path $runtimeDir, $logDir | Out-Null
 Get-ChildItem -Path $logDir -Filter "$Role-*.log" -File -ErrorAction SilentlyContinue |
   Remove-Item -Force -ErrorAction SilentlyContinue
+$privateKeyPath = Join-Path $runtimeDir "private.pem"
+New-Ed25519PrivateKey -OutputPath $privateKeyPath
 
 $bootstrapPeers = @(
   "tls://34.46.48.224:9001",
@@ -122,10 +151,7 @@ $nodeConfig = [ordered]@{
   mcp_peer_timeout_secs = 300
 }
 
-$privateKeyPath = Join-Path $runtimeDir "private.pem"
-if (Test-Path $privateKeyPath) {
-  $nodeConfig.PrivateKeyPath = $privateKeyPath
-}
+$nodeConfig.PrivateKeyPath = $privateKeyPath
 
 $nodeConfig | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath -Encoding ASCII
 if (Test-Path $peerIdPath) {

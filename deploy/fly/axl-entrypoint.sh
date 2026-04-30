@@ -25,6 +25,8 @@ fi
 
 AXL_PUBLIC_KEY="$(openssl pkey -in "$PRIVATE_KEY_PATH" -pubout -outform DER | tail -c 32 | od -An -tx1 -v | tr -d ' \n')"
 export AXL_PUBLIC_KEY
+export OMEN_MCP_AXL_API_BASE_URL="${OMEN_MCP_AXL_API_BASE_URL:-http://127.0.0.1:${AXL_API_PORT:-9002}}"
+export OMEN_MCP_AXL_REQUEST_TIMEOUT_MS="${OMEN_MCP_AXL_REQUEST_TIMEOUT_MS:-300000}"
 
 cat > "$CONFIG_PATH" <<EOF
 {

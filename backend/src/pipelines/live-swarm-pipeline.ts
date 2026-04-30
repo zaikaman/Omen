@@ -190,22 +190,7 @@ const hasSupabasePersistenceConfig = (env: BackendEnv) =>
 
 const isValidAxlPeerId = (value: string) => /^[0-9a-f]{64}$/i.test(value);
 
-const hasAxlTransportConfig = (env: BackendEnv) =>
-  Boolean(
-    env.axl.nodeBaseUrl &&
-      isValidAxlPeerId(env.axl.nodes.orchestrator) &&
-      isValidAxlPeerId(env.axl.nodes.marketBias) &&
-      isValidAxlPeerId(env.axl.nodes.scanner) &&
-      isValidAxlPeerId(env.axl.nodes.research) &&
-      isValidAxlPeerId(env.axl.nodes.chartVision) &&
-      isValidAxlPeerId(env.axl.nodes.analyst) &&
-      isValidAxlPeerId(env.axl.nodes.critic) &&
-      isValidAxlPeerId(env.axl.nodes.intel) &&
-      isValidAxlPeerId(env.axl.nodes.generator) &&
-      isValidAxlPeerId(env.axl.nodes.writer) &&
-      isValidAxlPeerId(env.axl.nodes.publisher) &&
-      isValidAxlPeerId(env.axl.nodes.memory),
-  );
+const hasAxlTransportConfig = (env: BackendEnv) => Boolean(env.axl.nodeBaseUrl);
 
 const hasZeroGStorageConfig = (env: BackendEnv) =>
   Boolean(env.zeroG.indexerUrl && env.zeroG.rpcUrl && env.zeroG.privateKey);

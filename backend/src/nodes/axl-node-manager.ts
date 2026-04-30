@@ -36,6 +36,9 @@ const defaultAgentIdByRole: Record<ManagedRole, string> = {
   memory: "agent-memory-agent",
 };
 
+const isValidAxlPeerId = (value: string | undefined) =>
+  Boolean(value && /^[0-9a-f]{64}$/i.test(value));
+
 export class AxlNodeManager {
   constructor(
     private readonly input: {
@@ -52,30 +55,42 @@ export class AxlNodeManager {
   }
 
   registerDefaultLogicalNodes(observedAt = new Date().toISOString()) {
-    const peerPrefix = this.input.specialistPeerPrefix ?? "peer";
+    return defaultManagedRoles.flatMap((role) => {
+      const peerId = this.resolvePeerId(role);
 
-    return defaultManagedRoles.map((role) =>
-      this.registerLogicalNode({
-        agentId: defaultAgentIdByRole[role],
-        role,
-        peerId: this.resolvePeerId(role, peerPrefix),
-        observedAt,
-        metadata: {
-          managedBy: "axl-node-manager",
-        },
-      }),
-    );
+      if (!peerId) {
+        return [];
+      }
+
+      return [
+        this.registerLogicalNode({
+          agentId: defaultAgentIdByRole[role],
+          role,
+          peerId,
+          observedAt,
+          metadata: {
+            managedBy: "axl-node-manager",
+          },
+        }),
+      ];
+    });
   }
 
   listManagedNodes(): AgentNode[] {
     return this.input.peerRegistry.listNodes();
   }
 
-  private resolvePeerId(role: ManagedRole, peerPrefix: string) {
-    return (
-      this.input.peerIdsByRole?.[role] ??
-      (role === "orchestrator" ? this.input.orchestratorPeerId : `${peerPrefix}-${role}`)
-    );
+  private resolvePeerId(role: ManagedRole) {
+    const configured = this.input.peerIdsByRole?.[role];
+    if (isValidAxlPeerId(configured)) {
+      return configured;
+    }
+
+    if (role === "orchestrator" && isValidAxlPeerId(this.input.orchestratorPeerId)) {
+      return this.input.orchestratorPeerId;
+    }
+
+    return null;
   }
 
   async syncPeerStatuses() {

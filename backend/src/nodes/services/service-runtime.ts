@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { createInitialSwarmState } from "@omen/agents";
 import { AxlHttpAdapter } from "@omen/axl";
 import {
@@ -87,33 +84,15 @@ const rolePeerEnvByService: Record<string, string> = {
 
 const isValidAxlPeerId = (value: string) => /^[0-9a-f]{64}$/i.test(value);
 
-const resolveDemoDir = () =>
-  process.env.OMEN_MCP_DEMO_DIR ??
-  process.env.OMEN_A2A_DEMO_DIR ??
-  path.resolve(process.cwd(), "local", "axl", "demo");
-
-const resolvePeerIdFromDemoFile = (service: string) => {
-  try {
-    return readFileSync(path.join(resolveDemoDir(), service, "peer-id.txt"), "utf8").trim();
-  } catch {
-    return "";
-  }
-};
-
 export const resolveAxlPeerIdForService = (service: string) => {
   const envName = rolePeerEnvByService[service];
   const configured = envName ? process.env[envName]?.trim() : "";
-  const demoPeerId = resolvePeerIdFromDemoFile(service);
 
-  for (const peerId of [configured, demoPeerId]) {
-    if (peerId && isValidAxlPeerId(peerId)) {
-      return peerId;
-    }
+  if (configured && isValidAxlPeerId(configured)) {
+    return configured;
   }
 
-  throw new Error(
-    `No explicit AXL peer ID is configured for ${service}. Set ${envName} or start that role node so ${path.join(resolveDemoDir(), service, "peer-id.txt")} exists.`,
-  );
+  throw new Error(`No explicit AXL peer ID is configured for ${service}. Set ${envName}.`);
 };
 
 export const createServiceAxlMcpAdapter = () => {
