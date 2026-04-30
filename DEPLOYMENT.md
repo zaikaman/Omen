@@ -102,6 +102,22 @@ pnpm --filter @omen/zero-g deploy:run-registry
 
 The deploy script prints the contract address. Set that value as `ZERO_G_RUN_REGISTRY_ADDRESS` on Heroku.
 
+## Optional Omen Agent iNFT
+
+Omen can mint an ERC-7857-style iNFT for the swarm after at least one real 0G-backed run has produced a durable memory root or manifest.
+
+See [INFT_DEPLOYMENT.md](/D:/Omen/INFT_DEPLOYMENT.md) for the full deploy and mint flow.
+
+Short path:
+
+```bash
+pnpm run contracts:compile
+pnpm run inft:deploy
+pnpm run inft:mint
+```
+
+The mint step requires `OMEN_INFT_MEMORY_ROOT` and an owner RSA public key. It will not mint a placeholder token without encrypted 0G Storage intelligence.
+
 `PORT` is supplied by Heroku. Do not hard-code it in Heroku config unless you are debugging locally.
 
 ## Hourly Scheduler

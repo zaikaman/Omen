@@ -7,9 +7,11 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "tsc --noEmit --project ../../tsconfig.json",
+    "deploy:agent-inft": "tsx src/scripts/deploy-agent-inft.ts",
     "deploy:run-registry": "tsx src/scripts/deploy-run-registry.ts",
     "lint": "eslint \"**/*.{ts,tsx,mts,cts,mjs}\" --no-error-on-unmatched-pattern",
     "lint:fix": "eslint \"**/*.{ts,tsx,mts,cts,mjs}\" --fix --no-error-on-unmatched-pattern",
+    "mint:agent-inft": "tsx src/scripts/mint-omen-agent-inft.ts",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit --project ../../tsconfig.json"
   },
