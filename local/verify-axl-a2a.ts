@@ -243,7 +243,22 @@ const summarize = (role: string, output: Record<string, unknown>) => {
   if (role === "critic") return { decision: (output.review as { decision: string }).decision };
   if (role === "intel") return { action: output.action };
   if (role === "generator") return { hasContent: Boolean(output.content) };
-  if (role === "writer") return { hasArticle: Boolean(output.article) };
+  if (role === "writer") {
+    const peerContext = output.peerContext as
+      | { sourcePeerId?: string; service?: string; method?: string }
+      | null
+      | undefined;
+    return {
+      hasArticle: Boolean(output.article),
+      peerContext: peerContext
+        ? {
+            sourcePeerId: peerContext.sourcePeerId,
+            service: peerContext.service,
+            method: peerContext.method,
+          }
+        : null,
+    };
+  }
   if (role === "memory") return { checkpointRefId: output.checkpointRefId };
   if (role === "publisher") return { outcome: output.outcome };
   return {};

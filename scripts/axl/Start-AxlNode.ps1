@@ -162,6 +162,9 @@ if (!$NoMcp -and $ports.Service) {
     "`$env:OMEN_MCP_PORT='$($ports.Mcp)'",
     "`$env:OMEN_MCP_ROUTER_URL='http://127.0.0.1:$($ports.Router)'",
     "`$env:OMEN_MCP_PUBLIC_BASE_URL='http://127.0.0.1:$($ports.Mcp)'",
+    "`$env:OMEN_MCP_AXL_API_BASE_URL='http://127.0.0.1:$($ports.Api)'",
+    "`$env:OMEN_MCP_DEMO_DIR=$(Quote-PowerShellString (Join-Path $Root 'local\axl\demo'))",
+    "`$env:OMEN_MCP_AXL_REQUEST_TIMEOUT_MS='300000'",
     "`$env:OMEN_MCP_SERVICES='$($ports.Service)'",
     "pnpm --dir backend run mcp:host"
   ) -join "; "

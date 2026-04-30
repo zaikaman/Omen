@@ -164,6 +164,10 @@ export class WriterAgentFactory {
           "Write a deep-dive article for this INTEL REPORT.",
           "",
           `Report: ${JSON.stringify(parsed.report, null, 2)}`,
+          "",
+          `Evidence: ${JSON.stringify(parsed.evidence, null, 2)}`,
+          "",
+          `Generated content context: ${JSON.stringify(parsed.generatedContent, null, 2)}`,
         ].join("\n"),
         temperature: 0.35,
       });

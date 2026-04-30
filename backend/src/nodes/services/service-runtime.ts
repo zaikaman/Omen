@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { createInitialSwarmState } from "@omen/agents";
+import { AxlHttpAdapter } from "@omen/axl";
 import {
   TRADEABLE_SYMBOLS,
   runSchema,
@@ -59,5 +63,73 @@ export const createServiceSwarmState = (input: {
       scanIntervalMinutes: 60,
       updatedAt: timestamp,
     }),
+  });
+};
+
+const parsePort = (value: string | undefined, defaultValue: number) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
+};
+
+const rolePeerEnvByService: Record<string, string> = {
+  market_bias: "AXL_MARKET_BIAS_NODE_ID",
+  scanner: "AXL_SCANNER_NODE_ID",
+  research: "AXL_RESEARCH_NODE_ID",
+  chart_vision: "AXL_CHART_VISION_NODE_ID",
+  analyst: "AXL_ANALYST_NODE_ID",
+  critic: "AXL_CRITIC_NODE_ID",
+  intel: "AXL_INTEL_NODE_ID",
+  generator: "AXL_GENERATOR_NODE_ID",
+  writer: "AXL_WRITER_NODE_ID",
+  memory: "AXL_MEMORY_NODE_ID",
+  publisher: "AXL_PUBLISHER_NODE_ID",
+};
+
+const isValidAxlPeerId = (value: string) => /^[0-9a-f]{64}$/i.test(value);
+
+const resolveDemoDir = () =>
+  process.env.OMEN_MCP_DEMO_DIR ??
+  process.env.OMEN_A2A_DEMO_DIR ??
+  path.resolve(process.cwd(), "local", "axl", "demo");
+
+const resolvePeerIdFromDemoFile = (service: string) => {
+  try {
+    return readFileSync(path.join(resolveDemoDir(), service, "peer-id.txt"), "utf8").trim();
+  } catch {
+    return "";
+  }
+};
+
+export const resolveAxlPeerIdForService = (service: string) => {
+  const envName = rolePeerEnvByService[service];
+  const configured = envName ? process.env[envName]?.trim() : "";
+  const demoPeerId = resolvePeerIdFromDemoFile(service);
+
+  for (const peerId of [configured, demoPeerId]) {
+    if (peerId && isValidAxlPeerId(peerId)) {
+      return peerId;
+    }
+  }
+
+  throw new Error(
+    `No explicit AXL peer ID is configured for ${service}. Set ${envName} or start that role node so ${path.join(resolveDemoDir(), service, "peer-id.txt")} exists.`,
+  );
+};
+
+export const createServiceAxlMcpAdapter = () => {
+  const baseUrl = process.env.OMEN_MCP_AXL_API_BASE_URL ?? process.env.AXL_NODE_BASE_URL ?? "";
+
+  if (!baseUrl) {
+    throw new Error(
+      "OMEN_MCP_AXL_API_BASE_URL or AXL_NODE_BASE_URL is required for peer-to-peer AXL MCP calls.",
+    );
+  }
+
+  return new AxlHttpAdapter({
+    node: {
+      baseUrl,
+      requestTimeoutMs: parsePort(process.env.OMEN_MCP_AXL_REQUEST_TIMEOUT_MS, 300_000),
+      defaultHeaders: {},
+    },
   });
 };

@@ -1,4 +1,9 @@
-import { createWriterAgent, writerInputSchema, writerOutputSchema } from "@omen/agents";
+import {
+  createWriterAgent,
+  memoryRecallOutputSchema,
+  writerInputSchema,
+  writerOutputSchema,
+} from "@omen/agents";
 import {
   assertAxlMcpMethodSupported,
   createAxlMcpErrorResponse,
@@ -7,7 +12,11 @@ import {
 } from "@omen/axl";
 import { axlMcpRequestSchema, type AxlMcpResponse } from "@omen/shared";
 
-import { createServiceSwarmState } from "./service-runtime.js";
+import {
+  createServiceAxlMcpAdapter,
+  createServiceSwarmState,
+  resolveAxlPeerIdForService,
+} from "./service-runtime.js";
 
 export const writerMcpContract = defineAxlMcpServiceContract({
   service: "writer",
@@ -25,7 +34,7 @@ export const writerMcpContract = defineAxlMcpServiceContract({
       },
     },
   ],
-  tags: ["runtime", "mvp", "writer"],
+  tags: ["runtime", "mvp", "writer", "peer-memory-client"],
 });
 
 export class WriterMcpService {
@@ -51,18 +60,94 @@ export class WriterMcpService {
       }
 
       const input = writerInputSchema.parse(parsed.params.input ?? {});
-      const output = await this.agent.invoke(
-        input,
-        createServiceSwarmState({
+      const memoryPeerId = resolveAxlPeerIdForService("memory");
+      const memoryRequest = {
+        jsonrpc: "2.0",
+        id: `${parsed.id}:memory-recall`,
+        service: "memory",
+        method: "memory.recall",
+        params: {
+          input: {
+            context: input.context,
+            query: "writer.article prior context",
+            report: input.report,
+            recentNotes: [
+              ...input.evidence.map((item) => item.summary),
+              ...(input.generatedContent?.logMessage ? [input.generatedContent.logMessage] : []),
+            ].slice(-8),
+          },
+        },
+        context: {
           runId: input.context.runId,
-          mode: input.context.mode,
+          correlationId: `${input.context.runId}:writer-memory-recall`,
+          callerPeerId:
+            typeof parsed.context.callerPeerId === "string" ? parsed.context.callerPeerId : null,
+          callerRole: "writer",
+        },
+      };
+      const memoryResponse = await createServiceAxlMcpAdapter().callMcp({
+        peerId: memoryPeerId,
+        service: "memory",
+        request: memoryRequest,
+      });
+
+      if (!memoryResponse.ok) {
+        throw memoryResponse.error;
+      }
+
+      const memoryError = memoryResponse.value.error as
+        | { message?: unknown; code?: unknown }
+        | undefined;
+      if (memoryError) {
+        const message =
+          typeof memoryError.message === "string"
+            ? memoryError.message
+            : "Memory recall returned an AXL MCP error.";
+        throw new Error(message);
+      }
+
+      const memoryResult = memoryRecallOutputSchema.parse(
+        (memoryResponse.value.result as Record<string, unknown> | undefined)?.output,
+      );
+      const enrichedInput = writerInputSchema.parse({
+        ...input,
+        evidence: [
+          ...input.evidence,
+          {
+            category: "fundamental",
+            summary: memoryResult.summary,
+            sourceLabel: "AXL peer memory recall",
+            sourceUrl: null,
+            structuredData: {
+              sourcePeerId: memoryPeerId,
+              service: "memory",
+              method: "memory.recall",
+              relevantNotes: memoryResult.relevantNotes,
+              proofRefIds: memoryResult.proofRefIds,
+            },
+          },
+        ],
+      });
+      const output = await this.agent.invoke(
+        enrichedInput,
+        createServiceSwarmState({
+          runId: enrichedInput.context.runId,
+          mode: enrichedInput.context.mode,
         }),
       );
 
       return createAxlMcpSuccessResponse({
         id: parsed.id,
         result: {
-          output: writerOutputSchema.parse(output),
+          output: writerOutputSchema.parse({
+            ...output,
+            peerContext: {
+              sourcePeerId: memoryPeerId,
+              service: "memory",
+              method: "memory.recall",
+              summary: memoryResult.summary,
+            },
+          }),
         },
       });
     } catch (error) {

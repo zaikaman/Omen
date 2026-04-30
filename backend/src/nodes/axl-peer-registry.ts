@@ -42,7 +42,7 @@ const defaultMethodsByRole: Record<ManagedAxlRole, string[]> = {
   generator: ["generator.compose", "generator.health"],
   writer: ["writer.article", "writer.health"],
   publisher: ["publisher.publish", "publisher.health"],
-  memory: ["memory.checkpoint", "memory.health"],
+  memory: ["memory.checkpoint", "memory.recall", "memory.health"],
 };
 
 const defaultDescriptionByRole: Record<ManagedAxlRole, string> = {

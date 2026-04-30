@@ -10,7 +10,7 @@ if (!$Root) {
   $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 }
 
-$coreRoles = @("orchestrator", "scanner", "research", "analyst", "critic")
+$coreRoles = @("orchestrator", "market_bias", "scanner", "research", "analyst", "critic")
 $allRoles = @(
   "orchestrator",
   "market_bias",

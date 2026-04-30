@@ -33,6 +33,8 @@ The local AXL binary currently uses the default A2A callback port, so the demo r
 
 The demo intentionally fails when a role peer ID is missing. It no longer maps missing roles to the orchestrator peer ID and no longer uses `AXL_SERVICE_PEER_ID` as a generic service fallback. Each role must have its own captured peer ID in `local/axl/demo/<role>/peer-id.txt` or an explicit `AXL_<ROLE>_NODE_ID` environment value.
 
+The writer role also performs a direct peer-to-peer AXL MCP call to the memory role before drafting long-form intel. The writer node calls its own local AXL API, targets the memory node peer ID, invokes `memory.recall`, and includes the returned peer context in the `writer.article` result. This demonstrates agent-to-agent communication that is not orchestrator fanout.
+
 The launcher writes the backend env snippet to:
 
 ```text
@@ -43,7 +45,7 @@ Use those values for the backend process so the UI can show the real peer IDs, r
 
 ## Core-Only Demo
 
-To launch the older five-node judging path only:
+To launch the smaller core judging path only:
 
 ```powershell
 pnpm run axl:start:demo:core

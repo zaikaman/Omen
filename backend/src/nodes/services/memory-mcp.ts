@@ -1,4 +1,10 @@
-import { createMemoryAgent, memoryInputSchema, memoryOutputSchema } from "@omen/agents";
+import {
+  createMemoryAgent,
+  memoryInputSchema,
+  memoryOutputSchema,
+  memoryRecallInputSchema,
+  memoryRecallOutputSchema,
+} from "@omen/agents";
 import {
   assertAxlMcpMethodSupported,
   createAxlMcpErrorResponse,
@@ -15,7 +21,7 @@ export const memoryMcpContract = defineAxlMcpServiceContract({
   peerId: null,
   role: "memory",
   description: "Checkpoint memory capability for proof reference summaries.",
-  methods: ["memory.checkpoint", "memory.health"],
+  methods: ["memory.checkpoint", "memory.recall", "memory.health"],
   tools: [
     {
       name: "memory.checkpoint",
@@ -24,8 +30,15 @@ export const memoryMcpContract = defineAxlMcpServiceContract({
         input: "MemoryInput",
       },
     },
+    {
+      name: "memory.recall",
+      description: "Return prior run context relevant to another agent's current task.",
+      inputSchema: {
+        input: "MemoryRecallInput",
+      },
+    },
   ],
-  tags: ["runtime", "mvp", "memory"],
+  tags: ["runtime", "mvp", "memory", "peer-context"],
 });
 
 export class MemoryMcpService {
@@ -46,6 +59,34 @@ export class MemoryMcpService {
             status: "ok",
             service: this.contract.service,
             method: parsed.method,
+          },
+        });
+      }
+
+      if (parsed.method === "memory.recall") {
+        const input = memoryRecallInputSchema.parse(parsed.params.input ?? {});
+        const relevantNotes = input.recentNotes.slice(-6);
+        const reportHint = input.report
+          ? `${input.report.title}: ${input.report.summary}`
+          : "No report context was provided.";
+        const summary = [
+          `Memory recall for ${input.query}.`,
+          reportHint,
+          relevantNotes.length > 0
+            ? `Recent swarm notes: ${relevantNotes.join(" | ")}`
+            : "No recent swarm notes were provided.",
+        ].join(" ");
+
+        return createAxlMcpSuccessResponse({
+          id: parsed.id,
+          result: {
+            output: memoryRecallOutputSchema.parse({
+              summary,
+              relevantNotes,
+              proofRefIds: relevantNotes
+                .map((note) => note.match(/proof-ref:([^\s|]+)/)?.[1])
+                .filter((value): value is string => Boolean(value)),
+            }),
           },
         });
       }
