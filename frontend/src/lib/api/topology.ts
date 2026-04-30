@@ -32,12 +32,23 @@ export type AxlRouteDeliveryStatus = 'queued' | 'sent' | 'delivered' | 'failed';
 export type AxlRouteRecord = {
   kind: AxlRouteKind;
   peerId: string;
+  sourcePeerId: string | null;
+  destinationPeerId: string | null;
+  role: string | null;
   service: string | null;
+  method: string | null;
   operation: string;
   runId: string | null;
   correlationId: string | null;
+  delegationId: string | null;
+  routeChainId: string | null;
   deliveryStatus: AxlRouteDeliveryStatus;
   observedAt: string;
+  acceptedAt: string | null;
+  completedAt: string | null;
+  failedAt: string | null;
+  topologyPeerIds: string[];
+  outputRefs: Array<{ kind: 'signal' | 'intel'; id: string }>;
   metadata: Record<string, unknown>;
 };
 
@@ -127,16 +138,54 @@ const axlRouteRecordSchema = {
     return {
       kind: payload.kind,
       peerId: payload.peerId,
+      sourcePeerId:
+        typeof payload.sourcePeerId === 'string' ? payload.sourcePeerId : null,
+      destinationPeerId:
+        typeof payload.destinationPeerId === 'string'
+          ? payload.destinationPeerId
+          : typeof payload.peerId === 'string'
+            ? payload.peerId
+            : null,
+      role: typeof payload.role === 'string' ? payload.role : null,
       service: typeof payload.service === 'string' ? payload.service : null,
+      method: typeof payload.method === 'string' ? payload.method : null,
       operation: payload.operation,
       runId: typeof payload.runId === 'string' ? payload.runId : null,
       correlationId:
         typeof payload.correlationId === 'string'
           ? payload.correlationId
           : null,
+      delegationId:
+        typeof payload.delegationId === 'string' ? payload.delegationId : null,
+      routeChainId:
+        typeof payload.routeChainId === 'string' ? payload.routeChainId : null,
       deliveryStatus: parseRouteDeliveryStatus(payload.deliveryStatus),
       observedAt:
         typeof payload.observedAt === 'string' ? payload.observedAt : '',
+      acceptedAt:
+        typeof payload.acceptedAt === 'string' ? payload.acceptedAt : null,
+      completedAt:
+        typeof payload.completedAt === 'string' ? payload.completedAt : null,
+      failedAt: typeof payload.failedAt === 'string' ? payload.failedAt : null,
+      topologyPeerIds: Array.isArray(payload.topologyPeerIds)
+        ? payload.topologyPeerIds.filter(
+            (peerId): peerId is string => typeof peerId === 'string',
+          )
+        : [],
+      outputRefs: Array.isArray(payload.outputRefs)
+        ? payload.outputRefs
+            .map((ref) => parseRecord(ref))
+            .filter(
+              (
+                ref,
+              ): ref is {
+                kind: 'signal' | 'intel';
+                id: string;
+              } =>
+                (ref.kind === 'signal' || ref.kind === 'intel') &&
+                typeof ref.id === 'string',
+            )
+        : [],
       metadata: parseRecord(payload.metadata),
     };
   },

@@ -114,7 +114,11 @@ export class AxlNodeManager {
     this.input.peerRegistry.recordRoute({
       kind: "send",
       peerId: input.destinationPeerId,
+      sourcePeerId: input.envelope.fromAgentId,
+      destinationPeerId: input.destinationPeerId,
+      role: input.envelope.toRole,
       service: input.envelope.toRole,
+      method: input.envelope.messageType,
       operation: input.envelope.messageType,
       runId: input.envelope.runId,
       correlationId: input.envelope.correlationId,
@@ -141,7 +145,11 @@ export class AxlNodeManager {
     this.input.peerRegistry.recordRoute({
       kind: "send",
       peerId: fromPeerId ?? message.envelope.fromAgentId,
+      sourcePeerId: fromPeerId ?? message.envelope.fromAgentId,
+      destinationPeerId: message.envelope.toAgentId,
+      role: message.envelope.toRole,
       service: message.envelope.toRole,
+      method: message.envelope.messageType,
       operation: message.envelope.messageType,
       runId: message.envelope.runId,
       correlationId: message.envelope.correlationId,

@@ -11,12 +11,23 @@ export type AxlRouteDeliveryStatus = 'queued' | 'sent' | 'delivered' | 'failed';
 export type AxlRouteRecord = {
   kind: AxlRouteKind;
   peerId: string;
+  sourcePeerId?: string | null;
+  destinationPeerId?: string | null;
+  role?: string | null;
   service: string | null;
+  method?: string | null;
   operation: string;
   runId: string | null;
   correlationId: string | null;
+  delegationId?: string | null;
+  routeChainId?: string | null;
   deliveryStatus: AxlRouteDeliveryStatus;
   observedAt: string;
+  acceptedAt?: string | null;
+  completedAt?: string | null;
+  failedAt?: string | null;
+  topologyPeerIds?: string[];
+  outputRefs?: Array<{ kind: 'signal' | 'intel'; id: string }>;
   metadata: Record<string, unknown>;
 };
 
@@ -141,10 +152,11 @@ export function RouteTimeline({ routes = [], isLoading, error, className }: Rout
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge className={cn('uppercase', kindClassName[route.kind])}>{route.kind}</Badge>
-                          <span className="font-mono text-sm text-white">{route.operation}</span>
+                          <span className="font-mono text-sm text-white">{route.method ?? route.operation}</span>
                         </div>
                         <div className="mt-1 truncate text-xs text-gray-500">
-                          {route.service ?? 'direct'} / {route.peerId}
+                          {route.sourcePeerId ? `${shorten(route.sourcePeerId)} -> ` : ''}
+                          {shorten(route.destinationPeerId ?? route.peerId)} / {route.service ?? route.role ?? 'direct'}
                         </div>
                       </div>
                       <span className={cn('shrink-0 font-mono text-xs uppercase', deliveryClassName[route.deliveryStatus])}>
@@ -161,8 +173,8 @@ export function RouteTimeline({ routes = [], isLoading, error, className }: Rout
                         <div className="font-mono text-gray-400">{shorten(route.runId)}</div>
                       </div>
                       <div>
-                        <div className="text-gray-600">Correlation</div>
-                        <div className="font-mono text-gray-400">{shorten(route.correlationId)}</div>
+                        <div className="text-gray-600">Delegation</div>
+                        <div className="font-mono text-gray-400">{shorten(route.delegationId ?? route.correlationId)}</div>
                       </div>
                     </div>
                   </div>

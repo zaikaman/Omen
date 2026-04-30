@@ -101,6 +101,12 @@ export class AxlPeerRegistry {
 
   private readonly serviceRegistry = new AxlServiceRegistry();
 
+  private rawTopologyPeerIds: string[] = [];
+
+  private rawTopologyTreePeerIds: string[] = [];
+
+  private rawTopologyObservedAt: string | null = null;
+
   registerLogicalNode(input: LogicalAxlNodeRegistration) {
     const contract = defineAxlMcpServiceContract({
       service: input.service ?? input.role,
@@ -168,6 +174,16 @@ export class AxlPeerRegistry {
     return this.listNodes();
   }
 
+  recordRawTopology(input: {
+    peerIds: string[];
+    treePeerIds?: string[];
+    observedAt: string;
+  }) {
+    this.rawTopologyPeerIds = Array.from(new Set(input.peerIds.filter(Boolean))).sort();
+    this.rawTopologyTreePeerIds = Array.from(new Set((input.treePeerIds ?? []).filter(Boolean))).sort();
+    this.rawTopologyObservedAt = input.observedAt;
+  }
+
   markNodeOffline(input: { agentId: string; observedAt: string; error?: string | null }) {
     const current = this.nodes.get(input.agentId);
 
@@ -202,23 +218,52 @@ export class AxlPeerRegistry {
   recordRoute(input: {
     kind: AxlServiceRouteRecord["kind"];
     peerId: string;
+    sourcePeerId?: string | null;
+    destinationPeerId?: string | null;
+    role?: string | null;
     service: string | null;
+    method?: string | null;
     operation: string;
     runId: string | null;
     correlationId: string | null;
+    delegationId?: string | null;
+    routeChainId?: string | null;
     deliveryStatus: AxlDeliveryStatus;
     observedAt: string;
+    acceptedAt?: string | null;
+    completedAt?: string | null;
+    failedAt?: string | null;
+    outputRefs?: AxlServiceRouteRecord["outputRefs"];
     metadata?: Record<string, unknown>;
   }) {
+    const delegationId =
+      input.delegationId ??
+      (typeof input.metadata?.delegationId === "string" ? input.metadata.delegationId : null);
+    const routeChainId = input.routeChainId ?? input.correlationId ?? delegationId ?? input.runId;
+    const failedAt = input.failedAt ?? (input.deliveryStatus === "failed" ? input.observedAt : null);
+    const acceptedAt = input.acceptedAt ?? (input.deliveryStatus === "sent" ? input.observedAt : null);
+    const completedAt =
+      input.completedAt ?? (input.deliveryStatus === "received" ? input.observedAt : null);
     const route = createAxlServiceRouteRecord({
       kind: input.kind,
       peerId: input.peerId,
+      sourcePeerId: input.sourcePeerId ?? null,
+      destinationPeerId: input.destinationPeerId ?? input.peerId,
+      role: input.role ?? input.service,
       service: input.service,
+      method: input.method ?? input.operation,
       operation: input.operation,
       runId: input.runId,
       correlationId: input.correlationId,
+      delegationId,
+      routeChainId,
       deliveryStatus: input.deliveryStatus,
       observedAt: input.observedAt,
+      acceptedAt,
+      completedAt,
+      failedAt,
+      topologyPeerIds: this.rawTopologyPeerIds,
+      outputRefs: input.outputRefs ?? [],
       metadata: input.metadata ?? {},
     });
 
@@ -252,11 +297,27 @@ export class AxlPeerRegistry {
     return this.serviceRegistry.listServices(filters);
   }
 
+  linkRunOutputs(input: {
+    runId: string;
+    signalId?: string | null;
+    intelId?: string | null;
+  }) {
+    this.serviceRegistry.linkRunOutputs(input);
+  }
+
   createSnapshot(input: {
     capturedAt: string;
     source: string;
     metadata?: Record<string, unknown>;
   }): AxlServiceRegistrySnapshot {
-    return this.serviceRegistry.createSnapshot(input);
+    return this.serviceRegistry.createSnapshot({
+      ...input,
+      metadata: {
+        rawTopologyPeerIds: this.rawTopologyPeerIds,
+        rawTopologyTreePeerIds: this.rawTopologyTreePeerIds,
+        rawTopologyObservedAt: this.rawTopologyObservedAt,
+        ...(input.metadata ?? {}),
+      },
+    });
   }
 }

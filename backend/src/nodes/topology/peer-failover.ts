@@ -85,7 +85,10 @@ export class PeerFailover {
     this.peerRegistry.recordRoute({
       kind: input.kind ?? "a2a",
       peerId: selected.peerId,
+      destinationPeerId: selected.peerId,
+      role: input.role,
       service: selected.service,
+      method: input.operation,
       operation: input.operation,
       runId: input.runId ?? null,
       correlationId: input.correlationId ?? null,

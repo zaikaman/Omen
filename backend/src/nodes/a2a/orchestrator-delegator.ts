@@ -64,6 +64,18 @@ type SpecialistPayloadMap = {
   publisher: PublisherInput;
 };
 
+const parsePeerContext = (output: unknown) => {
+  if (!output || typeof output !== "object" || !("peerContext" in output)) {
+    return null;
+  }
+
+  const peerContext = (output as { peerContext?: unknown }).peerContext;
+
+  return peerContext && typeof peerContext === "object"
+    ? (peerContext as Record<string, unknown>)
+    : null;
+};
+
 type SpecialistResultMap = {
   market_bias: CorrelatedDelegationResult<MarketBiasAgentOutput>;
   scanner: CorrelatedDelegationResult<ScannerOutput>;
@@ -241,10 +253,15 @@ export class OrchestratorDelegator {
     this.input.peerRegistry.recordRoute({
       kind: "a2a",
       peerId,
+      sourcePeerId: context.fromPeerId,
+      destinationPeerId: peerId,
+      role,
       service: role,
+      method: taskType,
       operation: taskType,
       runId: context.runId,
       correlationId: context.correlationId,
+      delegationId: request.delegationId,
       deliveryStatus: "sent",
       observedAt: new Date().toISOString(),
       metadata: {
@@ -262,10 +279,15 @@ export class OrchestratorDelegator {
       this.input.peerRegistry.recordRoute({
         kind: "a2a",
         peerId,
+        sourcePeerId: context.fromPeerId,
+        destinationPeerId: peerId,
+        role,
         service: role,
+        method: taskType,
         operation: taskType,
         runId: context.runId,
         correlationId: context.correlationId,
+        delegationId: request.delegationId,
         deliveryStatus: "failed",
         observedAt: new Date().toISOString(),
         metadata: {
@@ -278,22 +300,67 @@ export class OrchestratorDelegator {
     }
 
     const correlated = this.correlate(role, envelope.value);
+    const completedAt = new Date().toISOString();
+    const childPeerContext = correlated.ok ? parsePeerContext(correlated.value.output) : null;
 
     this.input.peerRegistry.recordRoute({
       kind: "a2a",
       peerId,
+      sourcePeerId: context.fromPeerId,
+      destinationPeerId: peerId,
+      role,
       service: role,
+      method: taskType,
       operation: taskType,
       runId: context.runId,
       correlationId: context.correlationId,
+      delegationId: request.delegationId,
       deliveryStatus: correlated.ok ? "received" : "failed",
-      observedAt: new Date().toISOString(),
+      observedAt: completedAt,
+      completedAt: correlated.ok ? completedAt : null,
+      failedAt: correlated.ok ? null : completedAt,
       metadata: {
         delegationId: request.delegationId,
         state: envelope.value.result?.state ?? null,
         assignedPeerId: envelope.value.receipt?.assignedPeerId ?? null,
+        childPeerContext,
       },
     });
+
+    if (childPeerContext) {
+      const childDestinationPeerId =
+        typeof childPeerContext.sourcePeerId === "string" ? childPeerContext.sourcePeerId : null;
+      const childService =
+        typeof childPeerContext.service === "string" ? childPeerContext.service : null;
+      const childMethod =
+        typeof childPeerContext.method === "string" ? childPeerContext.method : "peer-context";
+
+      if (childDestinationPeerId && childService) {
+        this.input.peerRegistry.recordRoute({
+          kind: "mcp",
+          peerId: childDestinationPeerId,
+          sourcePeerId: peerId,
+          destinationPeerId: childDestinationPeerId,
+          role: childService,
+          service: childService,
+          method: childMethod,
+          operation: childMethod,
+          runId: context.runId,
+          correlationId: `${context.correlationId}:${childService}`,
+          delegationId: `${request.delegationId}:${childService}`,
+          routeChainId: request.delegationId,
+          deliveryStatus: "received",
+          observedAt: completedAt,
+          completedAt,
+          metadata: {
+            parentDelegationId: request.delegationId,
+            direction: `${role}->${childService}`,
+            summary:
+              typeof childPeerContext.summary === "string" ? childPeerContext.summary : null,
+          },
+        });
+      }
+    }
 
     return correlated;
   }

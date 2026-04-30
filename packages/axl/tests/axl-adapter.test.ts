@@ -363,15 +363,28 @@ describe("axl adapter", () => {
       createAxlServiceRouteRecord({
         kind: "mcp",
         peerId: "peer-scanner",
+        sourcePeerId: "peer-orchestrator",
+        destinationPeerId: "peer-scanner",
+        role: "scanner",
         service: "scanner",
+        method: "scan.run",
         operation: "scan.run",
         runId: "run-1",
         correlationId: "corr-1",
+        delegationId: "delegation-1",
+        routeChainId: "corr-1",
         deliveryStatus: "received",
         observedAt: "2026-04-25T08:00:01.000Z",
+        completedAt: "2026-04-25T08:00:01.000Z",
+        topologyPeerIds: ["peer-orchestrator", "peer-scanner"],
         metadata: {},
       }),
     );
+    registry.linkRunOutputs({
+      runId: "run-1",
+      signalId: "signal-1",
+      intelId: "intel-1",
+    });
 
     expect(
       registry.createSnapshot({
@@ -381,7 +394,19 @@ describe("axl adapter", () => {
     ).toMatchObject({
       peers: [{ peerId: "peer-scanner" }],
       services: [{ service: "scanner" }],
-      routes: [{ operation: "scan.run" }],
+      routes: [
+        {
+          sourcePeerId: "peer-orchestrator",
+          destinationPeerId: "peer-scanner",
+          method: "scan.run",
+          delegationId: "delegation-1",
+          completedAt: "2026-04-25T08:00:01.000Z",
+          outputRefs: [
+            { kind: "signal", id: "signal-1" },
+            { kind: "intel", id: "intel-1" },
+          ],
+        },
+      ],
     });
 
     expect(
@@ -396,6 +421,12 @@ describe("axl adapter", () => {
       }),
     ).toMatchObject({
       peers: [{ peerId: "peer-1", status: "online" }],
+      metadata: {
+        axlTopology: {
+          ourPublicKey: "self",
+          peerIds: ["peer-1"],
+        },
+      },
     });
   });
 });

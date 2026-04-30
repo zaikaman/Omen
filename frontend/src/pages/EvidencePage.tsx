@@ -14,6 +14,7 @@ import {
   Database,
   ExternalLink,
   FileJson,
+  GitBranch,
   History,
   Network,
   RadioTower,
@@ -21,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { AxlTraceView } from '../components/network/AxlTraceView';
 import { PeerTopologyPanel } from '../components/network/PeerTopologyPanel';
 import { RouteTimeline } from '../components/network/RouteTimeline';
 import { ServiceRegistryPanel } from '../components/network/ServiceRegistryPanel';
@@ -42,6 +44,7 @@ const consoleSectionIds = [
   'storage',
   'compute',
   'chain',
+  'axl-trace',
   'axl-peers',
   'axl-services',
   'axl-routes',
@@ -204,6 +207,9 @@ export function EvidencePage() {
   const proofStatusText = proofFinalization ? proofStatusLabel[proofFinalization.status] : 'unknown';
   const onlinePeers = topology.peers.filter((peer) => peer.status === 'online').length;
   const deliveredRoutes = topology.routes.filter((route) => route.deliveryStatus === 'delivered').length;
+  const activeRunRoutes = activeRunId
+    ? topology.routes.filter((route) => route.runId === activeRunId)
+    : [];
   const isAxlUnverified = Boolean(topology.snapshot && !topology.isVerified);
   const axlStatusLabel = topology.isVerified ? 'verified' : isAxlUnverified ? 'unverified' : 'unknown';
 
@@ -276,6 +282,12 @@ export function EvidencePage() {
       label: 'AXL Peer Graph',
       detail: topology.isVerified ? `${onlinePeers}/${topology.peers.length} online` : axlStatusLabel,
       icon: RadioTower,
+    },
+    {
+      id: 'axl-trace',
+      label: 'AXL Trace',
+      detail: topology.isVerified ? `${activeRunRoutes.length} run routes` : axlStatusLabel,
+      icon: GitBranch,
     },
     {
       id: 'axl-services',
@@ -563,7 +575,7 @@ export function EvidencePage() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-7">
             {consoleSections.map((section) => {
               const Icon = section.icon;
               const isActive = activeSection === section.id;
@@ -674,6 +686,18 @@ export function EvidencePage() {
                 </p>
               </CardContent>
             </Card>
+          )}
+
+          {activeSection === 'axl-trace' && !isAxlUnverified && (
+            <AxlTraceView
+              routes={topology.routes}
+              activeRunId={activeRunId}
+              finalSignalId={selectedProof?.finalSignalId ?? proofDetail.run?.finalSignalId ?? null}
+              finalIntelId={selectedProof?.finalIntelId ?? proofDetail.run?.finalIntelId ?? null}
+              capturedAt={topology.capturedAt}
+              isLoading={topology.isLoading}
+              error={topology.error}
+            />
           )}
 
           {activeSection === 'axl-peers' && !isAxlUnverified && (

@@ -67,6 +67,39 @@ export class AxlServiceRegistry {
     return route;
   }
 
+  linkRunOutputs(input: {
+    runId: string;
+    signalId?: string | null;
+    intelId?: string | null;
+  }) {
+    const outputRefs = [
+      input.signalId ? { kind: "signal" as const, id: input.signalId } : null,
+      input.intelId ? { kind: "intel" as const, id: input.intelId } : null,
+    ].filter((ref): ref is { kind: "signal" | "intel"; id: string } => Boolean(ref));
+
+    if (outputRefs.length === 0) {
+      return;
+    }
+
+    for (let index = 0; index < this.routes.length; index += 1) {
+      const route = this.routes[index];
+
+      if (route.runId !== input.runId) {
+        continue;
+      }
+
+      this.routes[index] = {
+        ...route,
+        outputRefs,
+        metadata: {
+          ...route.metadata,
+          finalSignalId: input.signalId ?? null,
+          finalIntelId: input.intelId ?? null,
+        },
+      };
+    }
+  }
+
   listPeerStatuses() {
     return Array.from(this.peerStatuses.values()).sort((left, right) =>
       left.peerId.localeCompare(right.peerId),

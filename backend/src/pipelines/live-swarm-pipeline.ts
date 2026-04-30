@@ -1404,6 +1404,23 @@ class LivePipelineExecutionContext {
         }),
       );
     }
+
+    if (this.axlPeerRegistry) {
+      this.axlPeerRegistry.linkRunOutputs({
+        runId: persistedRun.id,
+        signalId: persistedRun.finalSignalId,
+        intelId: persistedRun.finalIntelId,
+      });
+      await this.safeCaptureAxlSnapshot({
+        source: "live-swarm-final-output",
+        metadata: {
+          runId: persistedRun.id,
+          finalSignalId: persistedRun.finalSignalId,
+          finalIntelId: persistedRun.finalIntelId,
+          outcomeType: persistedRun.outcome?.outcomeType ?? null,
+        },
+      });
+    }
   }
 
   async listRecordedArtifacts() {
@@ -2217,6 +2234,18 @@ class LivePipelineExecutionContext {
       return false;
     }
 
+    this.axlPeerRegistry.recordRawTopology({
+      peerIds: [
+        topology.value.our_public_key,
+        ...topology.value.peers
+          .map((peer) => peer.peer_id ?? peer.public_key ?? peer.uri)
+          .filter((peerId): peerId is string => Boolean(peerId)),
+      ],
+      treePeerIds: topology.value.tree
+        .map((entry) => entry.public_key)
+        .filter((peerId): peerId is string => typeof peerId === "string"),
+      observedAt,
+    });
     this.axlPeerRegistry.updatePeerStatuses(toAxlPeerStatuses(topology.value, observedAt));
     this.axlServicePeerId = topology.value.our_public_key;
 
