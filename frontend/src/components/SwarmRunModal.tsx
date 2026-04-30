@@ -152,7 +152,9 @@ export function SwarmRunModal({
   const zeroGEvents = events.filter((event) => event.proofRefId || event.eventType.startsWith('zero_g'));
   const successfulEvents = events.filter((event) => event.status === 'success').length;
   const failedEvents = events.filter((event) => event.status === 'error').length;
-  const onlinePeers = topology.peers.filter((peer) => peer.status === 'online').length;
+  const onlinePeers = topology.isVerified
+    ? topology.peers.filter((peer) => peer.status === 'online').length
+    : 0;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -313,12 +315,23 @@ export function SwarmRunModal({
                       <Network className="h-3.5 w-3.5 text-purple-300" />
                       AXL topology
                     </div>
-                    <Badge className="border-purple-500/40 bg-purple-500/10 text-purple-200">
-                      {onlinePeers}/{topology.peers.length} online
+                    <Badge
+                      className={
+                        topology.isVerified
+                          ? 'border-purple-500/40 bg-purple-500/10 text-purple-200'
+                          : 'border-yellow-500/40 bg-yellow-500/10 text-yellow-200'
+                      }
+                    >
+                      {topology.isVerified ? `${onlinePeers}/${topology.peers.length} online` : 'unverified'}
                     </Badge>
                   </div>
                   <div className="mt-3 space-y-2">
-                    {topology.peers.slice(0, 5).map((peer) => (
+                    {!topology.isVerified && (
+                      <div className="rounded border border-yellow-500/20 bg-yellow-950/10 p-3 text-xs text-yellow-100/80">
+                        {topology.unverifiedReason ?? 'No live AXL service registry snapshot is available.'}
+                      </div>
+                    )}
+                    {topology.isVerified && topology.peers.slice(0, 5).map((peer) => (
                       <div key={peer.peerId} className="rounded border border-gray-800 bg-gray-950/70 p-2">
                         <div className="flex items-center justify-between gap-2">
                           <span className="truncate font-mono text-xs text-gray-200">{peer.peerId}</span>
@@ -338,7 +351,7 @@ export function SwarmRunModal({
                         </div>
                       </div>
                     ))}
-                    {topology.peers.length === 0 && (
+                    {topology.isVerified && topology.peers.length === 0 && (
                       <div className="rounded border border-gray-800 bg-gray-950/70 p-3 text-xs text-gray-500">
                         No AXL peers registered yet.
                       </div>

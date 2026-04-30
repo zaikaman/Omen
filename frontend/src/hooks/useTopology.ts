@@ -63,6 +63,13 @@ export const useTopology = (options: UseTopologyOptions = {}) => {
     };
   }, [enabled, load, refreshIntervalMs]);
 
+  const metadata = response?.snapshot.metadata ?? {};
+  const isVerified = metadata.verified === true;
+  const status =
+    typeof metadata.status === 'string' ? metadata.status : 'unknown';
+  const unverifiedReason =
+    typeof metadata.reason === 'string' ? metadata.reason : null;
+
   return {
     response,
     nodes: response?.nodes ?? [],
@@ -71,6 +78,10 @@ export const useTopology = (options: UseTopologyOptions = {}) => {
     services: response?.snapshot.services ?? [],
     routes: response?.snapshot.routes ?? [],
     capturedAt: response?.snapshot.capturedAt ?? null,
+    source: response?.snapshot.source ?? null,
+    isVerified,
+    status,
+    unverifiedReason,
     isLoading,
     isRefreshing,
     error,

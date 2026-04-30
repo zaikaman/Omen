@@ -5,15 +5,9 @@ import {
   ServiceRegistrySnapshotsRepository,
   createSupabaseServiceRoleClient,
 } from "@omen/db";
+import { agentNodeSchema } from "@omen/shared";
 import {
-  agentNodeSchema,
-  axlPeerStatusSchema,
-  type AgentNode,
-  type AxlPeerStatus,
-} from "@omen/shared";
-import {
-  axlRegisteredServiceSchema,
-  axlServiceRegistrySnapshotSchema,
+  createTopologySnapshot,
   type AxlServiceRegistrySnapshot,
 } from "@omen/axl";
 
@@ -36,77 +30,36 @@ const createRepositories = (env: Pick<BackendEnv, "supabase">) => {
   };
 };
 
-const toPeerStatus = (node: AgentNode): AxlPeerStatus | null => {
-  if (!node.peerId) {
-    return null;
-  }
-
-  const services = Array.isArray(node.metadata.services)
-    ? node.metadata.services.filter(
-        (service): service is string =>
-          typeof service === "string" && service.trim().length > 0,
-      )
-    : [];
-
-  return axlPeerStatusSchema.parse({
-    peerId: node.peerId,
-    role: node.role,
-    status: node.status === "starting" ? "degraded" : node.status,
-    services,
-    lastSeenAt: node.lastHeartbeatAt ?? new Date().toISOString(),
-    latencyMs: null,
-  });
-};
-
-const safeAxlMethodPattern = /^[a-zA-Z0-9._/-]+$/;
-
-const toServiceMethod = (service: string, node: AgentNode) =>
-  safeAxlMethodPattern.test(service) ? service : `${node.role}.health`;
-
-const buildServicesFromNodes = (nodes: AgentNode[]) =>
-  nodes.flatMap((node) => {
-    const services = Array.isArray(node.metadata.services)
-      ? node.metadata.services.filter(
-          (service): service is string =>
-            typeof service === "string" && service.trim().length > 0,
-        )
-      : [];
-
-    return services.map((service) =>
-      axlRegisteredServiceSchema.parse({
-        registrationId: `${node.peerId ?? node.id}:${service}`,
-        service,
-        version: "live",
-        peerId: node.peerId,
-        role: node.role,
-        description: `${node.role} service`,
-        methods: [toServiceMethod(service, node)],
-        tools: [],
-        tags: [],
-        status: node.status === "starting" ? "degraded" : node.status,
-        registeredAt: node.lastHeartbeatAt ?? new Date().toISOString(),
-        lastSeenAt: node.lastHeartbeatAt ?? new Date().toISOString(),
-      }),
-    );
+const markVerifiedSnapshot = (
+  snapshot: AxlServiceRegistrySnapshot,
+): AxlServiceRegistrySnapshot =>
+  createTopologySnapshot({
+    capturedAt: snapshot.capturedAt,
+    source: snapshot.source,
+    peers: snapshot.peers,
+    services: snapshot.services,
+    routes: snapshot.routes,
+    metadata: {
+      ...snapshot.metadata,
+      status: "verified",
+      verified: true,
+    },
   });
 
-export const buildFallbackTopologySnapshot = (
-  nodes: AgentNode[],
+const buildUnavailableTopologySnapshot = (
   capturedAt = new Date().toISOString(),
 ): AxlServiceRegistrySnapshot =>
-  axlServiceRegistrySnapshotSchema.parse({
+  createTopologySnapshot({
     capturedAt,
-    source: "agent-nodes",
-    peers: nodes.flatMap((node) => {
-      const peerStatus = toPeerStatus(node);
-      return peerStatus ? [peerStatus] : [];
-    }),
-    services: buildServicesFromNodes(nodes),
+    source: "axl-service-registry",
+    peers: [],
+    services: [],
     routes: [],
     metadata: {
-      fallback: true,
-      reason: "No live AXL service registry snapshot is available.",
-      nodeCount: nodes.length,
+      status: "unverified",
+      verified: false,
+      reason:
+        "No live AXL service registry snapshot is available. Agent-node data is not used as AXL evidence.",
     },
   });
 
@@ -136,8 +89,9 @@ export const createTopologyController =
       return;
     }
 
-    const topologySnapshot =
-      snapshot.value ?? buildFallbackTopologySnapshot(nodes.value);
+    const topologySnapshot = snapshot.value
+      ? markVerifiedSnapshot(snapshot.value)
+      : buildUnavailableTopologySnapshot();
 
     res.json({
       success: true,

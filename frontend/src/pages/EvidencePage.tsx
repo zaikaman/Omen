@@ -9,6 +9,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import {
   Boxes,
+  AlertTriangle,
   CheckCircle2,
   Database,
   ExternalLink,
@@ -156,6 +157,8 @@ export function EvidencePage() {
   const selectedProof = proofFeed.proofs.find((proof) => proof.runId === activeRunId) ?? proofFeed.proofs[0] ?? null;
   const onlinePeers = topology.peers.filter((peer) => peer.status === 'online').length;
   const deliveredRoutes = topology.routes.filter((route) => route.deliveryStatus === 'delivered').length;
+  const isAxlUnverified = Boolean(topology.snapshot && !topology.isVerified);
+  const axlStatusLabel = topology.isVerified ? 'verified' : isAxlUnverified ? 'unverified' : 'unknown';
 
   const overviewItems = [
     {
@@ -184,21 +187,21 @@ export function EvidencePage() {
     },
     {
       label: 'AXL peers',
-      value: `${onlinePeers}/${topology.peers.length}`,
+      value: topology.isVerified ? `${onlinePeers}/${topology.peers.length}` : axlStatusLabel,
       icon: RadioTower,
-      className: topology.peers.length > 0 ? 'text-cyan-300' : 'text-gray-500',
+      className: topology.isVerified && topology.peers.length > 0 ? 'text-cyan-300' : 'text-yellow-300',
     },
     {
       label: 'Services',
-      value: topology.services.length.toString(),
+      value: topology.isVerified ? topology.services.length.toString() : axlStatusLabel,
       icon: Boxes,
-      className: topology.services.length > 0 ? 'text-purple-300' : 'text-gray-500',
+      className: topology.isVerified && topology.services.length > 0 ? 'text-purple-300' : 'text-yellow-300',
     },
     {
       label: 'Routes',
-      value: `${deliveredRoutes}/${topology.routes.length}`,
+      value: topology.isVerified ? `${deliveredRoutes}/${topology.routes.length}` : axlStatusLabel,
       icon: History,
-      className: topology.routes.length > 0 ? 'text-green-300' : 'text-gray-500',
+      className: topology.isVerified && topology.routes.length > 0 ? 'text-green-300' : 'text-yellow-300',
     },
   ];
 
@@ -224,19 +227,19 @@ export function EvidencePage() {
     {
       id: 'axl-peers',
       label: 'AXL Peer Graph',
-      detail: `${onlinePeers}/${topology.peers.length} online`,
+      detail: topology.isVerified ? `${onlinePeers}/${topology.peers.length} online` : axlStatusLabel,
       icon: RadioTower,
     },
     {
       id: 'axl-services',
       label: 'AXL Service Registry',
-      detail: `${topology.services.length} services`,
+      detail: topology.isVerified ? `${topology.services.length} services` : axlStatusLabel,
       icon: Boxes,
     },
     {
       id: 'axl-routes',
       label: 'AXL Route Receipts',
-      detail: `${topology.routes.length} routes`,
+      detail: topology.isVerified ? `${topology.routes.length} routes` : axlStatusLabel,
       icon: History,
     },
   ] satisfies Array<{
@@ -260,6 +263,26 @@ export function EvidencePage() {
         </div>
         {isRefreshing && <span className="text-xs text-gray-500">Syncing proof console...</span>}
       </div>
+
+      {isAxlUnverified && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex gap-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-300" />
+              <div>
+                <div className="text-sm font-semibold text-yellow-100">AXL evidence is unverified</div>
+                <p className="mt-1 text-sm text-yellow-100/80">
+                  {topology.unverifiedReason ??
+                    'No live AXL service registry snapshot is available.'}
+                </p>
+              </div>
+            </div>
+            <Badge className="w-fit border-yellow-500/40 bg-yellow-500/10 text-yellow-200">
+              {topology.source ?? 'axl-service-registry'}
+            </Badge>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <aside className="space-y-6">
@@ -525,7 +548,20 @@ export function EvidencePage() {
             </div>
           )}
 
-          {activeSection === 'axl-peers' && (
+          {activeSection.startsWith('axl-') && isAxlUnverified && (
+            <Card className="border-yellow-500/25 bg-yellow-950/10">
+              <CardContent className="flex min-h-48 flex-col items-center justify-center p-6 text-center">
+                <AlertTriangle className="mb-3 h-8 w-8 text-yellow-300/80" />
+                <div className="text-sm font-semibold text-yellow-100">Verified AXL snapshot required</div>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-yellow-100/70">
+                  {topology.unverifiedReason ??
+                    'AXL peer, service, and route panels only render live service-registry snapshots.'}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === 'axl-peers' && !isAxlUnverified && (
             <PeerTopologyPanel
               nodes={topology.nodes}
               peers={topology.peers}
@@ -535,7 +571,7 @@ export function EvidencePage() {
             />
           )}
 
-          {activeSection === 'axl-services' && (
+          {activeSection === 'axl-services' && !isAxlUnverified && (
             <ServiceRegistryPanel
               services={topology.services}
               capturedAt={topology.capturedAt}
@@ -544,7 +580,7 @@ export function EvidencePage() {
             />
           )}
 
-          {activeSection === 'axl-routes' && (
+          {activeSection === 'axl-routes' && !isAxlUnverified && (
             <RouteTimeline
               routes={topology.routes}
               isLoading={topology.isLoading}
