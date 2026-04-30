@@ -1,12 +1,26 @@
 import {
   analystOutputSchema,
+  chartVisionOutputSchema,
   criticOutputSchema,
+  generatorOutputSchema,
+  intelOutputSchema,
+  marketBiasAgentOutputSchema,
+  memoryOutputSchema,
+  publisherOutputSchema,
   researchOutputSchema,
   scannerOutputSchema,
+  writerOutputSchema,
   type AnalystOutput,
+  type ChartVisionOutput,
   type CriticOutput,
+  type GeneratorOutput,
+  type IntelOutput,
+  type MarketBiasAgentOutput,
+  type MemoryOutput,
+  type PublisherOutput,
   type ResearchOutput,
   type ScannerOutput,
+  type WriterOutput,
 } from "@omen/agents";
 import {
   err,
@@ -16,13 +30,31 @@ import {
   type Result,
 } from "@omen/shared";
 
-type SpecialistRole = "scanner" | "research" | "analyst" | "critic";
+type SpecialistRole =
+  | "scanner"
+  | "market_bias"
+  | "research"
+  | "chart_vision"
+  | "analyst"
+  | "critic"
+  | "generator"
+  | "intel"
+  | "writer"
+  | "memory"
+  | "publisher";
 
 type SpecialistOutputMap = {
+  market_bias: MarketBiasAgentOutput;
   scanner: ScannerOutput;
   research: ResearchOutput;
+  chart_vision: ChartVisionOutput;
   analyst: AnalystOutput;
   critic: CriticOutput;
+  generator: GeneratorOutput;
+  intel: IntelOutput;
+  writer: WriterOutput;
+  memory: MemoryOutput;
+  publisher: PublisherOutput;
 };
 
 export type CorrelatedDelegationResult<TOutput> = {
@@ -33,6 +65,10 @@ export type CorrelatedDelegationResult<TOutput> = {
 };
 
 export class A2AResponseCorrelator {
+  correlateMarketBias(envelope: AxlA2ADelegationEnvelope) {
+    return this.correlate("market_bias", envelope, marketBiasAgentOutputSchema);
+  }
+
   correlateScanner(envelope: AxlA2ADelegationEnvelope) {
     return this.correlate("scanner", envelope, scannerOutputSchema);
   }
@@ -45,8 +81,32 @@ export class A2AResponseCorrelator {
     return this.correlate("analyst", envelope, analystOutputSchema);
   }
 
+  correlateChartVision(envelope: AxlA2ADelegationEnvelope) {
+    return this.correlate("chart_vision", envelope, chartVisionOutputSchema);
+  }
+
   correlateCritic(envelope: AxlA2ADelegationEnvelope) {
     return this.correlate("critic", envelope, criticOutputSchema);
+  }
+
+  correlateGenerator(envelope: AxlA2ADelegationEnvelope) {
+    return this.correlate("generator", envelope, generatorOutputSchema);
+  }
+
+  correlateIntel(envelope: AxlA2ADelegationEnvelope) {
+    return this.correlate("intel", envelope, intelOutputSchema);
+  }
+
+  correlateWriter(envelope: AxlA2ADelegationEnvelope) {
+    return this.correlate("writer", envelope, writerOutputSchema);
+  }
+
+  correlateMemory(envelope: AxlA2ADelegationEnvelope) {
+    return this.correlate("memory", envelope, memoryOutputSchema);
+  }
+
+  correlatePublisher(envelope: AxlA2ADelegationEnvelope) {
+    return this.correlate("publisher", envelope, publisherOutputSchema);
   }
 
   private correlate<TRole extends SpecialistRole>(
@@ -96,9 +156,7 @@ export class A2AResponseCorrelator {
       });
     } catch (error) {
       return err(
-        error instanceof Error
-          ? error
-          : new Error("Failed to correlate A2A delegation output."),
+        error instanceof Error ? error : new Error("Failed to correlate A2A delegation output."),
       );
     }
   }

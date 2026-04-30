@@ -34,7 +34,7 @@ class InMemoryCheckpointStore implements SwarmCheckpointStore {
 describe("omen graph factory", () => {
   const run = {
     id: "run-graph-1",
-    mode: "mocked" as const,
+    mode: "live" as const,
     status: "queued" as const,
     marketBias: "UNKNOWN" as const,
     startedAt: null,
@@ -53,7 +53,7 @@ describe("omen graph factory", () => {
 
   const config = {
     id: "default",
-    mode: "mocked" as const,
+    mode: "live" as const,
     marketUniverse: ["BTC", "ETH", "SOL"],
     qualityThresholds: {
       minConfidence: 85,
@@ -90,6 +90,7 @@ describe("omen graph factory", () => {
       "research-agent",
       "chart-vision-agent",
       "analyst-agent",
+      "critic-agent",
       "intel-agent",
       "generator-agent",
       "writer-agent",
@@ -104,6 +105,57 @@ describe("omen graph factory", () => {
     const runtime = factory.createRuntime({
       checkpointStore,
       runtimeName: "test-runtime",
+      nodeInvoker: async ({ nodeKey, state }) => {
+        if (nodeKey === "analyst-agent") {
+          const candidate = state.activeCandidates[0];
+
+          if (!candidate) {
+            return null;
+          }
+
+          return {
+            thesis: {
+              candidateId: candidate.id,
+              asset: candidate.symbol,
+              direction: candidate.directionHint === "LONG" ? "LONG" : "SHORT",
+              confidence: 90,
+              orderType: "limit",
+              tradingStyle: "swing_trade",
+              expectedDuration: "1-3 days",
+              currentPrice: 100,
+              entryPrice: 99,
+              targetPrice: 112,
+              stopLoss: 95,
+              riskReward: 3,
+              whyNow: "Test thesis clears the critic quality gate.",
+              confluences: ["Momentum aligns", "Risk/reward clears threshold"],
+              uncertaintyNotes: "Fixture-only thesis.",
+              missingDataNotes: "No missing fixture data.",
+            },
+            analystNotes: ["fixture-analyst-output"],
+          };
+        }
+
+        if (nodeKey === "critic-agent") {
+          const thesis = state.thesisDrafts.at(-1);
+
+          if (!thesis) {
+            return null;
+          }
+
+          return {
+            review: {
+              candidateId: thesis.candidateId,
+              decision: "approved",
+              objections: [],
+              forcedOutcomeReason: null,
+            },
+            blockingReasons: [],
+          };
+        }
+
+        return null;
+      },
     });
 
     const finalState = await runtime.invoke({

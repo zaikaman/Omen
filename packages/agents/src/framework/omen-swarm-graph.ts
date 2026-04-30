@@ -2,10 +2,10 @@ import { z } from "zod";
 
 import type { PublisherOutput } from "../contracts/publisher.js";
 import type { ChartVisionOutput } from "../contracts/chart-vision.js";
-import { criticOutputSchema } from "../contracts/critic.js";
 import {
   createAnalystAgent,
   createChartVisionAgent,
+  createCriticAgent,
   createGeneratorAgent,
   createIntelAgent,
   createMarketBiasAgent,
@@ -15,7 +15,6 @@ import {
   createScannerAgent,
   createWriterAgent,
 } from "../definitions/index.js";
-import { runCriticGate } from "../quality-gates/critic-gate.js";
 import type { RuntimeNodeDefinition } from "./agent-runtime.js";
 import {
   generatedIntelContentSchema,
@@ -32,6 +31,7 @@ export const omenSwarmNodeKeySchema = z.enum([
   "research-agent",
   "chart-vision-agent",
   "analyst-agent",
+  "critic-agent",
   "intel-agent",
   "generator-agent",
   "writer-agent",
@@ -49,6 +49,7 @@ const nodeKeyOrder = [
   "research-agent",
   "chart-vision-agent",
   "analyst-agent",
+  "critic-agent",
   "intel-agent",
   "generator-agent",
   "writer-agent",
@@ -270,6 +271,7 @@ export const createDefaultOmenSwarmNodes = (): readonly RuntimeNodeDefinition<
   createResearchAgent(),
   createChartVisionAgent(),
   createAnalystAgent(),
+  createCriticAgent(),
   createIntelAgent(),
   createGeneratorAgent(),
   createWriterAgent(),
@@ -309,6 +311,10 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "analyst-agent") {
+    return "critic-agent";
+  }
+
+  if (current === "critic-agent") {
     const review = state.criticReviews.at(-1);
 
     return review?.decision === "approved" ? "memory-agent" : "intel-agent";
@@ -418,6 +424,22 @@ export const buildOmenNodeInput = (input: {
     return {
       context,
       candidate,
+    };
+  }
+
+  if (input.nodeKey === "critic-agent") {
+    const thesis = input.state.thesisDrafts.at(-1);
+
+    if (!thesis) {
+      throw new Error("Critic node requires a thesis draft.");
+    }
+
+    return {
+      context,
+      evaluation: {
+        thesis,
+        evidence: input.state.evidenceItems,
+      },
     };
   }
 
@@ -576,49 +598,31 @@ export const applyOmenNodeOutput = (input: {
   }
 
   if (input.nodeKey === "analyst-agent") {
-    const rawOutput =
-      input.output && typeof input.output === "object"
-        ? (input.output as Record<string, unknown>)
-        : {};
     const output = createAnalystAgent().outputSchema.parse(input.output);
     const thesis = normalizeThesis(output.thesis);
-    const externalCriticOutput = criticOutputSchema.safeParse(rawOutput.axlCriticOutput);
-    const criticResult = externalCriticOutput.success
-      ? {
-          review: externalCriticOutput.data.review,
-          blockingReasons: externalCriticOutput.data.blockingReasons,
-        }
-      : (() => {
-          const localGate = runCriticGate({
-            thesis,
-            evidence: input.state.evidenceItems,
-            config: input.state.config,
-          });
-
-          return {
-            review: {
-              candidateId: thesis.candidateId,
-              decision: localGate.decision,
-              objections: localGate.objections,
-              forcedOutcomeReason: localGate.forcedOutcomeReason,
-            },
-            blockingReasons: localGate.blockingReasons,
-          };
-        })();
-    const review = normalizeReview({
-      ...criticResult.review,
-      candidateId: thesis.candidateId,
-    });
     const stateDelta = {
       thesisDrafts: [...input.state.thesisDrafts, thesis],
+      notes: sanitizeNotes([...input.state.notes, ...(output.analystNotes ?? [])]),
+    };
+
+    return {
+      state: mergeSwarmState(input.state, stateDelta),
+      stateDelta,
+    };
+  }
+
+  if (input.nodeKey === "critic-agent") {
+    const output = createCriticAgent().outputSchema.parse(input.output);
+    const thesis = input.state.thesisDrafts.at(-1);
+    const review = normalizeReview({
+      ...output.review,
+      candidateId: output.review.candidateId || thesis?.candidateId || "unknown",
+    });
+    const blockingReasons = output.blockingReasons ?? [];
+    const stateDelta = {
       criticReviews: [...input.state.criticReviews, review],
-      errors: [...input.state.errors, ...criticResult.blockingReasons],
-      notes: sanitizeNotes([
-        ...input.state.notes,
-        ...(output.analystNotes ?? []),
-        ...(externalCriticOutput.success ? ["critic-transport:axl-a2a"] : []),
-        `critic-decision:${review.decision}`,
-      ]),
+      errors: [...input.state.errors, ...blockingReasons],
+      notes: [...input.state.notes, `critic-decision:${review.decision}`],
     };
 
     return {

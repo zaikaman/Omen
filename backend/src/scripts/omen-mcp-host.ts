@@ -3,9 +3,16 @@ import type { Server } from "node:http";
 import express from "express";
 
 import { AnalystMcpService } from "../nodes/services/analyst-mcp.js";
+import { ChartVisionMcpService } from "../nodes/services/chart-vision-mcp.js";
 import { CriticMcpService } from "../nodes/services/critic-mcp.js";
+import { GeneratorMcpService } from "../nodes/services/generator-mcp.js";
+import { IntelMcpService } from "../nodes/services/intel-mcp.js";
+import { MarketBiasMcpService } from "../nodes/services/market-bias-mcp.js";
+import { MemoryMcpService } from "../nodes/services/memory-mcp.js";
+import { PublisherMcpService } from "../nodes/services/publisher-mcp.js";
 import { ResearchMcpService } from "../nodes/services/research-mcp.js";
 import { ScannerMcpService } from "../nodes/services/scanner-mcp.js";
+import { WriterMcpService } from "../nodes/services/writer-mcp.js";
 
 type HostedService = {
   service: string;
@@ -27,13 +34,16 @@ const env = {
     process.env.OMEN_MCP_PUBLIC_BASE_URL ??
     `http://127.0.0.1:${parsePort(process.env.OMEN_MCP_PORT, 7100).toString()}`,
   registerRetries: parsePort(process.env.OMEN_MCP_REGISTER_RETRIES, 20),
-  registerRetryDelayMs: parsePort(
-    process.env.OMEN_MCP_REGISTER_RETRY_DELAY_MS,
-    1_500,
-  ),
+  registerRetryDelayMs: parsePort(process.env.OMEN_MCP_REGISTER_RETRY_DELAY_MS, 1_500),
 };
 
 const services: HostedService[] = [
+  {
+    service: "market_bias",
+    path: "/mcp/market_bias",
+    description: "Market regime and directional bias derivation.",
+    handle: (request) => new MarketBiasMcpService().handle(request),
+  },
   {
     service: "scanner",
     path: "/mcp/scanner",
@@ -53,10 +63,46 @@ const services: HostedService[] = [
     handle: (request) => new AnalystMcpService().handle(request),
   },
   {
+    service: "chart_vision",
+    path: "/mcp/chart_vision",
+    description: "Chart frame analysis.",
+    handle: (request) => new ChartVisionMcpService().handle(request),
+  },
+  {
     service: "critic",
     path: "/mcp/critic",
     description: "Quality gate and final review.",
     handle: (request) => new CriticMcpService().handle(request),
+  },
+  {
+    service: "generator",
+    path: "/mcp/generator",
+    description: "Publishable intel content generation.",
+    handle: (request) => new GeneratorMcpService().handle(request),
+  },
+  {
+    service: "intel",
+    path: "/mcp/intel",
+    description: "Market intelligence report synthesis.",
+    handle: (request) => new IntelMcpService().handle(request),
+  },
+  {
+    service: "writer",
+    path: "/mcp/writer",
+    description: "Long-form intel article drafting.",
+    handle: (request) => new WriterMcpService().handle(request),
+  },
+  {
+    service: "memory",
+    path: "/mcp/memory",
+    description: "Checkpoint and proof reference memory.",
+    handle: (request) => new MemoryMcpService().handle(request),
+  },
+  {
+    service: "publisher",
+    path: "/mcp/publisher",
+    description: "Publication outcome and draft preparation.",
+    handle: (request) => new PublisherMcpService().handle(request),
   },
 ];
 
@@ -103,17 +149,11 @@ const registerService = async (service: HostedService) => {
 
 const deregisterService = async (service: HostedService) => {
   try {
-    await fetch(
-      `${env.routerUrl}/register/${encodeURIComponent(service.service)}`,
-      {
-        method: "DELETE",
-      },
-    );
+    await fetch(`${env.routerUrl}/register/${encodeURIComponent(service.service)}`, {
+      method: "DELETE",
+    });
   } catch (error) {
-    console.warn(
-      `[omen-mcp-host] failed to deregister ${service.service}`,
-      error,
-    );
+    console.warn(`[omen-mcp-host] failed to deregister ${service.service}`, error);
   }
 };
 
@@ -165,15 +205,11 @@ for (const service of services) {
     } catch (error) {
       res.status(500).json({
         jsonrpc: "2.0",
-        id: typeof req.body?.id === "number" || typeof req.body?.id === "string"
-          ? req.body.id
-          : null,
+        id:
+          typeof req.body?.id === "number" || typeof req.body?.id === "string" ? req.body.id : null,
         error: {
           code: -32000,
-          message:
-            error instanceof Error
-              ? error.message
-              : `${service.service} service failed.`,
+          message: error instanceof Error ? error.message : `${service.service} service failed.`,
         },
       });
     }
@@ -211,9 +247,7 @@ const shutdown = async (signal: string) => {
 };
 
 server = app.listen(env.port, env.host, async () => {
-  console.log(
-    `[omen-mcp-host] listening on http://${env.host}:${env.port.toString()}`,
-  );
+  console.log(`[omen-mcp-host] listening on http://${env.host}:${env.port.toString()}`);
   console.log(`[omen-mcp-host] router target ${env.routerUrl}`);
 
   try {

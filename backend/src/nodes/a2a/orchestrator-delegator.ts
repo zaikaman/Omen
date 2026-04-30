@@ -1,26 +1,46 @@
 import {
   type AnalystOutput,
   type AnalystInput,
+  type ChartVisionOutput,
+  type ChartVisionInput,
   type CriticOutput,
   type CriticInput,
+  type GeneratorOutput,
+  type GeneratorInput,
+  type IntelOutput,
+  type IntelInput,
+  type MarketBiasAgentOutput,
+  type MarketBiasAgentInput,
+  type MemoryOutput,
+  type MemoryInput,
+  type PublisherOutput,
+  type PublisherInput,
   type ResearchOutput,
   type ResearchInput,
   type ScannerOutput,
   type ScannerInput,
+  type WriterOutput,
+  type WriterInput,
 } from "@omen/agents";
-import {
-  createDelegationRequest,
-} from "@omen/axl";
+import { createDelegationRequest } from "@omen/axl";
 import type { AxlA2AClient } from "@omen/axl";
 import { err, type Result } from "@omen/shared";
 
 import type { AxlPeerRegistry } from "../axl-peer-registry.js";
-import {
-  A2AResponseCorrelator,
-  type CorrelatedDelegationResult,
-} from "./response-correlator.js";
+import { A2AResponseCorrelator, type CorrelatedDelegationResult } from "./response-correlator.js";
 
-type SpecialistRole = "scanner" | "research" | "analyst" | "critic";
+type SpecialistRole =
+  | "market_bias"
+  | "scanner"
+  | "research"
+  | "chart_vision"
+  | "analyst"
+  | "critic"
+  | "generator"
+  | "intel"
+  | "writer"
+  | "memory"
+  | "publisher";
 
 type DelegationContext = {
   runId: string;
@@ -31,31 +51,59 @@ type DelegationContext = {
 };
 
 type SpecialistPayloadMap = {
+  market_bias: MarketBiasAgentInput;
   scanner: ScannerInput;
   research: ResearchInput;
+  chart_vision: ChartVisionInput;
   analyst: AnalystInput;
   critic: CriticInput;
+  generator: GeneratorInput;
+  intel: IntelInput;
+  writer: WriterInput;
+  memory: MemoryInput;
+  publisher: PublisherInput;
 };
 
 type SpecialistResultMap = {
+  market_bias: CorrelatedDelegationResult<MarketBiasAgentOutput>;
   scanner: CorrelatedDelegationResult<ScannerOutput>;
   research: CorrelatedDelegationResult<ResearchOutput>;
+  chart_vision: CorrelatedDelegationResult<ChartVisionOutput>;
   analyst: CorrelatedDelegationResult<AnalystOutput>;
   critic: CorrelatedDelegationResult<CriticOutput>;
+  generator: CorrelatedDelegationResult<GeneratorOutput>;
+  intel: CorrelatedDelegationResult<IntelOutput>;
+  writer: CorrelatedDelegationResult<WriterOutput>;
+  memory: CorrelatedDelegationResult<MemoryOutput>;
+  publisher: CorrelatedDelegationResult<PublisherOutput>;
 };
 
 type TaskTypeMap = {
+  market_bias: "market_bias.derive";
   scanner: "scan.run";
   research: "research.bundle";
+  chart_vision: "chart_vision.analyze";
   analyst: "thesis.generate";
   critic: "critic.review";
+  generator: "generator.compose";
+  intel: "intel.summarize";
+  writer: "writer.article";
+  memory: "memory.checkpoint";
+  publisher: "publisher.publish";
 };
 
 const taskTypeByRole: TaskTypeMap = {
+  market_bias: "market_bias.derive",
   scanner: "scan.run",
   research: "research.bundle",
+  chart_vision: "chart_vision.analyze",
   analyst: "thesis.generate",
   critic: "critic.review",
+  generator: "generator.compose",
+  intel: "intel.summarize",
+  writer: "writer.article",
+  memory: "memory.checkpoint",
+  publisher: "publisher.publish",
 };
 
 export class OrchestratorDelegator {
@@ -69,6 +117,14 @@ export class OrchestratorDelegator {
     },
   ) {
     this.correlator = input.correlator ?? new A2AResponseCorrelator();
+  }
+
+  delegateMarketBias(input: {
+    context: DelegationContext;
+    payload: MarketBiasAgentInput;
+    preferredPeerId?: string | null;
+  }) {
+    return this.delegate("market_bias", input.context, input.payload, input.preferredPeerId);
   }
 
   delegateScanner(input: {
@@ -95,12 +151,60 @@ export class OrchestratorDelegator {
     return this.delegate("analyst", input.context, input.payload, input.preferredPeerId);
   }
 
+  delegateChartVision(input: {
+    context: DelegationContext;
+    payload: ChartVisionInput;
+    preferredPeerId?: string | null;
+  }) {
+    return this.delegate("chart_vision", input.context, input.payload, input.preferredPeerId);
+  }
+
   delegateCritic(input: {
     context: DelegationContext;
     payload: CriticInput;
     preferredPeerId?: string | null;
   }) {
     return this.delegate("critic", input.context, input.payload, input.preferredPeerId);
+  }
+
+  delegateGenerator(input: {
+    context: DelegationContext;
+    payload: GeneratorInput;
+    preferredPeerId?: string | null;
+  }) {
+    return this.delegate("generator", input.context, input.payload, input.preferredPeerId);
+  }
+
+  delegateIntel(input: {
+    context: DelegationContext;
+    payload: IntelInput;
+    preferredPeerId?: string | null;
+  }) {
+    return this.delegate("intel", input.context, input.payload, input.preferredPeerId);
+  }
+
+  delegateWriter(input: {
+    context: DelegationContext;
+    payload: WriterInput;
+    preferredPeerId?: string | null;
+  }) {
+    return this.delegate("writer", input.context, input.payload, input.preferredPeerId);
+  }
+
+  delegateMemory(input: {
+    context: DelegationContext;
+    payload: MemoryInput;
+    preferredPeerId?: string | null;
+  }) {
+    return this.delegate("memory", input.context, input.payload, input.preferredPeerId);
+  }
+
+  delegatePublisher(input: {
+    context: DelegationContext;
+    payload: PublisherInput;
+    preferredPeerId?: string | null;
+  }) {
+    return this.delegate("publisher", input.context, input.payload, input.preferredPeerId);
   }
 
   private async delegate<TRole extends SpecialistRole>(
@@ -201,22 +305,61 @@ export class OrchestratorDelegator {
       : never,
   ): Result<SpecialistResultMap[TRole], Error> {
     switch (role) {
+      case "market_bias":
+        return this.correlator.correlateMarketBias(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
       case "scanner":
-        return this.correlator.correlateScanner(
-          envelope,
-        ) as Result<SpecialistResultMap[TRole], Error>;
+        return this.correlator.correlateScanner(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
       case "research":
-        return this.correlator.correlateResearch(
-          envelope,
-        ) as Result<SpecialistResultMap[TRole], Error>;
+        return this.correlator.correlateResearch(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
+      case "chart_vision":
+        return this.correlator.correlateChartVision(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
       case "analyst":
-        return this.correlator.correlateAnalyst(
-          envelope,
-        ) as Result<SpecialistResultMap[TRole], Error>;
+        return this.correlator.correlateAnalyst(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
       case "critic":
-        return this.correlator.correlateCritic(
-          envelope,
-        ) as Result<SpecialistResultMap[TRole], Error>;
+        return this.correlator.correlateCritic(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
+      case "generator":
+        return this.correlator.correlateGenerator(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
+      case "intel":
+        return this.correlator.correlateIntel(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
+      case "writer":
+        return this.correlator.correlateWriter(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
+      case "memory":
+        return this.correlator.correlateMemory(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
+      case "publisher":
+        return this.correlator.correlatePublisher(envelope) as Result<
+          SpecialistResultMap[TRole],
+          Error
+        >;
       default:
         return err(new Error(`Unsupported specialist role ${String(role)}.`));
     }

@@ -2,10 +2,17 @@ import { randomUUID } from "node:crypto";
 
 import {
   analystInputSchema,
+  chartVisionInputSchema,
   criticInputSchema,
   createOmenGraphFactory,
+  generatorInputSchema,
+  intelInputSchema,
+  marketBiasAgentInputSchema,
+  memoryInputSchema,
+  publisherInputSchema,
   researchInputSchema,
   scannerInputSchema,
+  writerInputSchema,
   type GraphFactory,
   type OmenSwarmNodeInvoker,
   type SwarmCheckpoint,
@@ -76,6 +83,7 @@ const managedStepRoleMap = {
   "research-agent": "research",
   "chart-vision-agent": "chart_vision",
   "analyst-agent": "analyst",
+  "critic-agent": "critic",
   "intel-agent": "intel",
   "generator-agent": "generator",
   "writer-agent": "writer",
@@ -89,6 +97,7 @@ const stepEventTypeMap = {
   "research-agent": "research_completed",
   "chart-vision-agent": "chart_generated",
   "analyst-agent": "thesis_generated",
+  "critic-agent": "critic_decision",
   "intel-agent": "intel_ready",
   "generator-agent": "intel_ready",
   "writer-agent": "intel_ready",
@@ -100,12 +109,14 @@ const axlStepRoleMap = {
   "scanner-agent": "scanner",
   "research-agent": "research",
   "analyst-agent": "analyst",
+  "critic-agent": "critic",
 } as const;
 
 const axlHealthMethodByRole = {
   scanner: "scan.health",
   research: "research.health",
   analyst: "analyst.health",
+  critic: "critic.health",
 } as const;
 
 const defaultAxlServiceByRole: Record<Exclude<AgentRole, "monitor">, string> = {
@@ -363,12 +374,12 @@ const summarizeCheckpoint = (checkpoint: SwarmCheckpoint) => {
     case "chart-vision-agent":
       return `Chart vision generated ${checkpoint.state.chartVisionSummaries.length.toString()} chart summary item(s).`;
     case "analyst-agent":
-      return `Analyst drafted ${checkpoint.state.thesisDrafts.length.toString()} thesis item(s) and applied the quality gate.`;
+      return `Analyst drafted ${checkpoint.state.thesisDrafts.length.toString()} thesis item(s).`;
     case "critic-agent": {
       const review = checkpoint.state.criticReviews.at(-1);
       return review
-        ? `Legacy critic decision: ${review.decision}.`
-        : "Legacy critic checkpoint completed without a persisted review.";
+        ? `Critic decision: ${review.decision}.`
+        : "Critic checkpoint completed without a persisted review.";
     }
     case "intel-agent": {
       const intelReport = checkpoint.state.intelReports.at(-1);
@@ -1180,6 +1191,36 @@ class LivePipelineExecutionContext {
       };
 
       try {
+        if (nodeKey === "market-bias-agent") {
+          const payload = marketBiasAgentInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateMarketBias({
+            context: {
+              ...context,
+              correlationId: `${state.run.id}:market-bias-agent`,
+            },
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "market_bias",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (delegated.ok) {
+            return delegated.value.output;
+          }
+
+          this.logger.warn(
+            `AXL A2A market bias delegation failed; falling back to local market bias: ${delegated.error.message}`,
+          );
+          return null;
+        }
+
         if (nodeKey === "scanner-agent") {
           const payload = scannerInputSchema.parse(nodeInput);
           const delegated = await delegator.delegateScanner({
@@ -1234,6 +1275,36 @@ class LivePipelineExecutionContext {
           return null;
         }
 
+        if (nodeKey === "chart-vision-agent") {
+          const payload = chartVisionInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateChartVision({
+            context: {
+              ...context,
+              correlationId: `${state.run.id}:chart-vision-agent`,
+            },
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "chart_vision",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (delegated.ok) {
+            return delegated.value.output;
+          }
+
+          this.logger.warn(
+            `AXL A2A chart vision delegation failed; falling back to local chart vision: ${delegated.error.message}`,
+          );
+          return null;
+        }
+
         if (nodeKey === "analyst-agent") {
           const payload = analystInputSchema.parse(nodeInput);
           const delegated = await delegator.delegateAnalyst({
@@ -1258,42 +1329,169 @@ class LivePipelineExecutionContext {
             return null;
           }
 
-          const criticInput = criticInputSchema.parse({
-            context: payload.context,
-            evaluation: {
-              thesis: delegated.value.output.thesis,
-              evidence: payload.research.evidence,
-            },
-          });
-          const criticDelegated = await delegator.delegateCritic({
-            context: {
-              ...context,
-              correlationId: `${state.run.id}:critic-agent`,
-            },
-            payload: criticInput,
+          return delegated.value.output;
+        }
+
+        if (nodeKey === "critic-agent") {
+          const payload = criticInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateCritic({
+            context,
+            payload,
             preferredPeerId,
           });
           await this.safeCaptureAxlSnapshot({
             source: "live-swarm-a2a",
             metadata: {
               runId: state.run.id,
-              nodeKey: "critic-agent",
+              nodeKey,
               role: "critic",
-              status: criticDelegated.ok ? "received" : "failed",
+              status: delegated.ok ? "received" : "failed",
             },
           });
 
-          if (!criticDelegated.ok) {
-            this.logger.warn(
-              `AXL A2A critic delegation failed; local critic gate will review analyst output: ${criticDelegated.error.message}`,
-            );
+          if (delegated.ok) {
             return delegated.value.output;
           }
 
-          return {
-            ...delegated.value.output,
-            axlCriticOutput: criticDelegated.value.output,
-          };
+          this.logger.warn(
+            `AXL A2A critic delegation failed; falling back to local critic: ${delegated.error.message}`,
+          );
+          return null;
+        }
+
+        if (nodeKey === "intel-agent") {
+          const payload = intelInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateIntel({
+            context,
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "intel",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (delegated.ok) {
+            return delegated.value.output;
+          }
+
+          this.logger.warn(
+            `AXL A2A intel delegation failed; falling back to local intel: ${delegated.error.message}`,
+          );
+          return null;
+        }
+
+        if (nodeKey === "generator-agent") {
+          const payload = generatorInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateGenerator({
+            context,
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "generator",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (delegated.ok) {
+            return delegated.value.output;
+          }
+
+          this.logger.warn(
+            `AXL A2A generator delegation failed; falling back to local generator: ${delegated.error.message}`,
+          );
+          return null;
+        }
+
+        if (nodeKey === "writer-agent") {
+          const payload = writerInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateWriter({
+            context,
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "writer",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (delegated.ok) {
+            return delegated.value.output;
+          }
+
+          this.logger.warn(
+            `AXL A2A writer delegation failed; falling back to local writer: ${delegated.error.message}`,
+          );
+          return null;
+        }
+
+        if (nodeKey === "memory-agent") {
+          const payload = memoryInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegateMemory({
+            context,
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "memory",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (delegated.ok) {
+            return delegated.value.output;
+          }
+
+          this.logger.warn(
+            `AXL A2A memory delegation failed; falling back to local memory: ${delegated.error.message}`,
+          );
+          return null;
+        }
+
+        if (nodeKey === "publisher-agent") {
+          const payload = publisherInputSchema.parse(nodeInput);
+          const delegated = await delegator.delegatePublisher({
+            context,
+            payload,
+            preferredPeerId,
+          });
+          await this.safeCaptureAxlSnapshot({
+            source: "live-swarm-a2a",
+            metadata: {
+              runId: state.run.id,
+              nodeKey,
+              role: "publisher",
+              status: delegated.ok ? "received" : "failed",
+            },
+          });
+
+          if (delegated.ok) {
+            return delegated.value.output;
+          }
+
+          this.logger.warn(
+            `AXL A2A publisher delegation failed; falling back to local publisher: ${delegated.error.message}`,
+          );
+          return null;
         }
       } catch (error) {
         this.logger.warn(

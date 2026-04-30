@@ -163,6 +163,17 @@ const summarizeRuntimeOutput = (nodeKey: OmenSwarmNodeKey, output: unknown) => {
         analystNoteCount: analystNotes.length,
       };
     }
+    case "critic-agent": {
+      const review = toRecord(parsed.review);
+      const blockingReasons = Array.isArray(parsed.blockingReasons) ? parsed.blockingReasons : [];
+
+      return {
+        candidateId: review.candidateId,
+        decision: review.decision,
+        objectionCount: Array.isArray(review.objections) ? review.objections.length : 0,
+        blockingReasonCount: blockingReasons.length,
+      };
+    }
     case "memory-agent": {
       const appendedProofRefs = Array.isArray(parsed.appendedProofRefs)
         ? parsed.appendedProofRefs
@@ -229,6 +240,7 @@ const summarizeRuntimeState = (stateDelta: SwarmStateUpdate) => {
     noteCount: stateDelta.notes?.length,
     evidenceCount: stateDelta.evidenceItems?.length,
     thesisCount: stateDelta.thesisDrafts?.length,
+    criticReviewCount: stateDelta.criticReviews?.length,
     draftCount: stateDelta.publisherDrafts?.length,
   };
 };
