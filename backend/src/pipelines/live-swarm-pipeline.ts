@@ -458,6 +458,111 @@ const summarizeCheckpoint = (checkpoint: SwarmCheckpoint) => {
   }
 };
 
+const buildCheckpointTracePayload = (checkpoint: SwarmCheckpoint): Record<string, unknown> => {
+  const latestThesis = checkpoint.state.thesisDrafts.at(-1) ?? null;
+  const latestReview = checkpoint.state.criticReviews.at(-1) ?? null;
+  const latestIntel = checkpoint.state.intelReports.at(-1) ?? null;
+  const latestDraft = checkpoint.state.publisherDrafts.at(-1) ?? null;
+  const reasoningTrace = [
+    checkpoint.state.marketBiasReasoning
+      ? {
+          label: "Market bias reasoning",
+          value: checkpoint.state.marketBiasReasoning,
+        }
+      : null,
+    latestThesis
+      ? {
+          label: "Analyst thesis",
+          value: `${latestThesis.asset} ${latestThesis.direction} (${latestThesis.confidence}%): ${latestThesis.whyNow}`,
+        }
+      : null,
+    latestThesis?.uncertaintyNotes
+      ? {
+          label: "Uncertainty",
+          value: latestThesis.uncertaintyNotes,
+        }
+      : null,
+    latestReview
+      ? {
+          label: "Critic review",
+          value: [
+            latestReview.decision,
+            latestReview.objections.length > 0
+              ? `objections: ${latestReview.objections.join("; ")}`
+              : "no objections recorded",
+            latestReview.forcedOutcomeReason
+              ? `forced outcome: ${latestReview.forcedOutcomeReason}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" | "),
+        }
+      : null,
+    latestIntel
+      ? {
+          label: "Intel synthesis",
+          value: `${latestIntel.title}: ${latestIntel.summary}`,
+        }
+      : null,
+    latestDraft
+      ? {
+          label: "Publisher draft",
+          value: `${latestDraft.headline}: ${latestDraft.summary}`,
+        }
+      : null,
+  ].filter((item): item is { label: string; value: string } => item !== null);
+
+  return {
+    activeCandidateCount: checkpoint.state.activeCandidates.length,
+    evidenceCount: checkpoint.state.evidenceItems.length,
+    reasoningTrace,
+    candidates: checkpoint.state.activeCandidates.slice(-3).map((candidate) => ({
+      symbol: candidate.symbol,
+      status: candidate.status,
+      directionHint: candidate.directionHint,
+      reason: candidate.reason,
+      missingDataNotes: candidate.missingDataNotes,
+    })),
+    evidenceTrail: checkpoint.state.evidenceItems.slice(-6).map((item) => ({
+      category: item.category,
+      summary: item.summary,
+      sourceLabel: item.sourceLabel,
+      sourceUrl: item.sourceUrl,
+    })),
+    thesis: latestThesis
+      ? {
+          asset: latestThesis.asset,
+          direction: latestThesis.direction,
+          confidence: latestThesis.confidence,
+          riskReward: latestThesis.riskReward,
+          whyNow: latestThesis.whyNow,
+          confluences: latestThesis.confluences,
+          uncertaintyNotes: latestThesis.uncertaintyNotes,
+          missingDataNotes: latestThesis.missingDataNotes,
+        }
+      : null,
+    criticReview: latestReview
+      ? {
+          decision: latestReview.decision,
+          objections: latestReview.objections,
+          forcedOutcomeReason: latestReview.forcedOutcomeReason,
+        }
+      : null,
+    intelReport: latestIntel
+      ? {
+          title: latestIntel.title,
+          topic: latestIntel.topic,
+          category: latestIntel.category,
+          symbols: latestIntel.symbols,
+          confidence: latestIntel.confidence,
+          importanceScore: latestIntel.importanceScore,
+          insight: latestIntel.insight,
+          summary: latestIntel.summary,
+        }
+      : null,
+  };
+};
+
 const createAgentNode = (input: {
   step: string;
   timestamp: string;
@@ -998,8 +1103,7 @@ class LivePipelineExecutionContext {
           summary: stepSummary,
           proofRefId: persisted.durableRef?.id ?? null,
           payload: {
-            activeCandidateCount: persisted.state.activeCandidates.length,
-            evidenceCount: persisted.state.evidenceItems.length,
+            ...buildCheckpointTracePayload(persisted),
             ...(checkpoint.step === "intel-agent" && latestIntel
               ? {
                   title: latestIntel.title,

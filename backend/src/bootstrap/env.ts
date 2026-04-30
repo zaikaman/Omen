@@ -236,7 +236,7 @@ export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendE
     axl: {
       nodeBaseUrl: env.AXL_NODE_BASE_URL ?? "http://127.0.0.1:8080",
       apiToken: env.AXL_API_TOKEN ?? null,
-      requestTimeoutMs: parsePort(env.AXL_REQUEST_TIMEOUT_MS, 30_000),
+      requestTimeoutMs: parsePort(env.AXL_REQUEST_TIMEOUT_MS, 300_000),
       servicePeerId: env.AXL_SERVICE_PEER_ID ?? null,
       nodes: {
         orchestrator: env.AXL_ORCHESTRATOR_NODE_ID ?? "omen-orchestrator",

@@ -83,7 +83,7 @@
     },
     "AXL_REQUEST_TIMEOUT_MS": {
       "required": false,
-      "value": "30000"
+      "value": "300000"
     },
     "AXL_SERVICE_PEER_ID": {
       "required": false
