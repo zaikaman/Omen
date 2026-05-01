@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-01T12:07:12.9479604+07:00",
+  "title": "Design System: Omen",
+  "extensions": {
+    "colorMeta": {
+      "carbon-black": {
+        "role": "neutral",
+        "displayName": "Carbon Black",
+        "canonical": "#0A0A0A",
+        "tonalRamp": ["oklch(15% 0.005 240)", "oklch(25% 0.005 240)", "oklch(35% 0.005 240)", "oklch(45% 0.005 240)", "oklch(58% 0.005 240)", "oklch(72% 0.005 240)", "oklch(84% 0.005 240)", "oklch(95% 0.005 240)"]
+      },
+      "panel-ink": {
+        "role": "neutral",
+        "displayName": "Panel Ink",
+        "canonical": "#111827",
+        "tonalRamp": ["oklch(16% 0.018 255)", "oklch(24% 0.018 255)", "oklch(34% 0.018 255)", "oklch(45% 0.018 255)", "oklch(58% 0.018 255)", "oklch(72% 0.018 255)", "oklch(84% 0.018 255)", "oklch(94% 0.018 255)"]
+      },
+      "evidence-cyan": {
+        "role": "primary",
+        "displayName": "Evidence Cyan",
+        "canonical": "#00D4FF",
+        "tonalRamp": ["oklch(18% 0.08 220)", "oklch(28% 0.10 220)", "oklch(40% 0.12 220)", "oklch(52% 0.14 220)", "oklch(64% 0.15 220)", "oklch(74% 0.13 220)", "oklch(84% 0.08 220)", "oklch(94% 0.04 220)"]
+      },
+      "route-purple": {
+        "role": "secondary",
+        "displayName": "Route Purple",
+        "canonical": "#c084fc",
+        "tonalRamp": ["oklch(18% 0.08 300)", "oklch(28% 0.10 300)", "oklch(40% 0.13 300)", "oklch(52% 0.16 300)", "oklch(64% 0.16 300)", "oklch(74% 0.13 300)", "oklch(84% 0.08 300)", "oklch(94% 0.04 300)"]
+      },
+      "proof-green": {
+        "role": "secondary",
+        "displayName": "Proof Green",
+        "canonical": "#22c55e",
+        "tonalRamp": ["oklch(18% 0.07 150)", "oklch(28% 0.09 150)", "oklch(40% 0.11 150)", "oklch(52% 0.13 150)", "oklch(64% 0.13 150)", "oklch(74% 0.10 150)", "oklch(84% 0.06 150)", "oklch(94% 0.03 150)"]
+      },
+      "warning-amber": {
+        "role": "tertiary",
+        "displayName": "Warning Amber",
+        "canonical": "#f59e0b",
+        "tonalRamp": ["oklch(18% 0.07 75)", "oklch(28% 0.09 75)", "oklch(40% 0.11 75)", "oklch(52% 0.13 75)", "oklch(64% 0.13 75)", "oklch(74% 0.10 75)", "oklch(84% 0.06 75)", "oklch(94% 0.03 75)"]
+      },
+      "risk-red": {
+        "role": "tertiary",
+        "displayName": "Risk Red",
+        "canonical": "#ef4444",
+        "tonalRamp": ["oklch(18% 0.07 25)", "oklch(28% 0.09 25)", "oklch(40% 0.11 25)", "oklch(52% 0.13 25)", "oklch(64% 0.13 25)", "oklch(74% 0.10 25)", "oklch(84% 0.06 25)", "oklch(94% 0.03 25)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing-page hero statements and major brand moments only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Dashboard page headings, card feature titles, and signal/intel titles."
+      },
+      "title": {
+        "displayName": "Operational Title",
+        "purpose": "Panel headings, proof modules, table headers, and console section names."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Explanatory copy, signal analysis summaries, intel excerpts, and empty states."
+      },
+      "label": {
+        "displayName": "Machine Label",
+        "purpose": "Peer IDs, telemetry labels, badges, timestamps, route snippets, compact metric labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "low-hover-glow",
+        "value": "0 10px 15px -3px rgba(8, 145, 178, 0.10), 0 4px 6px -4px rgba(8, 145, 178, 0.10)",
+        "purpose": "Clickable cards and proof links that become active under pointer interaction."
+      },
+      {
+        "name": "cta-cyan-glow",
+        "value": "0 0 15px rgba(0, 212, 255, 0.20)",
+        "purpose": "Primary landing CTA only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "200ms ease-out",
+        "purpose": "Default button, nav, and compact control transitions."
+      },
+      {
+        "name": "state-medium",
+        "value": "300ms ease-out",
+        "purpose": "Card hover, sidebar slide, and menu transitions."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "2xl",
+        "value": "1400px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main proof/action CTA using scarce cyan.",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12h14M13 5l7 7-7 7\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>Open Terminal</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:8px 20px;border:1px solid rgba(0,212,255,.35);border-radius:8px;background:#00D4FF;color:#0A0A0A;font:700 14px/1 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color .2s ease-out,box-shadow .2s ease-out,transform .2s ease-out}.ds-btn-primary svg{width:16px;height:16px}.ds-btn-primary:hover{background:#00A8CC;box-shadow:0 0 25px rgba(0,212,255,.4);transform:translateY(-1px)}.ds-btn-primary:focus-visible{outline:2px solid #00D4FF;outline-offset:2px}"
+    },
+    {
+      "name": "Ghost Proof Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action for opening evidence, routes, and full analysis.",
+      "html": "<button class=\"ds-btn-ghost\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>View Evidence</button>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:8px 16px;border:1px solid rgba(0,212,255,.3);border-radius:8px;background:rgba(3,7,18,.55);color:#00D4FF;font:600 14px/1 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color .2s ease-out,border-color .2s ease-out,color .2s ease-out}.ds-btn-ghost svg{width:16px;height:16px}.ds-btn-ghost:hover{background:rgba(8,145,178,.18);border-color:rgba(0,212,255,.55);color:#67e8f9}.ds-btn-ghost:focus-visible{outline:2px solid #00D4FF;outline-offset:2px}"
+    },
+    {
+      "name": "Operational Card",
+      "kind": "card",
+      "refersTo": "card-operational",
+      "description": "Default dashboard panel with tonal layering and quiet border.",
+      "html": "<article class=\"ds-card\"><header><span>AXL Peer Graph</span><strong>8/11 online</strong></header><p>Snapshot includes peer roles, advertised services, route health, and last-seen timestamps.</p></article>",
+      "css": ".ds-card{width:320px;padding:20px;border:1px solid #1f2937;border-radius:8px;background:rgba(17,24,39,.58);color:#d1d5db;font-family:Inter,ui-sans-serif,system-ui,sans-serif}.ds-card header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:10px}.ds-card span{font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af}.ds-card strong{font:700 12px/1 Inter,ui-sans-serif,system-ui,sans-serif;color:#67e8f9;border:1px solid rgba(0,212,255,.4);border-radius:9999px;background:rgba(0,212,255,.1);padding:4px 8px;white-space:nowrap}.ds-card p{margin:0;color:#d1d5db;font-size:14px;line-height:1.6}.ds-card:hover{border-color:#374151;box-shadow:0 10px 15px -3px rgba(8,145,178,.1),0 4px 6px -4px rgba(8,145,178,.1)}"
+    },
+    {
+      "name": "Proof Badge",
+      "kind": "chip",
+      "refersTo": "badge-proof",
+      "description": "Small linked evidence chip for manifest, compute, route, or post proof.",
+      "html": "<a class=\"ds-proof-badge\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M14 2v6h6M9 15l2 2 4-4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>0G Manifest</a>",
+      "css": ".ds-proof-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid rgba(0,212,255,.3);border-radius:4px;background:rgba(0,212,255,.1);color:#a5f3fc;font:700 10px/1.2 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;letter-spacing:.05em;text-transform:uppercase;text-decoration:none;transition:border-color .2s ease-out,background-color .2s ease-out}.ds-proof-badge svg{width:12px;height:12px}.ds-proof-badge:hover{border-color:rgba(0,212,255,.55);background:rgba(0,212,255,.16)}.ds-proof-badge:focus-visible{outline:2px solid #00D4FF;outline-offset:2px}"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Compact dark field for search, filters, and typed values.",
+      "html": "<label class=\"ds-field\"><span>Search evidence</span><input placeholder=\"run id, peer id, artifact\" /></label>",
+      "css": ".ds-field{display:grid;gap:6px;width:280px;color:#9ca3af;font:700 10px/1.2 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;letter-spacing:.05em;text-transform:uppercase}.ds-field input{height:40px;border:1px solid #1f2937;border-radius:6px;background:#030712;color:#f9fafb;padding:0 12px;font:400 14px/1.4 Inter,ui-sans-serif,system-ui,sans-serif;text-transform:none;letter-spacing:0;transition:border-color .2s ease-out,box-shadow .2s ease-out}.ds-field input::placeholder{color:#6b7280}.ds-field input:focus{outline:none;border-color:#00D4FF;box-shadow:0 0 0 2px rgba(0,212,255,.18)}"
+    },
+    {
+      "name": "Sidebar Navigation Item",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Dashboard rail item with icon, label, and cyan active state.",
+      "html": "<a class=\"ds-nav-item ds-active\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z\" fill=\"currentColor\"/></svg><span>Dashboard</span></a>",
+      "css": ".ds-nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid transparent;border-radius:8px;color:#9ca3af;background:transparent;text-decoration:none;font:500 14px/1 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color .2s ease-out,border-color .2s ease-out,color .2s ease-out}.ds-nav-item svg{width:20px;height:20px;color:#6b7280}.ds-nav-item:hover{background:#111827;color:#f9fafb}.ds-nav-item:hover svg{color:#f9fafb}.ds-nav-item.ds-active{border-color:rgba(0,212,255,.2);background:rgba(0,212,255,.1);color:#22d3ee}.ds-nav-item.ds-active svg{color:#22d3ee}.ds-nav-item:focus-visible{outline:2px solid #00D4FF;outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Evidence Cockpit",
+    "overview": "Omen is a dense operational product surface for proving that an autonomous market-intelligence swarm is real. The atmosphere is carbon-black, cyan-lit, and inspectable: every screen should feel like it is exposing live machinery, peer routing, proof references, and agent decisions rather than dressing up claims.\n\nThe design is technical but not militarized. It should make judges feel that they are auditing a working system, not watching a theatrical crypto demo. The product rejects the generic crypto terminal, flashy AI SaaS, military command center, toy demo, trading-bot scam, and any visual treatment that substitutes spectacle for evidence.",
+    "keyCharacteristics": [
+      "Carbon-black operational surfaces with cyan used as the primary evidence and action accent.",
+      "Compact information density with structured layers: summary first, proof and trace detail one interaction away.",
+      "Mono typography for peer IDs, hashes, routes, timestamps, scores, and telemetry.",
+      "Status color always paired with words, icons, or numeric context.",
+      "Motion is a state signal, never decoration."
+    ],
+    "rules": [
+      {
+        "name": "The Cyan Scarcity Rule",
+        "body": "Evidence Cyan is precious. Use it for proof-bearing action and active structure; never flood whole panels with it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Status Pairing Rule",
+        "body": "Green, red, amber, purple, and pink never stand alone. Pair every status color with text, iconography, or a numeric value.",
+        "section": "colors"
+      },
+      {
+        "name": "The Machine-Text Rule",
+        "body": "Use monospace only when the content is machine-generated, inspectable, or evidentiary: hashes, IDs, routes, timestamps, scores, and logs.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Hype Heading Rule",
+        "body": "Headings name the operational state. They do not make marketing claims that the live data cannot prove.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Evidence Rule",
+        "body": "Proof surfaces are flat at rest. Add depth only when interaction, modal focus, or active proof state needs to be visible.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use Carbon Black, Panel Ink, Console Black, Quiet Border, and Evidence Cyan as the core app vocabulary.",
+      "Do show peer IDs, route receipts, artifacts, timestamps, hashes, and run evidence close to the claims they support.",
+      "Do keep proof badges compact, linked, labeled, and icon-supported.",
+      "Do use monospace for inspectable machine values and normal sans-serif for explanation.",
+      "Do pair every color-coded status with text or an icon.",
+      "Do preserve dense dashboard spacing while keeping content scannable on laptop screens."
+    ],
+    "donts": [
+      "Don't make Omen feel like a generic crypto terminal.",
+      "Don't make Omen feel like flashy AI SaaS.",
+      "Don't make Omen feel like a military command center.",
+      "Don't make Omen feel like a toy demo.",
+      "Don't make Omen feel like a trading-bot scam.",
+      "Don't use decorative cyberpunk excess, fake-looking dashboards, or empty alpha claims.",
+      "Don't use colored side-stripe borders as a default card accent; if a legacy signal treatment uses one, keep it local and do not spread the pattern.",
+      "Don't use gradient text, decorative glassmorphism, or hero-metric template sections.",
+      "Don't invent mock, fallback, or placeholder evidence in the UI. Empty states must say what is missing."
+    ]
+  }
+}
