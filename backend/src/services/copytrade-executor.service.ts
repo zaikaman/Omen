@@ -201,6 +201,13 @@ export class CopytradeExecutorService {
       const openTrades = await this.repositories.trades.listOpenByEnrollment(enrollment.id);
 
       if (!openTrades.ok) {
+        if (
+          signals.length === 0 &&
+          openTrades.error.message.includes("copytrade_trades")
+        ) {
+          continue;
+        }
+
         const message = `${enrollment.walletAddress}: ${openTrades.error.message}`;
         result.errors.push(message);
         this.input.logger.error("Copytrade executor could not load open trades.", message);
