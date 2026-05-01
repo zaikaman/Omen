@@ -198,6 +198,17 @@ export class CopytradeExecutorService {
     result.enrollments = enrollments.length;
 
     for (const enrollment of enrollments) {
+      const openTrades = await this.repositories.trades.listOpenByEnrollment(enrollment.id);
+
+      if (!openTrades.ok) {
+        result.errors.push(`${enrollment.walletAddress}: ${openTrades.error.message}`);
+        continue;
+      }
+
+      if (signals.length === 0 && openTrades.value.length === 0) {
+        continue;
+      }
+
       const service = this.createHyperliquidService(enrollment);
 
       try {
@@ -219,6 +230,7 @@ export class CopytradeExecutorService {
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown copytrade execution error.";
         result.errors.push(`${enrollment.walletAddress}: ${message}`);
+        this.input.logger.error(`Copytrade executor failed for ${enrollment.walletAddress}.`, error);
         await this.repositories.enrollments.updateEnrollment(enrollment.id, {
           last_error: message,
         });
