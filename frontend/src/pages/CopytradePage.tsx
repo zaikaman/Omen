@@ -1,24 +1,31 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
   CheckCircle2,
   CopyCheck,
+  DollarSign,
+  History,
   KeyRound,
   LogOut,
   Loader2,
   PauseCircle,
   ShieldCheck,
   SlidersHorizontal,
+  TrendingUp,
   Wallet,
 } from 'lucide-react';
 
 import {
   finalizeCopytradeApproval,
+  getCopytradeDashboard,
   getCopytradeStatus,
   prepareCopytradeApproval,
+  type CopytradeDashboard,
   type CopytradeEnrollment,
   type CopytradeRiskSettings,
+  type CopytradeTrade,
   type HyperliquidApproveAgentAction,
   type HyperliquidChain,
   type HyperliquidSignature,
@@ -113,6 +120,46 @@ const statusLabel = (status: CopytradeEnrollment['status'] | null) => {
   return status.replace(/_/g, ' ').toUpperCase();
 };
 
+const formatCurrency = (value: number | null | undefined) => {
+  const amount = value ?? 0;
+
+  return new Intl.NumberFormat(undefined, {
+    currency: 'USD',
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    style: 'currency',
+  }).format(amount);
+};
+
+const formatPercent = (value: number | null | undefined) =>
+  `${(value ?? 0).toFixed(2)}%`;
+
+const formatDate = (value: string | null | undefined) =>
+  value
+    ? new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(new Date(value))
+    : 'Not recorded';
+
+const tradeStatusClass = (status: CopytradeTrade['status']) => {
+  switch (status) {
+    case 'closed':
+      return 'border-green-500/20 bg-green-500/10 text-green-300';
+    case 'open':
+      return 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300';
+    case 'failed':
+      return 'border-red-500/20 bg-red-500/10 text-red-300';
+    case 'skipped':
+      return 'border-gray-700 bg-gray-900 text-gray-400';
+    case 'queued':
+    default:
+      return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
+  }
+};
+
 function RiskInput({
   label,
   value,
@@ -149,13 +196,206 @@ function RiskInput({
   );
 }
 
+function StatCard({
+  icon,
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  tone?: 'neutral' | 'positive' | 'negative' | 'cyan';
+}) {
+  const valueClass =
+    tone === 'positive'
+      ? 'text-green-300'
+      : tone === 'negative'
+        ? 'text-red-300'
+        : tone === 'cyan'
+          ? 'text-cyan-300'
+          : 'text-white';
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">{label}</div>
+        <div className="text-cyan-400">{icon}</div>
+      </div>
+      <div className={`mt-3 font-mono text-2xl font-bold ${valueClass}`}>{value}</div>
+    </div>
+  );
+}
+
+function CopytradeDashboardView({
+  dashboard,
+  enrollment,
+  isLoading,
+}: {
+  dashboard: CopytradeDashboard | null;
+  enrollment: CopytradeEnrollment;
+  isLoading: boolean;
+}) {
+  const stats = dashboard?.stats;
+  const trades = dashboard?.trades ?? [];
+  const pnlTone = (stats?.realizedPnlUsd ?? 0) > 0
+    ? 'positive'
+    : (stats?.realizedPnlUsd ?? 0) < 0
+      ? 'negative'
+      : 'neutral';
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          icon={<DollarSign className="h-4 w-4" />}
+          label="Realized PnL"
+          value={formatCurrency(stats?.realizedPnlUsd)}
+          tone={pnlTone}
+        />
+        <StatCard
+          icon={<TrendingUp className="h-4 w-4" />}
+          label="Win rate"
+          value={formatPercent(stats?.winRate)}
+          tone="cyan"
+        />
+        <StatCard
+          icon={<Activity className="h-4 w-4" />}
+          label="Open trades"
+          value={(stats?.openTrades ?? 0).toString()}
+        />
+        <StatCard
+          icon={<History className="h-4 w-4" />}
+          label="Total copied"
+          value={(stats?.totalTrades ?? 0).toString()}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <section className="rounded-lg border border-gray-800 bg-gray-900/50 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Execution layer</div>
+              <h3 className="mt-1 text-lg font-bold text-white">Hyperliquid copy is active</h3>
+            </div>
+            <span className="rounded-md border border-green-500/20 bg-green-500/10 px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-green-300">
+              Active
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Omen API wallet</div>
+              <div className="mt-1 font-mono text-sm text-white">{formatAddress(enrollment.agentAddress)}</div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Network</div>
+                <div className="mt-1 text-sm font-semibold text-white">{enrollment.hyperliquidChain}</div>
+              </div>
+              <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Approved at</div>
+                <div className="mt-1 text-sm text-white">{formatDate(enrollment.approvedAt)}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-gray-800 bg-gray-900/50 p-5">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-5 w-5 text-cyan-400" />
+            <h3 className="text-lg font-bold text-white">Risk limits</h3>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Max allocation</div>
+              <div className="mt-1 font-mono text-lg font-bold text-white">{formatCurrency(enrollment.riskSettings.maxAllocationUsd)}</div>
+            </div>
+            <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Risk per signal</div>
+              <div className="mt-1 font-mono text-lg font-bold text-white">{formatPercent(enrollment.riskSettings.riskPerSignalPercent)}</div>
+            </div>
+            <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Max leverage</div>
+              <div className="mt-1 font-mono text-lg font-bold text-white">{enrollment.riskSettings.maxLeverage}x</div>
+            </div>
+            <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Max positions</div>
+              <div className="mt-1 font-mono text-lg font-bold text-white">{enrollment.riskSettings.maxOpenPositions}</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section className="rounded-lg border border-gray-800 bg-gray-900/50 p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5 text-purple-300" />
+            <h3 className="text-lg font-bold text-white">Trade history</h3>
+          </div>
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-cyan-400" /> : null}
+        </div>
+
+        {trades.length > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[860px] text-left text-sm">
+              <thead className="border-b border-gray-800 text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                <tr>
+                  <th className="px-3 py-3">Asset</th>
+                  <th className="px-3 py-3">Side</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3 text-right">Notional</th>
+                  <th className="px-3 py-3 text-right">Entry</th>
+                  <th className="px-3 py-3 text-right">Exit</th>
+                  <th className="px-3 py-3 text-right">PnL</th>
+                  <th className="px-3 py-3">Opened</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800/80">
+                {trades.map((trade) => (
+                  <tr key={trade.id} className="text-gray-300">
+                    <td className="px-3 py-3 font-mono font-bold text-white">{trade.asset}</td>
+                    <td className="px-3 py-3">{trade.direction}</td>
+                    <td className="px-3 py-3">
+                      <span className={`rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-wider ${tradeStatusClass(trade.status)}`}>
+                        {trade.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono">{formatCurrency(trade.notionalUsd)}</td>
+                    <td className="px-3 py-3 text-right font-mono">{trade.entryPrice?.toString() ?? '-'}</td>
+                    <td className="px-3 py-3 text-right font-mono">{trade.exitPrice?.toString() ?? '-'}</td>
+                    <td className={`px-3 py-3 text-right font-mono ${(trade.pnlUsd ?? 0) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                      {formatCurrency(trade.pnlUsd)}
+                    </td>
+                    <td className="px-3 py-3 text-gray-400">{formatDate(trade.openedAt ?? trade.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-dashed border-gray-800 bg-black/30 p-8 text-center">
+            <History className="mx-auto h-8 w-8 text-gray-600" />
+            <p className="mt-3 text-sm font-semibold text-white">No copied trades yet</p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
+              The dashboard will populate from real execution records once Omen starts placing Hyperliquid orders for this wallet.
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export function CopytradePage() {
   const [walletAddress, setWalletAddress] = useState<`0x${string}` | null>(null);
   const [chainId, setChainId] = useState<`0x${string}` | null>(null);
   const [hyperliquidChain, setHyperliquidChain] = useState<HyperliquidChain>('Mainnet');
   const [riskSettings, setRiskSettings] = useState<CopytradeRiskSettings>(DEFAULT_RISK_SETTINGS);
   const [enrollment, setEnrollment] = useState<CopytradeEnrollment | null>(null);
+  const [dashboard, setDashboard] = useState<CopytradeDashboard | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,10 +410,35 @@ export function CopytradePage() {
 
     setIsLoadingStatus(true);
     getCopytradeStatus(walletAddress)
-      .then(setEnrollment)
-      .catch(() => setEnrollment(null))
+      .then((latestEnrollment) => {
+        setEnrollment(latestEnrollment);
+        if (latestEnrollment?.status !== 'active') {
+          setDashboard(null);
+        }
+      })
+      .catch(() => {
+        setEnrollment(null);
+        setDashboard(null);
+      })
       .finally(() => setIsLoadingStatus(false));
   }, [walletAddress]);
+
+  useEffect(() => {
+    if (!walletAddress || !isActive) {
+      return;
+    }
+
+    setIsLoadingDashboard(true);
+    getCopytradeDashboard(walletAddress)
+      .then((nextDashboard) => {
+        setDashboard(nextDashboard);
+        if (nextDashboard.enrollment) {
+          setEnrollment(nextDashboard.enrollment);
+        }
+      })
+      .catch(() => setDashboard(null))
+      .finally(() => setIsLoadingDashboard(false));
+  }, [isActive, walletAddress]);
 
   const connectWallet = async () => {
     setError(null);
@@ -242,6 +507,9 @@ export function CopytradePage() {
       });
 
       setEnrollment(finalized);
+      if (finalized.status === 'active') {
+        setDashboard(await getCopytradeDashboard(walletAddress));
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Hyperliquid approval failed.');
     } finally {
@@ -299,6 +567,15 @@ export function CopytradePage() {
           <span>{error}</span>
         </div>
       ) : null}
+
+      {isActive && enrollment ? (
+        <CopytradeDashboardView
+          dashboard={dashboard}
+          enrollment={enrollment}
+          isLoading={isLoadingDashboard}
+        />
+      ) : (
+        <>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
         <section className="rounded-lg border border-gray-800 bg-gray-900/50 p-5">
@@ -461,6 +738,8 @@ export function CopytradePage() {
           </div>
         </div>
       </section>
+        </>
+      )}
     </div>
   );
 }

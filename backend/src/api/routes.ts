@@ -12,6 +12,7 @@ import {
   createDashboardSummaryController,
 } from "./dashboard.controller.js";
 import {
+  createCopytradeDashboardController,
   createCopytradeFinalizeController,
   createCopytradePrepareController,
   createCopytradeStatusController,
@@ -66,6 +67,7 @@ export const createApiRouter = (context: {
   router.get("/signals", createSignalFeedController(context.env));
   router.get("/signals/:id", createSignalDetailController(context.env));
   router.get("/copytrade/status", createCopytradeStatusController(context.env));
+  router.get("/copytrade/dashboard", createCopytradeDashboardController(context.env));
   router.post("/copytrade/prepare", createCopytradePrepareController(context.env));
   router.post("/copytrade/finalize", createCopytradeFinalizeController(context.env));
   router.get("/intel", createIntelFeedController(context.env));

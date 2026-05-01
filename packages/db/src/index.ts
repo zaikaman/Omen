@@ -7,6 +7,7 @@ export * from "./repositories/app-config-repository.js";
 export * from "./repositories/axl-messages-repository.js";
 export * from "./repositories/base-repository.js";
 export * from "./repositories/copytrade-enrollments-repository.js";
+export * from "./repositories/copytrade-trades-repository.js";
 export * from "./repositories/intels-repository.js";
 export * from "./repositories/outbound-posts-repository.js";
 export * from "./repositories/runs-repository.js";

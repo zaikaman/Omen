@@ -4,7 +4,9 @@ import { Wallet } from "ethers";
 
 import {
   CopytradeEnrollmentsRepository,
+  CopytradeTradesRepository,
   createSupabaseServiceRoleClient,
+  type CopytradeTrade,
   type CopytradeRiskSettings,
 } from "@omen/db";
 
@@ -24,7 +26,7 @@ const isAddress = (value: unknown): value is `0x${string}` =>
 const isHexChainId = (value: unknown): value is `0x${string}` =>
   typeof value === "string" && /^0x[a-fA-F0-9]+$/.test(value);
 
-const createRepository = (env: BackendEnv) => {
+const createRepositories = (env: BackendEnv) => {
   if (!env.supabase.url || !env.supabase.serviceRoleKey) {
     return null;
   }
@@ -36,7 +38,10 @@ const createRepository = (env: BackendEnv) => {
     schema: env.supabase.schema,
   });
 
-  return new CopytradeEnrollmentsRepository(client);
+  return {
+    enrollments: new CopytradeEnrollmentsRepository(client),
+    trades: new CopytradeTradesRepository(client),
+  };
 };
 
 const parseRiskSettings = (input: unknown): CopytradeRiskSettings => {
@@ -112,9 +117,59 @@ const presentEnrollment = (enrollment: {
   createdAt: enrollment.createdAt ?? null,
 });
 
+const presentTrade = (trade: CopytradeTrade) => ({
+  id: trade.id,
+  enrollmentId: trade.enrollmentId,
+  walletAddress: trade.walletAddress,
+  signalId: trade.signalId,
+  asset: trade.asset,
+  direction: trade.direction,
+  status: trade.status,
+  orderId: trade.orderId,
+  entryPrice: trade.entryPrice,
+  exitPrice: trade.exitPrice,
+  quantity: trade.quantity,
+  leverage: trade.leverage,
+  notionalUsd: trade.notionalUsd,
+  pnlUsd: trade.pnlUsd,
+  pnlPercent: trade.pnlPercent,
+  openedAt: trade.openedAt,
+  closedAt: trade.closedAt,
+  lastError: trade.lastError,
+  createdAt: trade.createdAt,
+  updatedAt: trade.updatedAt,
+});
+
+const buildTradeStats = (trades: CopytradeTrade[]) => {
+  const closedTrades = trades.filter((trade) => trade.status === "closed");
+  const openTrades = trades.filter((trade) => trade.status === "open");
+  const failedTrades = trades.filter((trade) => trade.status === "failed");
+  const realizedPnlUsd = closedTrades.reduce((total, trade) => total + (trade.pnlUsd ?? 0), 0);
+  const pnlPercentValues = closedTrades
+    .map((trade) => trade.pnlPercent)
+    .filter((value): value is number => typeof value === "number");
+  const averagePnlPercent =
+    pnlPercentValues.length > 0
+      ? pnlPercentValues.reduce((total, value) => total + value, 0) / pnlPercentValues.length
+      : 0;
+  const winningTrades = closedTrades.filter((trade) => (trade.pnlUsd ?? 0) > 0).length;
+  const copiedNotionalUsd = trades.reduce((total, trade) => total + (trade.notionalUsd ?? 0), 0);
+
+  return {
+    totalTrades: trades.length,
+    openTrades: openTrades.length,
+    closedTrades: closedTrades.length,
+    failedTrades: failedTrades.length,
+    winRate: closedTrades.length > 0 ? (winningTrades / closedTrades.length) * 100 : 0,
+    realizedPnlUsd,
+    averagePnlPercent,
+    copiedNotionalUsd,
+  };
+};
+
 export const createCopytradeStatusController =
   (env: BackendEnv) => async (req: Request, res: Response) => {
-    const repository = createRepository(env);
+    const repositories = createRepositories(env);
     const walletAddress = typeof req.query.walletAddress === "string"
       ? req.query.walletAddress.toLowerCase()
       : "";
@@ -124,12 +179,12 @@ export const createCopytradeStatusController =
       return;
     }
 
-    if (!repository) {
+    if (!repositories) {
       res.status(503).json({ success: false, error: "Copytrade persistence is not configured." });
       return;
     }
 
-    const found = await repository.findLatestByWallet(walletAddress);
+    const found = await repositories.enrollments.findLatestByWallet(walletAddress);
 
     if (!found.ok) {
       res.status(500).json({ success: false, error: found.error.message });
@@ -139,11 +194,53 @@ export const createCopytradeStatusController =
     res.json({ success: true, data: found.value ? presentEnrollment(found.value) : null });
   };
 
+export const createCopytradeDashboardController =
+  (env: BackendEnv) => async (req: Request, res: Response) => {
+    const repositories = createRepositories(env);
+    const walletAddress = typeof req.query.walletAddress === "string"
+      ? req.query.walletAddress.toLowerCase()
+      : "";
+
+    if (!isAddress(walletAddress)) {
+      res.status(400).json({ success: false, error: "A valid walletAddress is required." });
+      return;
+    }
+
+    if (!repositories) {
+      res.status(503).json({ success: false, error: "Copytrade persistence is not configured." });
+      return;
+    }
+
+    const [enrollmentResult, tradesResult] = await Promise.all([
+      repositories.enrollments.findLatestByWallet(walletAddress),
+      repositories.trades.listByWallet(walletAddress, 50),
+    ]);
+
+    if (!enrollmentResult.ok) {
+      res.status(500).json({ success: false, error: enrollmentResult.error.message });
+      return;
+    }
+
+    if (!tradesResult.ok) {
+      res.status(500).json({ success: false, error: tradesResult.error.message });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        enrollment: enrollmentResult.value ? presentEnrollment(enrollmentResult.value) : null,
+        stats: buildTradeStats(tradesResult.value),
+        trades: tradesResult.value.map((trade) => presentTrade(trade)),
+      },
+    });
+  };
+
 export const createCopytradePrepareController =
   (env: BackendEnv) => async (req: Request, res: Response) => {
-    const repository = createRepository(env);
+    const repositories = createRepositories(env);
 
-    if (!repository) {
+    if (!repositories) {
       res.status(503).json({ success: false, error: "Copytrade persistence is not configured." });
       return;
     }
@@ -176,7 +273,7 @@ export const createCopytradePrepareController =
       env.deferred.futuresEncryptionKey,
     );
 
-    const created = await repository.createEnrollment({
+    const created = await repositories.enrollments.createEnrollment({
       walletAddress,
       hyperliquidChain,
       signatureChainId,
@@ -198,9 +295,9 @@ export const createCopytradePrepareController =
 
 export const createCopytradeFinalizeController =
   (env: BackendEnv) => async (req: Request, res: Response) => {
-    const repository = createRepository(env);
+    const repositories = createRepositories(env);
 
-    if (!repository) {
+    if (!repositories) {
       res.status(503).json({ success: false, error: "Copytrade persistence is not configured." });
       return;
     }
@@ -236,7 +333,7 @@ export const createCopytradeFinalizeController =
       typeof payload === "object" &&
       (payload as { status?: unknown }).status === "ok";
 
-    const updated = await repository.updateEnrollment(enrollmentId, {
+    const updated = await repositories.enrollments.updateEnrollment(enrollmentId, {
       approval_response: payload,
       last_error: isApproved ? null : `Hyperliquid approval failed with status ${exchangeResponse.status.toString()}.`,
       status: isApproved ? "active" : "approval_failed",

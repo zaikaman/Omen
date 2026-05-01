@@ -28,6 +28,44 @@ export type CopytradeEnrollment = {
   createdAt: string | null;
 };
 
+export type CopytradeTrade = {
+  id: string;
+  enrollmentId: string;
+  walletAddress: string;
+  signalId: string | null;
+  asset: string;
+  direction: 'LONG' | 'SHORT';
+  status: 'queued' | 'open' | 'closed' | 'failed' | 'skipped';
+  orderId: string | null;
+  entryPrice: number | null;
+  exitPrice: number | null;
+  quantity: number | null;
+  leverage: number | null;
+  notionalUsd: number | null;
+  pnlUsd: number | null;
+  pnlPercent: number | null;
+  openedAt: string | null;
+  closedAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CopytradeDashboard = {
+  enrollment: CopytradeEnrollment | null;
+  stats: {
+    totalTrades: number;
+    openTrades: number;
+    closedTrades: number;
+    failedTrades: number;
+    winRate: number;
+    realizedPnlUsd: number;
+    averagePnlPercent: number;
+    copiedNotionalUsd: number;
+  };
+  trades: CopytradeTrade[];
+};
+
 export type HyperliquidApproveAgentAction = {
   type: 'approveAgent';
   signatureChainId: `0x${string}`;
@@ -55,10 +93,22 @@ const nullableEnrollmentParser: Parser<CopytradeEnrollment | null> = {
   },
 };
 
+const dashboardParser: Parser<CopytradeDashboard> = {
+  parse(input) {
+    return input as CopytradeDashboard;
+  },
+};
+
 export const getCopytradeStatus = (walletAddress: string) =>
   apiRequest<CopytradeEnrollment | null>(
     `/copytrade/status?walletAddress=${encodeURIComponent(walletAddress)}`,
     nullableEnrollmentParser,
+  );
+
+export const getCopytradeDashboard = (walletAddress: string) =>
+  apiRequest<CopytradeDashboard>(
+    `/copytrade/dashboard?walletAddress=${encodeURIComponent(walletAddress)}`,
+    dashboardParser,
   );
 
 export const prepareCopytradeApproval = (input: {
