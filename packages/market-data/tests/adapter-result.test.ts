@@ -458,4 +458,45 @@ describe("market-data provider results", () => {
       expect(protocols.value).toHaveLength(2);
     }
   });
+
+  it("normalizes protocol snapshots from DeFiLlama time-series TVL payloads", async () => {
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            name: "Aave",
+            chain: null,
+            tvl: [
+              { date: 1777420800, totalLiquidityUSD: 1000 },
+              { date: 1777507200, totalLiquidityUSD: 1100 },
+              { date: 1777593600, totalLiquidityUSD: 1210 },
+            ],
+            change_1d: null,
+            change_7d: null,
+            category: null,
+            currentChainTvls: {
+              "Ethereum-borrowed": 900,
+              Ethereum: 700,
+              Base: 500,
+              staking: 200,
+            },
+          }),
+        }) as Response,
+    );
+
+    const defiLlama = new DefiLlamaMarketService();
+
+    const snapshot = await defiLlama.getProtocolSnapshot("aave");
+
+    expect(snapshot.ok).toBe(true);
+    if (snapshot.ok) {
+      expect(snapshot.value.tvlUsd).toBe(1210);
+      expect(snapshot.value.chain).toBe("Ethereum");
+      expect(snapshot.value.tvlChange1dPercent).toBeCloseTo(10);
+      expect(snapshot.value.sourceUrl).toBe("https://defillama.com/protocol/aave");
+    }
+  });
 });
