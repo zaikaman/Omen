@@ -83,6 +83,8 @@ type MarketBiasContext = {
   marketBreadth: MarketBreadthContext;
 };
 
+type MarketBiasDecision = z.output<typeof marketBiasAgentOutputSchema>;
+
 const average = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
 
@@ -254,6 +256,78 @@ const buildMultiTimeframeAlignment = (timeframes: BtcTimeframeContext[]) => {
   };
 };
 
+const resolveDirectionalNudge = (context: MarketBiasContext) => {
+  const btcSnapshot = context.snapshots.find((snapshot) => snapshot.symbol.toUpperCase() === "BTC");
+  const btcChange24h = btcSnapshot?.change24hPercent ?? null;
+  const timeframeChanges = context.btcTechnicals.timeframes
+    .map((timeframe) => timeframe.changePercent)
+    .filter((value): value is number => value !== null);
+  const averageTimeframeChange = average(timeframeChanges);
+  const alignment = context.btcTechnicals.multiTimeframeAlignment;
+  const breadth = context.marketBreadth;
+  const greenShare =
+    breadth.sampledSymbols === 0 ? 0 : breadth.greenCount / Math.max(breadth.sampledSymbols, 1);
+  const redShare =
+    breadth.sampledSymbols === 0 ? 0 : breadth.redCount / Math.max(breadth.sampledSymbols, 1);
+  const averageBreadth = breadth.averageChange24hPercent ?? 0;
+
+  const longScore = [
+    btcChange24h !== null && btcChange24h >= 0.75,
+    averageTimeframeChange >= 0.35,
+    alignment?.dominantTrend === "bullish" && alignment.confidence >= 45,
+    breadth.greenCount > breadth.redCount,
+    greenShare >= 0.5,
+    averageBreadth >= 0.25,
+  ].filter(Boolean).length;
+  const shortScore = [
+    btcChange24h !== null && btcChange24h <= -0.75,
+    averageTimeframeChange <= -0.35,
+    alignment?.dominantTrend === "bearish" && alignment.confidence >= 45,
+    breadth.redCount > breadth.greenCount,
+    redShare >= 0.5,
+    averageBreadth <= -0.25,
+  ].filter(Boolean).length;
+
+  if (longScore >= 3 && longScore >= shortScore + 2) {
+    return {
+      marketBias: "LONG" as const,
+      confidence: Math.min(78, 56 + longScore * 4),
+      reason: `Directional nudge: BTC ${btcChange24h?.toFixed(2) ?? "n/a"}% 24h, average timeframe change ${averageTimeframeChange.toFixed(2)}%, and breadth ${breadth.greenCount.toString()} green vs ${breadth.redCount.toString()} red leaned bullish enough to continue scanning.`,
+    };
+  }
+
+  if (shortScore >= 3 && shortScore >= longScore + 2) {
+    return {
+      marketBias: "SHORT" as const,
+      confidence: Math.min(78, 56 + shortScore * 4),
+      reason: `Directional nudge: BTC ${btcChange24h?.toFixed(2) ?? "n/a"}% 24h, average timeframe change ${averageTimeframeChange.toFixed(2)}%, and breadth ${breadth.redCount.toString()} red vs ${breadth.greenCount.toString()} green leaned bearish enough to continue scanning.`,
+    };
+  }
+
+  return null;
+};
+
+export const applyMarketBiasDirectionNudge = (input: {
+  decision: MarketBiasDecision;
+  context: MarketBiasContext;
+}) => {
+  if (input.decision.marketBias !== "NEUTRAL") {
+    return marketBiasAgentOutputSchema.parse(input.decision);
+  }
+
+  const nudge = resolveDirectionalNudge(input.context);
+
+  if (nudge === null) {
+    return marketBiasAgentOutputSchema.parse(input.decision);
+  }
+
+  return marketBiasAgentOutputSchema.parse({
+    marketBias: nudge.marketBias,
+    confidence: Math.max(input.decision.confidence, nudge.confidence),
+    reasoning: `${nudge.reason} Model initially returned NEUTRAL, but NEUTRAL would stop scanner before candidate-level validation.`,
+  });
+};
+
 export const deriveMarketBias = (input: z.input<typeof marketBiasAgentInputSchema>) => {
   const parsed = marketBiasAgentInputSchema.parse(input);
   const changes = parsed.snapshots
@@ -404,7 +478,7 @@ export class MarketBiasAgentFactory {
     }
 
     try {
-      return await this.llmClient.completeJson({
+      const decision = await this.llmClient.completeJson({
         schema: marketBiasAgentOutputSchema,
         systemPrompt: buildMarketBiasSystemPrompt({
           universe: input.state.config.marketUniverse,
@@ -440,6 +514,11 @@ export class MarketBiasAgentFactory {
           null,
           2,
         ),
+      });
+
+      return applyMarketBiasDirectionNudge({
+        decision,
+        context: input.context,
       });
     } catch (error) {
       throw new Error(

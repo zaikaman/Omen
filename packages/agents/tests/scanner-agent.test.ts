@@ -2,6 +2,7 @@ import type { OpenAiCompatibleJsonClient } from "../src/llm/openai-compatible-cl
 import { describe, expect, it } from "vitest";
 
 import {
+  applyMarketBiasDirectionNudge,
   createInitialSwarmState,
   createMarketBiasAgent,
   createScannerAgent,
@@ -132,6 +133,128 @@ describe("scanner definitions", () => {
 
     expect(result.marketBias).toBe("SHORT");
     expect(result.reasoning).toContain("risk-off");
+  });
+
+  it("nudges neutral market bias long when BTC and breadth are modestly green", () => {
+    const result = applyMarketBiasDirectionNudge({
+      decision: {
+        marketBias: "NEUTRAL",
+        reasoning: "Model stayed cautious because macro commentary was mixed.",
+        confidence: 61,
+      },
+      context: {
+        snapshots: [
+          {
+            symbol: "BTC",
+            provider: "binance",
+            price: 77300,
+            change24hPercent: 1.88,
+            volume24h: 10_000_000_000,
+            fundingRate: null,
+            openInterest: null,
+            candles: [],
+            capturedAt: "2026-05-01T10:00:00.000Z",
+          },
+          {
+            symbol: "ETH",
+            provider: "binance",
+            price: 3800,
+            change24hPercent: 1.1,
+            volume24h: 5_000_000_000,
+            fundingRate: null,
+            openInterest: null,
+            candles: [],
+            capturedAt: "2026-05-01T10:00:00.000Z",
+          },
+          {
+            symbol: "SOL",
+            provider: "binance",
+            price: 145,
+            change24hPercent: 0.9,
+            volume24h: 1_000_000_000,
+            fundingRate: null,
+            openInterest: null,
+            candles: [],
+            capturedAt: "2026-05-01T10:00:00.000Z",
+          },
+          {
+            symbol: "ADA",
+            provider: "binance",
+            price: 0.72,
+            change24hPercent: 0.6,
+            volume24h: 500_000_000,
+            fundingRate: null,
+            openInterest: null,
+            candles: [],
+            capturedAt: "2026-05-01T10:00:00.000Z",
+          },
+        ],
+        btcTechnicals: {
+          timeframes: [
+            {
+              timeframe: "1h",
+              candleCount: 80,
+              latestClose: 77300,
+              changePercent: 0.45,
+              rsi: { value: 58, state: "neutral" },
+              macd: { histogram: 12, bias: "bullish" },
+              bollinger: { position: "upper_half", bandwidthPercent: 3.1 },
+              emaTrend: "bullish",
+              trendConfidence: 56,
+            },
+            {
+              timeframe: "4h",
+              candleCount: 80,
+              latestClose: 77300,
+              changePercent: 0.8,
+              rsi: { value: 60, state: "neutral" },
+              macd: { histogram: 8, bias: "bullish" },
+              bollinger: { position: "upper_half", bandwidthPercent: 4 },
+              emaTrend: "bullish",
+              trendConfidence: 58,
+            },
+            {
+              timeframe: "1d",
+              candleCount: 80,
+              latestClose: 77300,
+              changePercent: 1.2,
+              rsi: { value: 62, state: "neutral" },
+              macd: { histogram: 5, bias: "bullish" },
+              bollinger: { position: "middle", bandwidthPercent: 5 },
+              emaTrend: "neutral",
+              trendConfidence: 45,
+            },
+          ],
+          multiTimeframeAlignment: {
+            dominantTrend: "bullish",
+            confidence: 55,
+            alignedTimeframes: ["1h", "4h"],
+            conflictingTimeframes: [],
+          },
+        },
+        marketBreadth: {
+          sampledSymbols: 4,
+          greenCount: 4,
+          redCount: 0,
+          flatCount: 0,
+          averageChange24hPercent: 1.12,
+          healthyVolumeCount: 4,
+          topGainers: [
+            { symbol: "BTC", change24hPercent: 1.88 },
+            { symbol: "ETH", change24hPercent: 1.1 },
+            { symbol: "SOL", change24hPercent: 0.9 },
+          ],
+          topLosers: [
+            { symbol: "ADA", change24hPercent: 0.6 },
+            { symbol: "SOL", change24hPercent: 0.9 },
+            { symbol: "ETH", change24hPercent: 1.1 },
+          ],
+        },
+      },
+    });
+
+    expect(result.marketBias).toBe("LONG");
+    expect(result.reasoning).toContain("Directional nudge");
   });
 
   it("selects at most three candidates aligned with the current market bias", async () => {
