@@ -1,4 +1,3 @@
-import type { BinanceMarketService, DefiLlamaMarketService } from "@omen/market-data";
 import type { OpenAiCompatibleJsonClient } from "../src/llm/openai-compatible-client.js";
 import { describe, expect, it } from "vitest";
 
@@ -58,14 +57,14 @@ describe("research agent", () => {
         completeJson: async () => ({
           evidence: [
             {
-              category: "market" as const,
-              summary: "BTC showed constructive live market momentum.",
-              sourceLabel: "Binance",
+              category: "sentiment" as const,
+              summary: "BTC showed constructive live narrative momentum.",
+              sourceLabel: "Model search",
               sourceUrl: null,
               structuredData: { symbol: "BTC" },
             },
           ],
-          narrativeSummary: "BTC showed constructive live market momentum.",
+          narrativeSummary: "BTC showed constructive live narrative momentum.",
           missingDataNotes: [],
         }),
       } as unknown as OpenAiCompatibleJsonClient,
@@ -103,48 +102,48 @@ describe("research agent", () => {
     ).toBe(true);
   });
 
-  it("skips protocol lookup for symbols without a mapped DeFiLlama protocol slug", async () => {
+  it("does not call market-data or protocol providers from the research node", async () => {
     const state = createInitialSwarmState({ run, config });
+    let marketLookups = 0;
     let protocolLookups = 0;
     const agent = createResearchAgent({
       marketData: {
-        getSnapshot: async () => ({
-          ok: true,
-          value: {
-            symbol: "BTC",
-            provider: "binance",
-            price: 65000,
-            change24hPercent: 2.4,
-            volume24h: 100000000,
-            fundingRate: 0.005,
-            openInterest: 250000000,
-            candles: [],
-            capturedAt: "2026-04-25T08:00:00.000Z",
-          },
-        }),
-      } as unknown as BinanceMarketService,
+        getSnapshot: async () => {
+          marketLookups += 1;
+          throw new Error("market lookup should not be called from research");
+        },
+      },
       protocolData: {
         getProtocolSnapshot: async () => {
           protocolLookups += 1;
-          throw new Error("protocol lookup should not be called for BTC");
+          throw new Error("protocol lookup should not be called from research");
         },
-      } as unknown as DefiLlamaMarketService,
+      },
       llmClient: {
-        completeJson: async () => ({
-          evidence: [
-            {
-              category: "market" as const,
-              summary: "BTC spot snapshot remained usable without protocol lookup.",
-              sourceLabel: "Binance",
-              sourceUrl: null,
-              structuredData: { symbol: "BTC" },
-            },
-          ],
-          narrativeSummary: "BTC remained usable without a DeFiLlama protocol lookup.",
-          missingDataNotes: [],
-        }),
+        completeJson: async ({ userPrompt }: { userPrompt: string }) => {
+          const parsed = JSON.parse(userPrompt) as Record<string, unknown>;
+
+          expect(parsed).toHaveProperty("candidate");
+          expect(parsed).toHaveProperty("injectedEvidence");
+          expect(parsed).not.toHaveProperty("snapshot");
+          expect(parsed).not.toHaveProperty("protocolSnapshot");
+
+          return {
+            evidence: [
+              {
+                category: "sentiment" as const,
+                summary: "BTC search context stayed constructive without local provider calls.",
+                sourceLabel: "Model search",
+                sourceUrl: null,
+                structuredData: { symbol: "BTC" },
+              },
+            ],
+            narrativeSummary: "BTC remained usable without local market or protocol calls.",
+            missingDataNotes: [],
+          };
+        },
       } as unknown as OpenAiCompatibleJsonClient,
-    });
+    } as unknown as Parameters<typeof createResearchAgent>[0]);
 
     const result = await agent.invoke(
       {
@@ -168,52 +167,45 @@ describe("research agent", () => {
       state,
     );
 
+    expect(result.candidate.status).toBe("researched");
+    expect(marketLookups).toBe(0);
     expect(protocolLookups).toBe(0);
     expect(
       (result.missingDataNotes ?? []).some((note) => note.startsWith("Protocol snapshot missing:")),
     ).toBe(false);
   });
 
-  it("keeps research running when an optional protocol lookup throws", async () => {
+  it("passes injected evidence into the research prompt", async () => {
     const state = createInitialSwarmState({ run, config });
+    state.evidenceItems.push({
+      category: "market",
+      summary: "AAVE was already flagged upstream by scanner evidence.",
+      sourceLabel: "scanner-agent",
+      sourceUrl: null,
+      structuredData: { symbol: "AAVE" },
+    });
+
     const agent = createResearchAgent({
-      marketData: {
-        getSnapshot: async () => ({
-          ok: true,
-          value: {
-            symbol: "AAVE",
-            provider: "binance",
-            price: 250,
-            change24hPercent: 1.6,
-            volume24h: 100000000,
-            fundingRate: 0.002,
-            openInterest: 50000000,
-            candles: [],
-            capturedAt: "2026-04-25T08:00:00.000Z",
-          },
-        }),
-      } as unknown as BinanceMarketService,
-      protocolData: {
-        getProtocolSnapshot: async () => {
-          throw new Error("DeFiLlama returned a non-numeric value: [object Object]");
-        },
-      } as unknown as DefiLlamaMarketService,
       llmClient: {
         completeJson: async ({ userPrompt }: { userPrompt: string }) => {
-          const parsed = JSON.parse(userPrompt) as { missingDataNotes: string[] };
+          const parsed = JSON.parse(userPrompt) as Record<string, unknown> & {
+            injectedEvidence: unknown[];
+            missingDataNotes: string[];
+          };
+
+          expect(parsed.injectedEvidence).toHaveLength(1);
 
           return {
             evidence: [
               {
-                category: "market" as const,
-                summary: "AAVE market snapshot remained usable despite missing protocol data.",
-                sourceLabel: "Binance",
+                category: "catalyst" as const,
+                summary: "AAVE research used injected scanner and chart context only.",
+                sourceLabel: "Injected context",
                 sourceUrl: null,
                 structuredData: { symbol: "AAVE" },
               },
             ],
-            narrativeSummary:
-              "AAVE research stayed market-led while protocol data was unavailable.",
+            narrativeSummary: "AAVE research stayed based on injected context and model search.",
             missingDataNotes: parsed.missingDataNotes,
           };
         },
@@ -236,7 +228,7 @@ describe("research agent", () => {
           status: "pending",
           sourceUniverse: "AAVE,UNI,LDO",
           dedupeKey: "AAVE",
-          missingDataNotes: [],
+          missingDataNotes: ["Upstream scanner did not include fresh news."],
         },
       },
       state,
@@ -244,58 +236,15 @@ describe("research agent", () => {
 
     expect(result.candidate.status).toBe("researched");
     expect(result.evidence.length).toBeGreaterThan(0);
-    expect(result.missingDataNotes).toContain(
-      "Protocol snapshot missing: DeFiLlama returned a non-numeric value: [object Object]",
-    );
+    expect(result.missingDataNotes).toContain("Upstream scanner did not include fresh news.");
   });
 
   it("uses the model-backed synthesis path when a client is provided", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createResearchAgent({
-      marketData: {
-        getSnapshot: async () => ({
-          ok: true,
-          value: {
-            symbol: "BTC",
-            provider: "binance",
-            price: 102345,
-            change24hPercent: 4.2,
-            volume24h: 123456789,
-            fundingRate: 0.01,
-            openInterest: 555000000,
-            candles: [],
-            capturedAt: "2026-04-25T08:00:00.000Z",
-          },
-        }),
-      } as unknown as BinanceMarketService,
-      protocolData: {
-        getProtocolSnapshot: async () => ({
-          ok: true,
-          value: {
-            protocol: "Bitcoin",
-            chain: "bitcoin",
-            category: "store-of-value",
-            tvlUsd: 900000000,
-            tvlChange1dPercent: 1.2,
-            tvlChange7dPercent: 5.4,
-            sourceUrl: "https://defillama.com/protocol/bitcoin",
-            capturedAt: "2026-04-25T08:00:00.000Z",
-          },
-        }),
-      } as unknown as DefiLlamaMarketService,
       llmClient: {
         completeJson: async () => ({
           evidence: [
-            {
-              category: "market" as const,
-              summary:
-                "BTC outperformed the local major set with positive spot momentum and stable funding.",
-              sourceLabel: "Binance",
-              sourceUrl: null,
-              structuredData: {
-                symbol: "BTC",
-              },
-            },
             {
               category: "sentiment" as const,
               summary: "ETF-flow headlines kept the tone constructive rather than euphoric.",
