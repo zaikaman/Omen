@@ -180,3 +180,13 @@ export const finalizeCopytradeApproval = (input: {
     method: 'POST',
     body: input,
   });
+
+export const updateCopytradeRiskSettings = (input: {
+  walletAddress: string;
+  hyperliquidChain: HyperliquidChain;
+  riskSettings: CopytradeRiskSettings;
+}) =>
+  apiRequest<CopytradeEnrollment>('/copytrade/risk-settings', enrollmentParser, {
+    method: 'PATCH',
+    body: input,
+  });

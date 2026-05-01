@@ -16,6 +16,7 @@ import {
   createCopytradeDashboardController,
   createCopytradeFinalizeController,
   createCopytradePrepareController,
+  createCopytradeRiskSettingsController,
   createCopytradeStatusController,
 } from "./copytrade.controller.js";
 import { healthCheck } from "./health.controller.js";
@@ -72,6 +73,7 @@ export const createApiRouter = (context: {
   router.get("/copytrade/dashboard", createCopytradeDashboardController(context.env));
   router.post("/copytrade/prepare", createCopytradePrepareController(context.env));
   router.post("/copytrade/finalize", createCopytradeFinalizeController(context.env));
+  router.patch("/copytrade/risk-settings", createCopytradeRiskSettingsController(context.env));
   router.get("/intel", createIntelFeedController(context.env));
   router.get("/intel/:id", createIntelDetailController(context.env));
   router.get("/inft", createInftController(context.env));

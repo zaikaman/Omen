@@ -640,6 +640,50 @@ export const createCopytradePrepareController =
     res.json({ success: true, data: presentEnrollment(created.value) });
   };
 
+export const createCopytradeRiskSettingsController =
+  (env: BackendEnv) => async (req: Request, res: Response) => {
+    const repositories = createRepositories(env);
+
+    if (!repositories) {
+      res.status(503).json({ success: false, error: "Copytrade persistence is not configured." });
+      return;
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const walletAddress = typeof body.walletAddress === "string"
+      ? body.walletAddress.toLowerCase()
+      : "";
+    const hyperliquidChain = parseHyperliquidChain(body.hyperliquidChain);
+
+    if (!isAddress(walletAddress)) {
+      res.status(400).json({ success: false, error: "A valid walletAddress is required." });
+      return;
+    }
+
+    const found = await repositories.enrollments.findLatestByWalletAndChain(walletAddress, hyperliquidChain);
+
+    if (!found.ok) {
+      res.status(500).json({ success: false, error: found.error.message });
+      return;
+    }
+
+    if (!found.value) {
+      res.status(404).json({ success: false, error: "No copytrade enrollment exists for this wallet and network." });
+      return;
+    }
+
+    const updated = await repositories.enrollments.updateEnrollment(found.value.id, {
+      risk_settings: parseRiskSettings(body.riskSettings),
+    });
+
+    if (!updated.ok) {
+      res.status(500).json({ success: false, error: updated.error.message });
+      return;
+    }
+
+    res.json({ success: true, data: presentEnrollment(updated.value) });
+  };
+
 export const createCopytradeFinalizeController =
   (env: BackendEnv) => async (req: Request, res: Response) => {
     const repositories = createRepositories(env);

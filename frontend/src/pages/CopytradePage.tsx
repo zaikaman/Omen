@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Activity,
@@ -25,6 +25,7 @@ import {
   getCopytradeDashboard,
   getCopytradeStatus,
   prepareCopytradeApproval,
+  updateCopytradeRiskSettings,
   type CopytradeAccount,
   type CopytradeDashboard,
   type CopytradeEnrollment,
@@ -268,7 +269,11 @@ function CopytradeDashboardView({
   enrollment,
   isLoading,
   isLoadingAccount,
+  isSavingRisk,
+  onRiskChange,
+  onSaveRisk,
   onTradePageChange,
+  riskSettings,
   tradePage,
 }: {
   account: CopytradeAccount | null;
@@ -276,7 +281,11 @@ function CopytradeDashboardView({
   enrollment: CopytradeEnrollment;
   isLoading: boolean;
   isLoadingAccount: boolean;
+  isSavingRisk: boolean;
+  onRiskChange: (patch: Partial<CopytradeRiskSettings>) => void;
+  onSaveRisk: () => void;
   onTradePageChange: (page: number) => void;
+  riskSettings: CopytradeRiskSettings;
   tradePage: number;
 }) {
   const stats = dashboard?.stats;
@@ -371,27 +380,75 @@ function CopytradeDashboardView({
         </section>
 
         <section className="rounded-lg border border-gray-800 bg-gray-900/50 p-5">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-5 w-5 text-cyan-400" />
-            <h3 className="text-lg font-bold text-white">Risk limits</h3>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="h-5 w-5 text-cyan-400" />
+              <h3 className="text-lg font-bold text-white">Risk limits</h3>
+            </div>
+            <button
+              type="button"
+              onClick={onSaveRisk}
+              disabled={isSavingRisk}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500 px-3 text-xs font-bold text-black transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSavingRisk ? <Loader2 className="h-4 w-4 animate-spin" /> : <SlidersHorizontal className="h-4 w-4" />}
+              Save limits
+            </button>
           </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Max allocation</div>
-              <div className="mt-1 font-mono text-lg font-bold text-white">{formatCurrency(enrollment.riskSettings.maxAllocationUsd)}</div>
-            </div>
-            <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Risk per signal</div>
-              <div className="mt-1 font-mono text-lg font-bold text-white">{formatPercent(enrollment.riskSettings.riskPerSignalPercent)}</div>
-            </div>
-            <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Max leverage</div>
-              <div className="mt-1 font-mono text-lg font-bold text-white">{enrollment.riskSettings.maxLeverage}x</div>
-            </div>
-            <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Max positions</div>
-              <div className="mt-1 font-mono text-lg font-bold text-white">{enrollment.riskSettings.maxOpenPositions}</div>
-            </div>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <RiskInput
+              label="Max allocation"
+              value={riskSettings.maxAllocationUsd}
+              min={0}
+              max={1_000_000}
+              suffix="USDC"
+              onChange={(value) => onRiskChange({ maxAllocationUsd: value })}
+            />
+            <RiskInput
+              label="Risk per signal"
+              value={riskSettings.riskPerSignalPercent}
+              min={0.1}
+              max={10}
+              step={0.1}
+              suffix="%"
+              onChange={(value) => onRiskChange({ riskPerSignalPercent: value })}
+            />
+            <RiskInput
+              label="Max leverage"
+              value={riskSettings.maxLeverage}
+              min={1}
+              max={50}
+              suffix="x"
+              onChange={(value) => onRiskChange({ maxLeverage: value })}
+            />
+            <RiskInput
+              label="Max positions"
+              value={riskSettings.maxOpenPositions}
+              min={1}
+              max={10}
+              onChange={(value) => onRiskChange({ maxOpenPositions: value })}
+            />
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <label className="flex items-center justify-between rounded-lg border border-gray-800 bg-black/40 px-3 py-2 text-sm text-gray-300">
+              Copy longs
+              <input
+                type="checkbox"
+                checked={riskSettings.copyLongs}
+                onChange={(event) => onRiskChange({ copyLongs: event.target.checked })}
+                className="h-4 w-4 accent-cyan-500"
+              />
+            </label>
+            <label className="flex items-center justify-between rounded-lg border border-gray-800 bg-black/40 px-3 py-2 text-sm text-gray-300">
+              Copy shorts
+              <input
+                type="checkbox"
+                checked={riskSettings.copyShorts}
+                onChange={(event) => onRiskChange({ copyShorts: event.target.checked })}
+                className="h-4 w-4 accent-cyan-500"
+              />
+            </label>
           </div>
         </section>
       </div>
@@ -514,7 +571,9 @@ export function CopytradePage() {
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [isSavingRisk, setIsSavingRisk] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const riskSettingsDirtyRef = useRef(false);
 
   const isActive = enrollment?.status === 'active' && enrollment.hyperliquidChain === hyperliquidChain;
   const canApprove = Boolean(
@@ -552,6 +611,9 @@ export function CopytradePage() {
           return;
         }
         setEnrollment(latestEnrollment);
+        if (latestEnrollment && !riskSettingsDirtyRef.current) {
+          setRiskSettings(latestEnrollment.riskSettings);
+        }
         if (latestEnrollment?.status !== 'active') {
           setDashboard(null);
           setTradePage(1);
@@ -628,6 +690,9 @@ export function CopytradePage() {
         setDashboard(nextDashboard);
         if (nextDashboard.enrollment) {
           setEnrollment(nextDashboard.enrollment);
+          if (!riskSettingsDirtyRef.current) {
+            setRiskSettings(nextDashboard.enrollment.riskSettings);
+          }
         }
       })
       .catch(() => {
@@ -679,6 +744,8 @@ export function CopytradePage() {
     setEnrollment(null);
     setDashboard(null);
     setTradePage(1);
+    riskSettingsDirtyRef.current = false;
+    setRiskSettings(DEFAULT_RISK_SETTINGS);
 
     try {
       await window.ethereum?.request({
@@ -721,6 +788,8 @@ export function CopytradePage() {
       });
 
       setEnrollment(finalized);
+      setRiskSettings(finalized.riskSettings);
+      riskSettingsDirtyRef.current = false;
       if (finalized.status === 'active') {
         setTradePage(1);
         setDashboard(await getCopytradeDashboard(walletAddress, {
@@ -737,7 +806,32 @@ export function CopytradePage() {
   };
 
   const updateRisk = (patch: Partial<CopytradeRiskSettings>) => {
+    riskSettingsDirtyRef.current = true;
     setRiskSettings((current) => ({ ...current, ...patch }));
+  };
+
+  const saveRiskSettings = async () => {
+    if (!walletAddress) {
+      setError('Connect a wallet before saving risk limits.');
+      return;
+    }
+
+    setError(null);
+    setIsSavingRisk(true);
+    try {
+      const updated = await updateCopytradeRiskSettings({
+        walletAddress,
+        hyperliquidChain,
+        riskSettings,
+      });
+      setEnrollment(updated);
+      setRiskSettings(updated.riskSettings);
+      riskSettingsDirtyRef.current = false;
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Risk limit update failed.');
+    } finally {
+      setIsSavingRisk(false);
+    }
   };
 
   return (
@@ -794,7 +888,11 @@ export function CopytradePage() {
           enrollment={enrollment}
           isLoading={isLoadingDashboard}
           isLoadingAccount={isLoadingAccount}
+          isSavingRisk={isSavingRisk}
+          onRiskChange={updateRisk}
+          onSaveRisk={saveRiskSettings}
           onTradePageChange={setTradePage}
+          riskSettings={riskSettings}
           tradePage={tradePage}
         />
       ) : (
