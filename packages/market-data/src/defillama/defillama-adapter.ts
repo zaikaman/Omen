@@ -334,10 +334,18 @@ export class DefiLlamaAdapter {
   }
 
   private parseNumber(value: unknown) {
+    const latestPoint = this.resolveLatestTvlPoint(value);
+
+    if (latestPoint !== null) {
+      return latestPoint;
+    }
+
     const parsed = Number(value);
 
     if (!Number.isFinite(parsed)) {
-      throw new Error(`DeFiLlama returned a non-numeric value: ${String(value)}`);
+      throw new Error(
+        `DeFiLlama returned a non-numeric value: ${this.describeNumericValue(value)}`,
+      );
     }
 
     return parsed;
@@ -350,6 +358,18 @@ export class DefiLlamaAdapter {
 
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private describeNumericValue(value: unknown) {
+    if (Array.isArray(value)) {
+      return `array(${value.length.toString()})`;
+    }
+
+    if (value && typeof value === "object") {
+      return "object";
+    }
+
+    return String(value);
   }
 
   private async requestProtocol(

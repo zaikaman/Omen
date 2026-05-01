@@ -87,6 +87,8 @@ const promoteCandidateToResearched = (candidate: CandidateState) =>
     status: "researched",
   });
 
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 export class ResearchAgentFactory {
   private readonly marketData: BinanceMarketService;
 
@@ -124,17 +126,26 @@ export class ResearchAgentFactory {
     const symbol = parsed.candidate.symbol.toUpperCase();
     const protocolSlug = resolveProtocolSlugForCandidate(symbol);
 
-    const [snapshotResult, protocolResult] = await Promise.all([
-      this.marketData.getSnapshot(symbol),
+    const [snapshotAttempt, protocolAttempt] = await Promise.all([
+      this.marketData
+        .getSnapshot(symbol)
+        .then((result) => ({ ok: true as const, result }))
+        .catch((error: unknown) => ({ ok: false as const, error })),
       protocolSlug === null
         ? Promise.resolve(null)
-        : this.protocolData.getProtocolSnapshot(protocolSlug),
+        : this.protocolData
+            .getProtocolSnapshot(protocolSlug)
+            .then((result) => ({ ok: true as const, result }))
+            .catch((error: unknown) => ({ ok: false as const, error })),
     ]);
 
     const evidence: EvidenceItem[] = [];
     const missingDataNotes = [...parsed.candidate.missingDataNotes];
 
-    if (snapshotResult.ok) {
+    const snapshotResult = snapshotAttempt.ok ? snapshotAttempt.result : null;
+    const protocolResult = protocolAttempt?.ok ? protocolAttempt.result : null;
+
+    if (snapshotResult?.ok) {
       evidence.push(
         buildMarketEvidence({
           symbol,
@@ -145,13 +156,21 @@ export class ResearchAgentFactory {
         }),
       );
     } else {
-      missingDataNotes.push(`Market snapshot missing: ${snapshotResult.error.message}`);
+      const message =
+        snapshotResult !== null
+          ? snapshotResult.error.message
+          : !snapshotAttempt.ok
+            ? errorMessage(snapshotAttempt.error)
+            : "unknown market data error";
+      missingDataNotes.push(`Market snapshot missing: ${message}`);
     }
 
     if (protocolResult?.ok) {
       evidence.push(buildProtocolEvidence(protocolResult.value, symbol));
     } else if (protocolResult && !protocolResult.ok) {
       missingDataNotes.push(`Protocol snapshot missing: ${protocolResult.error.message}`);
+    } else if (protocolAttempt && !protocolAttempt.ok) {
+      missingDataNotes.push(`Protocol snapshot missing: ${errorMessage(protocolAttempt.error)}`);
     }
 
     let narrativeSummary = `${symbol} research bundle is currently market-led with limited external context.`;
@@ -165,7 +184,7 @@ export class ResearchAgentFactory {
       candidate: parsed.candidate,
       prompt,
       state,
-      snapshot: snapshotResult.ok
+      snapshot: snapshotResult?.ok
         ? {
             symbol: snapshotResult.value.symbol,
             price: snapshotResult.value.price,
@@ -190,18 +209,14 @@ export class ResearchAgentFactory {
     narrativeSummary = synthesized.narrativeSummary;
 
     if ((synthesized.missingDataNotes ?? []).length > 0) {
-      missingDataNotes.splice(
-        0,
-        missingDataNotes.length,
-        ...(synthesized.missingDataNotes ?? []),
-      );
+      missingDataNotes.splice(0, missingDataNotes.length, ...(synthesized.missingDataNotes ?? []));
     }
 
     if (evidence.length === 0) {
       evidence.push(
         evidenceItemSchema.parse({
           category: "catalyst",
-      summary: `${symbol} retained only incomplete research coverage. Additional external reads are needed before analyst escalation.`,
+          summary: `${symbol} retained only incomplete research coverage. Additional external reads are needed before analyst escalation.`,
           sourceLabel: "Omen Research Shell",
           sourceUrl: null,
           structuredData: {

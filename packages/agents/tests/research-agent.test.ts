@@ -174,6 +174,81 @@ describe("research agent", () => {
     ).toBe(false);
   });
 
+  it("keeps research running when an optional protocol lookup throws", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createResearchAgent({
+      marketData: {
+        getSnapshot: async () => ({
+          ok: true,
+          value: {
+            symbol: "AAVE",
+            provider: "binance",
+            price: 250,
+            change24hPercent: 1.6,
+            volume24h: 100000000,
+            fundingRate: 0.002,
+            openInterest: 50000000,
+            candles: [],
+            capturedAt: "2026-04-25T08:00:00.000Z",
+          },
+        }),
+      } as unknown as BinanceMarketService,
+      protocolData: {
+        getProtocolSnapshot: async () => {
+          throw new Error("DeFiLlama returned a non-numeric value: [object Object]");
+        },
+      } as unknown as DefiLlamaMarketService,
+      llmClient: {
+        completeJson: async ({ userPrompt }: { userPrompt: string }) => {
+          const parsed = JSON.parse(userPrompt) as { missingDataNotes: string[] };
+
+          return {
+            evidence: [
+              {
+                category: "market" as const,
+                summary: "AAVE market snapshot remained usable despite missing protocol data.",
+                sourceLabel: "Binance",
+                sourceUrl: null,
+                structuredData: { symbol: "AAVE" },
+              },
+            ],
+            narrativeSummary:
+              "AAVE research stayed market-led while protocol data was unavailable.",
+            missingDataNotes: parsed.missingDataNotes,
+          };
+        },
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        candidate: {
+          id: "candidate-aave-1",
+          symbol: "AAVE",
+          reason: "Momentum and DeFi narrative alignment",
+          directionHint: "LONG",
+          status: "pending",
+          sourceUniverse: "AAVE,UNI,LDO",
+          dedupeKey: "AAVE",
+          missingDataNotes: [],
+        },
+      },
+      state,
+    );
+
+    expect(result.candidate.status).toBe("researched");
+    expect(result.evidence.length).toBeGreaterThan(0);
+    expect(result.missingDataNotes).toContain(
+      "Protocol snapshot missing: DeFiLlama returned a non-numeric value: [object Object]",
+    );
+  });
+
   it("uses the model-backed synthesis path when a client is provided", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createResearchAgent({
