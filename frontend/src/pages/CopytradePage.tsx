@@ -38,6 +38,8 @@ import {
 
 type EthereumProvider = {
   request: <T = unknown>(args: { method: string; params?: unknown[] }) => Promise<T>;
+  on?: (event: 'accountsChanged' | 'chainChanged', listener: (...args: unknown[]) => void) => void;
+  removeListener?: (event: 'accountsChanged' | 'chainChanged', listener: (...args: unknown[]) => void) => void;
 };
 
 declare global {
@@ -198,20 +200,6 @@ const tradeLifecycleLabel = (trade: CopytradeTrade) => {
 
 const formatTradePrice = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value.toString() : '-';
-
-const tradeDetailsLabel = (trade: CopytradeTrade) => {
-  if (trade.lastError) {
-    return trade.lastError;
-  }
-
-  const orderParts = [
-    trade.orderId ? `Entry ${trade.orderId}` : null,
-    trade.takeProfitOrderId ? `TP ${trade.takeProfitOrderId}` : null,
-    trade.stopLossOrderId ? `SL ${trade.stopLossOrderId}` : null,
-  ].filter((value): value is string => Boolean(value));
-
-  return orderParts.length > 0 ? orderParts.join(' | ') : '-';
-};
 
 function RiskInput({
   label,
@@ -482,7 +470,7 @@ function CopytradeDashboardView({
         {trades.length > 0 ? (
           <div className="mt-4">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] text-left text-sm">
+              <table className="w-full min-w-[860px] text-left text-sm">
                 <thead className="border-b border-gray-800 text-[10px] font-mono uppercase tracking-wider text-gray-500">
                   <tr>
                     <th className="px-3 py-3">Asset</th>
@@ -494,7 +482,6 @@ function CopytradeDashboardView({
                     <th className="px-3 py-3 text-right">PnL</th>
                     <th className="px-3 py-3">Opened</th>
                     <th className="px-3 py-3">Closed</th>
-                    <th className="px-3 py-3">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/80">
@@ -534,9 +521,6 @@ function CopytradeDashboardView({
                         </td>
                         <td className="px-3 py-3 text-gray-400">{formatDate(trade.openedAt ?? trade.createdAt)}</td>
                         <td className="px-3 py-3 text-gray-400">{trade.closedAt ? formatDate(trade.closedAt) : 'Still open'}</td>
-                        <td className="max-w-[260px] truncate px-3 py-3 text-gray-500" title={tradeDetailsLabel(trade)}>
-                          {tradeDetailsLabel(trade)}
-                        </td>
                       </tr>
                     );
                   })}
@@ -621,6 +605,59 @@ export function CopytradePage() {
     hyperliquidChain === 'Testnet'
       ? 'https://app.hyperliquid-testnet.xyz/'
       : 'https://app.hyperliquid.xyz/';
+
+  useEffect(() => {
+    const provider = window.ethereum;
+
+    if (!provider) {
+      return;
+    }
+
+    let ignore = false;
+
+    const syncConnectedWallet = async () => {
+      try {
+        const [accounts, activeChainId] = await Promise.all([
+          provider.request<string[]>({ method: 'eth_accounts' }),
+          provider.request<`0x${string}`>({ method: 'eth_chainId' }),
+        ]);
+        if (ignore) {
+          return;
+        }
+        setWalletAddress(accounts[0] ? (accounts[0].toLowerCase() as `0x${string}`) : null);
+        setChainId(activeChainId);
+      } catch {
+        if (!ignore) {
+          setWalletAddress(null);
+          setChainId(null);
+        }
+      }
+    };
+
+    const handleAccountsChanged = (accounts: unknown) => {
+      const nextAccounts = Array.isArray(accounts) ? accounts : [];
+      const nextAddress = typeof nextAccounts[0] === 'string'
+        ? (nextAccounts[0].toLowerCase() as `0x${string}`)
+        : null;
+      setWalletAddress(nextAddress);
+    };
+
+    const handleChainChanged = (nextChainId: unknown) => {
+      if (typeof nextChainId === 'string') {
+        setChainId(nextChainId as `0x${string}`);
+      }
+    };
+
+    void syncConnectedWallet();
+    provider.on?.('accountsChanged', handleAccountsChanged);
+    provider.on?.('chainChanged', handleChainChanged);
+
+    return () => {
+      ignore = true;
+      provider.removeListener?.('accountsChanged', handleAccountsChanged);
+      provider.removeListener?.('chainChanged', handleChainChanged);
+    };
+  }, []);
 
   useEffect(() => {
     if (!walletAddress) {
@@ -757,7 +794,14 @@ export function CopytradePage() {
       const activeChainId = await window.ethereum.request<`0x${string}`>({
         method: 'eth_chainId',
       });
-      setWalletAddress(accounts[0]?.toLowerCase() as `0x${string}`);
+      const nextAddress = accounts[0];
+      if (!nextAddress) {
+        setError('No wallet account was returned by the provider.');
+        setWalletAddress(null);
+        setChainId(null);
+        return;
+      }
+      setWalletAddress(nextAddress.toLowerCase() as `0x${string}`);
       setChainId(activeChainId);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Wallet connection failed.');
