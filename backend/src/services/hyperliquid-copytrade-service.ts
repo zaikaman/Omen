@@ -28,6 +28,7 @@ export type HyperliquidOpenPositionResult = {
   entryPrice: number;
   notionalUsd: number;
   leverage: number;
+  entryFilled: boolean;
 };
 
 export type HyperliquidPosition = {
@@ -58,12 +59,32 @@ const extractOrderId = (response: OrderResponse | null) => {
   return typeof oid === "number" ? oid.toString() : null;
 };
 
+const extractOrderIdFromStatus = (
+  status: OrderResponse["response"]["data"]["statuses"][number] | undefined,
+) => {
+  if (!status || typeof status !== "object") {
+    return null;
+  }
+
+  const oid = status?.filled?.oid ?? status?.resting?.oid;
+  return typeof oid === "number" ? oid.toString() : null;
+};
+
 const firstOrderStatusError = (response: OrderResponse) => {
   const status = response.response?.data?.statuses?.[0] as
     | { error?: unknown }
     | undefined;
   return typeof status?.error === "string" ? status.error : null;
 };
+
+const collectOrderStatusErrors = (response: OrderResponse) =>
+  (response.response?.data?.statuses ?? [])
+    .map((status) =>
+      status && typeof status === "object" && "error" in status && typeof status.error === "string"
+        ? status.error
+        : null,
+    )
+    .filter((error): error is string => Boolean(error));
 
 export class HyperliquidCopytradeService {
   private readonly sdk: Hyperliquid;
@@ -236,22 +257,38 @@ export class HyperliquidCopytradeService {
     const entryLimitPrice = input.orderType === "limit" && input.entryPrice
       ? this.roundPrice(input.entryPrice)
       : this.roundPrice(currentPrice * (isBuy ? 1 + MARKET_ORDER_SLIPPAGE : 1 - MARKET_ORDER_SLIPPAGE));
-    const entryOrder = await this.placeOrder({
-      symbol,
-      isBuy,
-      size: quantity,
-      price: entryLimitPrice,
-      orderType: input.orderType,
-      reduceOnly: false,
-    });
+    const entryOrder = input.orderType === "limit"
+      ? await this.placeGroupedLimitBracketOrder({
+        symbol,
+        isBuy,
+        size: quantity,
+        entryPrice: entryLimitPrice,
+        takeProfitPrice: input.takeProfitPrice,
+        stopLossPrice: input.stopLossPrice,
+      })
+      : await this.placeOrder({
+        symbol,
+        isBuy,
+        size: quantity,
+        price: entryLimitPrice,
+        orderType: input.orderType,
+        reduceOnly: false,
+      });
 
     const entryError = firstOrderStatusError(entryOrder);
-    if (entryOrder.status !== "ok" || entryError) {
-      throw new Error(entryError ?? `Hyperliquid rejected ${symbol} entry order.`);
+    const groupedErrors = collectOrderStatusErrors(entryOrder);
+    if (entryOrder.status !== "ok" || entryError || groupedErrors.length > 0) {
+      throw new Error(
+        entryError ??
+        (groupedErrors.length > 0
+          ? groupedErrors.join("; ")
+          : `Hyperliquid rejected ${symbol} entry order.`),
+      );
     }
 
-    const entryFilled = entryOrder.response?.data?.statuses?.[0]?.filled;
-    const entryResting = entryOrder.response?.data?.statuses?.[0]?.resting;
+    const statuses = entryOrder.response?.data?.statuses ?? [];
+    const entryFilled = statuses[0]?.filled;
+    const entryResting = statuses[0]?.resting;
 
     if (input.orderType === "market" && !entryFilled) {
       throw new Error(`Hyperliquid did not fill ${symbol} market entry order.`);
@@ -266,8 +303,22 @@ export class HyperliquidCopytradeService {
 
     let takeProfitOrder: OrderResponse | null = null;
     let stopLossOrder: OrderResponse | null = null;
+    let takeProfitOrderId = extractOrderIdFromStatus(statuses[1]);
+    let stopLossOrderId = extractOrderIdFromStatus(statuses[2]);
 
-    if (entryFilled || input.orderType === "market") {
+    if (input.orderType === "limit") {
+      const openBracketOrderIds = await this.findOpenBracketOrderIds({
+        symbol,
+        isBuy: !isBuy,
+        size: filledQuantity,
+        takeProfitPrice: input.takeProfitPrice,
+        stopLossPrice: input.stopLossPrice,
+      });
+      takeProfitOrderId = takeProfitOrderId ?? openBracketOrderIds.takeProfitOrderId;
+      stopLossOrderId = stopLossOrderId ?? openBracketOrderIds.stopLossOrderId;
+      takeProfitOrder = takeProfitOrderId ? entryOrder : null;
+      stopLossOrder = stopLossOrderId ? entryOrder : null;
+    } else if (entryFilled || input.orderType === "market") {
       const bracket = await this.placePositionTriggers({
         symbol,
         side: input.side,
@@ -277,6 +328,8 @@ export class HyperliquidCopytradeService {
       });
       takeProfitOrder = bracket.takeProfitOrder;
       stopLossOrder = bracket.stopLossOrder;
+      takeProfitOrderId = bracket.takeProfitOrderId;
+      stopLossOrderId = bracket.stopLossOrderId;
     }
 
     this.clearCaches();
@@ -289,12 +342,13 @@ export class HyperliquidCopytradeService {
       takeProfitOrder,
       stopLossOrder,
       entryOrderId: extractOrderId(entryOrder),
-      takeProfitOrderId: extractOrderId(takeProfitOrder),
-      stopLossOrderId: extractOrderId(stopLossOrder),
+      takeProfitOrderId,
+      stopLossOrderId,
       quantity: filledQuantity,
       entryPrice: filledEntryPrice,
       notionalUsd: filledQuantity * filledEntryPrice,
       leverage: input.leverage,
+      entryFilled: Boolean(entryFilled),
     };
   }
 
@@ -348,6 +402,66 @@ export class HyperliquidCopytradeService {
       stopLossOrder,
       takeProfitOrderId: extractOrderId(takeProfitOrder),
       stopLossOrderId: extractOrderId(stopLossOrder),
+    };
+  }
+
+  async replaceRestingLimitWithAttachedBrackets(input: {
+    symbol: string;
+    side: HyperliquidTradeSide;
+    entryOrderId: string;
+    quantity: number;
+    entryPrice: number;
+    takeProfitPrice: number;
+    stopLossPrice: number;
+  }) {
+    const symbol = this.formatSymbol(input.symbol);
+    const openOrder = await this.findOpenOrder(symbol, input.entryOrderId);
+
+    if (!openOrder) {
+      return null;
+    }
+
+    await this.cancelOrder(symbol, input.entryOrderId);
+
+    const groupedOrder = await this.placeGroupedLimitBracketOrder({
+      symbol,
+      isBuy: input.side === "LONG",
+      size: input.quantity,
+      entryPrice: input.entryPrice,
+      takeProfitPrice: input.takeProfitPrice,
+      stopLossPrice: input.stopLossPrice,
+    });
+    const errors = collectOrderStatusErrors(groupedOrder);
+
+    if (groupedOrder.status !== "ok" || errors.length > 0) {
+      throw new Error(errors.join("; ") || `Hyperliquid rejected grouped ${symbol} limit order.`);
+    }
+
+    this.clearCaches();
+
+    const statuses = groupedOrder.response?.data?.statuses ?? [];
+    const entryOrderId = extractOrderIdFromStatus(statuses[0]);
+    const openBracketOrderIds = await this.findOpenBracketOrderIds({
+      symbol,
+      isBuy: input.side !== "LONG",
+      size: input.quantity,
+      takeProfitPrice: input.takeProfitPrice,
+      stopLossPrice: input.stopLossPrice,
+    });
+    const takeProfitOrderId = extractOrderIdFromStatus(statuses[1]) ?? openBracketOrderIds.takeProfitOrderId;
+    const stopLossOrderId = extractOrderIdFromStatus(statuses[2]) ?? openBracketOrderIds.stopLossOrderId;
+
+    if (!entryOrderId) {
+      throw new Error(`Hyperliquid did not return a replacement entry order id for ${symbol}.`);
+    }
+
+    return {
+      entryOrder: groupedOrder,
+      takeProfitOrder: takeProfitOrderId ? groupedOrder : null,
+      stopLossOrder: stopLossOrderId ? groupedOrder : null,
+      entryOrderId,
+      takeProfitOrderId,
+      stopLossOrderId,
     };
   }
 
@@ -491,6 +605,49 @@ export class HyperliquidCopytradeService {
     }) as Promise<OrderResponse>;
   }
 
+  private async placeGroupedLimitBracketOrder(input: {
+    symbol: string;
+    isBuy: boolean;
+    size: number;
+    entryPrice: number;
+    takeProfitPrice: number;
+    stopLossPrice: number;
+  }) {
+    await this.ensureConnected();
+    const roundedSize = await this.roundSize(input.symbol, input.size);
+    const closeIsBuy = !input.isBuy;
+    const takeProfitOrder = await this.buildTriggerOrder({
+      symbol: input.symbol,
+      isBuy: closeIsBuy,
+      size: roundedSize,
+      triggerPrice: input.takeProfitPrice,
+      triggerType: "tp",
+    });
+    const stopLossOrder = await this.buildTriggerOrder({
+      symbol: input.symbol,
+      isBuy: closeIsBuy,
+      size: roundedSize,
+      triggerPrice: input.stopLossPrice,
+      triggerType: "sl",
+    });
+
+    return this.sdk.exchange.placeOrder({
+      orders: [
+        {
+          coin: this.normalizeSymbol(input.symbol),
+          is_buy: input.isBuy,
+          sz: roundedSize.toString(),
+          limit_px: this.roundPrice(input.entryPrice).toString(),
+          order_type: { limit: { tif: "Gtc" } },
+          reduce_only: false,
+        },
+        takeProfitOrder,
+        stopLossOrder,
+      ],
+      grouping: "normalTpsl",
+    }) as Promise<OrderResponse>;
+  }
+
   private async placeTriggerOrder(input: {
     symbol: string;
     isBuy: boolean;
@@ -499,13 +656,23 @@ export class HyperliquidCopytradeService {
     triggerType: "tp" | "sl";
   }) {
     await this.ensureConnected();
+    return this.sdk.exchange.placeOrder(
+      await this.buildTriggerOrder(input),
+    ) as Promise<OrderResponse>;
+  }
+
+  private async buildTriggerOrder(input: {
+    symbol: string;
+    isBuy: boolean;
+    size: number;
+    triggerPrice: number;
+    triggerType: "tp" | "sl";
+  }) {
     const roundedSize = await this.roundSize(input.symbol, input.size);
     const triggerPrice = this.roundPrice(input.triggerPrice);
-    const limitPrice = this.roundPrice(
-      input.triggerPrice * (input.isBuy ? 1 + TRIGGER_MARKET_SLIPPAGE : 1 - TRIGGER_MARKET_SLIPPAGE),
-    );
+    const limitPrice = this.getTriggerLimitPrice(input.triggerPrice, input.isBuy);
 
-    return this.sdk.exchange.placeOrder({
+    return {
       coin: this.normalizeSymbol(input.symbol),
       is_buy: input.isBuy,
       sz: roundedSize.toString(),
@@ -518,7 +685,71 @@ export class HyperliquidCopytradeService {
         },
       },
       reduce_only: true,
-    }) as Promise<OrderResponse>;
+    };
+  }
+
+  private async findOpenOrder(symbol: string, orderId: string) {
+    await this.ensureConnected();
+    const openOrders = await this.sdk.info.getUserOpenOrders(this.input.walletAddress);
+    const normalizedSymbol = this.formatSymbol(symbol);
+
+    return openOrders.find((order) =>
+      this.formatSymbol(order.coin) === normalizedSymbol &&
+      order.oid.toString() === orderId
+    ) ?? null;
+  }
+
+  private async findOpenBracketOrderIds(input: {
+    symbol: string;
+    isBuy: boolean;
+    size: number;
+    takeProfitPrice: number;
+    stopLossPrice: number;
+  }) {
+    await this.ensureConnected();
+    const roundedSize = await this.roundSize(input.symbol, input.size);
+    const takeProfitLimitPrice = this.getTriggerLimitPrice(input.takeProfitPrice, input.isBuy);
+    const stopLossLimitPrice = this.getTriggerLimitPrice(input.stopLossPrice, input.isBuy);
+    const side = input.isBuy ? "B" : "A";
+    const normalizedSymbol = this.formatSymbol(input.symbol);
+    const openOrders = await this.sdk.info.getUserOpenOrders(this.input.walletAddress);
+    const matches = openOrders.filter((order) => {
+      const candidate = order as typeof order & { reduceOnly?: boolean };
+      const size = Number(order.sz);
+
+      return (
+        this.formatSymbol(order.coin) === normalizedSymbol &&
+        candidate.reduceOnly === true &&
+        order.side === side &&
+        Number.isFinite(size) &&
+        Math.abs(size - roundedSize) < 1e-12
+      );
+    });
+    const findByLimitPrice = (price: number) =>
+      matches.find((order) => {
+        const limitPrice = Number(order.limitPx);
+        return Number.isFinite(limitPrice) && Math.abs(limitPrice - price) < 1e-12;
+      })?.oid.toString() ?? null;
+
+    return {
+      takeProfitOrderId: findByLimitPrice(takeProfitLimitPrice),
+      stopLossOrderId: findByLimitPrice(stopLossLimitPrice),
+    };
+  }
+
+  private async cancelOrder(symbol: string, orderId: string) {
+    await this.ensureConnected();
+
+    return this.sdk.exchange.cancelOrder({
+      coin: this.normalizeSymbol(symbol),
+      o: Number(orderId),
+    });
+  }
+
+  private getTriggerLimitPrice(triggerPrice: number, isBuy: boolean) {
+    return this.roundPrice(
+      triggerPrice * (isBuy ? 1 + TRIGGER_MARKET_SLIPPAGE : 1 - TRIGGER_MARKET_SLIPPAGE),
+    );
   }
 
   private async getMarketClosePrice(symbol: string, direction: HyperliquidTradeSide) {

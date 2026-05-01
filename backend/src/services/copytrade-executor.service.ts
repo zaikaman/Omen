@@ -494,7 +494,7 @@ export class CopytradeExecutorService {
       return "skipped" as const;
     }
     const now = new Date().toISOString();
-    const isOpen = Boolean(order.takeProfitOrderId && order.stopLossOrderId);
+    const isOpen = order.entryFilled && Boolean(order.takeProfitOrderId && order.stopLossOrderId);
     const tradeInput = {
       enrollmentId: enrollment.id,
       walletAddress: enrollment.walletAddress,
@@ -643,6 +643,16 @@ export class CopytradeExecutorService {
     });
 
     if (!entryFill) {
+      const repairedRestingLimit = await this.ensureQueuedLimitHasAttachedBrackets({
+        enrollment,
+        service,
+        trade,
+      });
+
+      if (repairedRestingLimit > 0) {
+        return repairedRestingLimit;
+      }
+
       return 0;
     }
 
@@ -698,6 +708,106 @@ export class CopytradeExecutorService {
         (!takeProfitOrderId || !stopLossOrderId
           ? "Limit entry filled without complete TP/SL orders."
           : null),
+    });
+
+    if (!updated.ok) {
+      throw new Error(updated.error.message);
+    }
+
+    return 1;
+  }
+
+  private async ensureQueuedLimitHasAttachedBrackets(input: {
+    enrollment: CopytradeEnrollment;
+    service: HyperliquidCopytradeService;
+    trade: CopytradeTrade;
+  }) {
+    if (!this.repositories) {
+      return 0;
+    }
+
+    const { enrollment, service, trade } = input;
+    const metadata = trade.executionMetadata ?? {};
+
+    if (
+      metadata.orderType !== "limit" ||
+      !trade.orderId ||
+      (trade.takeProfitOrderId && trade.stopLossOrderId)
+    ) {
+      return 0;
+    }
+
+    const { targetPrice, stopLoss } = await this.resolveTradeBracketPrices(trade);
+
+    if (
+      !isUsablePrice(targetPrice) ||
+      !isUsablePrice(stopLoss) ||
+      !isUsablePrice(trade.entryPrice) ||
+      !trade.quantity ||
+      trade.quantity <= 0
+    ) {
+      const updated = await this.repositories.trades.updateTrade(trade.id, {
+        lastError: "Queued limit order is missing entry, quantity, TP, or SL needed for bracket attachment.",
+      });
+
+      if (!updated.ok) {
+        throw new Error(updated.error.message);
+      }
+
+      return 1;
+    }
+
+    const replacement = await service.replaceRestingLimitWithAttachedBrackets({
+      symbol: trade.asset,
+      side: trade.direction,
+      entryOrderId: trade.orderId,
+      quantity: trade.quantity,
+      entryPrice: trade.entryPrice,
+      takeProfitPrice: targetPrice,
+      stopLossPrice: stopLoss,
+    }).catch((error: unknown) => {
+      this.input.logger.error(
+        `Failed to replace resting limit with attached brackets for ${enrollment.walletAddress} ${trade.asset}.`,
+        error,
+      );
+      return {
+        error: error instanceof Error ? error.message : "Failed to attach TP/SL to resting limit order.",
+      };
+    });
+
+    if (!replacement) {
+      return 0;
+    }
+
+    if ("error" in replacement) {
+      const updated = await this.repositories.trades.updateTrade(trade.id, {
+        lastError: replacement.error,
+      });
+
+      if (!updated.ok) {
+        throw new Error(updated.error.message);
+      }
+
+      return 1;
+    }
+
+    const updated = await this.repositories.trades.updateTrade(trade.id, {
+      orderId: replacement.entryOrderId,
+      takeProfitOrderId: replacement.takeProfitOrderId,
+      stopLossOrderId: replacement.stopLossOrderId,
+      executionMetadata: {
+        ...metadata,
+        entryOrder: replacement.entryOrder,
+        takeProfitOrder: replacement.takeProfitOrder,
+        stopLossOrder: replacement.stopLossOrder,
+        replacedEntryOrderId: trade.orderId,
+        bracketGrouping: "normalTpsl",
+        bracketAttachedAt: new Date().toISOString(),
+      },
+      lastError:
+        replacement.takeProfitOrderId && replacement.stopLossOrderId
+          ? null
+          : "Queued limit order was replaced with grouped TP/SL, but Hyperliquid did not return both child order ids.",
     });
 
     if (!updated.ok) {
