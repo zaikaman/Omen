@@ -23,7 +23,7 @@ export const buildAnalystSystemPrompt = (input: z.input<typeof analystPromptCont
     "Only emit market or limit order ideas. Never imply buy-stop or sell-stop entries.",
     "For LONG, entryPrice must be less than or equal to currentPrice. For SHORT, entryPrice must be greater than or equal to currentPrice.",
     "Market orders are valid when the setup is immediate; set entryPrice equal to currentPrice.",
-    "Limit orders are valid for pullbacks: day_trade entries should stay within 5% of currentPrice, swing_trade entries should stay within 12%.",
+    "Limit orders are valid for pullbacks and may be any distance from currentPrice when direction mechanics are valid.",
     "Use swing_trade only when the evidence supports a multi-day hold, not just to force a far entry through review.",
     "Actionable trades require stopLoss at least 3% from entryPrice and riskReward of at least 2.",
     "Be explicit about direction, confidence, risk/reward, confluences, uncertainty, and missing data.",

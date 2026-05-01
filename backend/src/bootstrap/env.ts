@@ -20,6 +20,7 @@ export type BackendEnv = {
     minRiskReward: number;
     minConfluences: number;
   };
+  signalDailyLimit: number;
   supabase: {
     url: string | null;
     anonKey: string | null;
@@ -256,6 +257,7 @@ export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendE
       minRiskReward: parseNumber(env.OMEN_MIN_RISK_REWARD, 2),
       minConfluences: parsePort(env.OMEN_MIN_CONFLUENCES, 2),
     },
+    signalDailyLimit: parsePort(env.OMEN_DAILY_SIGNAL_LIMIT, 3),
     supabase: {
       url: env.SUPABASE_URL ?? null,
       anonKey: env.SUPABASE_ANON_KEY ?? null,

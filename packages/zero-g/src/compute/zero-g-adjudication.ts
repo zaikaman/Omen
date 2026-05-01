@@ -57,6 +57,7 @@ const buildPrompt = (input: ZeroGAdjudicationInput) =>
     "You are the final adjudication step for the Omen swarm.",
     "Return a concise verdict with explicit reasoning grounded only in the supplied thesis and evidence.",
     "Verdict must be one of: approved, rejected.",
+    "Do not reject a limit order because its entry is far from current price; far pullback limits are allowed when LONG entries are at/below current price or SHORT entries are at/above current price.",
     `Run ID: ${input.runId}`,
     `Prior Decision: ${input.priorDecision ?? "none"}`,
     "Thesis:",

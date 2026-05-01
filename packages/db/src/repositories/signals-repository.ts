@@ -305,6 +305,28 @@ export class SignalsRepository extends BaseRepository<SignalRow, SignalInsert, S
     });
   }
 
+  async countPublishedSignalsBetween(input: {
+    startAt: string;
+    endAt: string;
+  }): Promise<Result<number, RepositoryError>> {
+    const { count, error } = await this.table()
+      .select("id", { count: "exact", head: true })
+      .eq("report_status", "published")
+      .gte("published_at", input.startAt)
+      .lt("published_at", input.endAt);
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok(count ?? 0);
+  }
+
   async listTrackableSignals(limit = 50): Promise<Result<Signal[], RepositoryError>> {
     const { data, error } = await this.table()
       .select("*")

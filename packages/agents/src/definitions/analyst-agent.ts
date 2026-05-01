@@ -183,9 +183,6 @@ const calculateRiskReward = (input: {
   return Number((reward / risk).toFixed(2));
 };
 
-const maxLimitEntryDistance = (tradingStyle: "day_trade" | "swing_trade" | null) =>
-  tradingStyle === "swing_trade" ? 0.12 : 0.05;
-
 const validateTemplateTradeRules = (input: {
   direction: "LONG" | "SHORT" | "WATCHLIST" | "NONE";
   orderType: "market" | "limit" | null;
@@ -355,7 +352,6 @@ const deriveTradeSetup = (input: {
     input.confidence >= 90 && input.confluences.length >= 3 ? "swing_trade" : "day_trade";
   const expectedDuration = tradingStyle === "swing_trade" ? "2-5 days" : "8-16 hours";
   const stopDistancePercent = tradingStyle === "swing_trade" ? 0.05 : 0.035;
-  const maxEntryDistance = maxLimitEntryDistance(tradingStyle);
   const supportEntry =
     input.direction === "LONG" && supportLevel !== null && supportLevel <= currentPrice
       ? supportLevel
@@ -365,8 +361,7 @@ const deriveTradeSetup = (input: {
       ? resistanceLevel
       : null;
   const candidateEntry = supportEntry ?? resistanceEntry ?? currentPrice;
-  const entryDistance = Math.abs((candidateEntry - currentPrice) / currentPrice);
-  const entryPrice = entryDistance <= maxEntryDistance ? candidateEntry : currentPrice;
+  const entryPrice = candidateEntry;
   const stopLoss =
     input.direction === "LONG"
       ? Math.min(
@@ -920,10 +915,7 @@ const repairThesisForCritic = (input: {
     input.previousThesis.expectedDuration ??
     (tradingStyle === "swing_trade" ? "2-5 days" : "8-16 hours");
   const candidateEntry = thesis.entryPrice ?? input.previousThesis.entryPrice ?? currentPrice;
-  const entryDistance = Math.abs((candidateEntry - currentPrice) / currentPrice);
-  const maxDistance = maxLimitEntryDistance(tradingStyle);
-  const orderType =
-    thesis.orderType === "limit" && entryDistance <= maxDistance ? "limit" : "market";
+  const orderType = thesis.orderType === "limit" ? "limit" : "market";
   const entryPrice = orderType === "market" ? currentPrice : candidateEntry;
   const riskReward = Math.max(thesis.riskReward ?? input.previousThesis.riskReward ?? 2, 2);
   const stopDistancePercent = tradingStyle === "swing_trade" ? 0.05 : 0.035;
@@ -1096,8 +1088,8 @@ export class AnalystAgentFactory {
             repairContext,
             instruction:
               repairContext === null
-                ? "Return one thesis draft only. Keep candidateId equal to the candidate id and asset equal to the candidate symbol. Obey the template analyzer hard rules: only market/limit orders, LONG entry at or below current price, SHORT entry at or above current price, stop at least 3% from entry, and risk/reward at least 1:2. Market orders must use the live current price. Limit entries may be pullbacks, but day_trade limits must stay within 5% of current price and swing_trade limits within 12%."
-                : "This is the single analyst repair attempt after critic review. Address every repairInstruction. Keep the trade executable with market or limit only. If the criticism cannot be fixed without weakening the setup, return NONE. Market orders must use live current price. Limit entries may be pullbacks, but day_trade limits must stay within 5% of current price and swing_trade limits within 12%.",
+                ? "Return one thesis draft only. Keep candidateId equal to the candidate id and asset equal to the candidate symbol. Obey the template analyzer hard rules: only market/limit orders, LONG entry at or below current price, SHORT entry at or above current price, stop at least 3% from entry, and risk/reward at least 1:2. Market orders must use the live current price. Limit entries may be pullbacks at any distance from current price when direction mechanics are valid."
+                : "This is the single analyst repair attempt after critic review. Address every repairInstruction. Keep the trade executable with market or limit only. If the criticism cannot be fixed without weakening the setup, return NONE. Market orders must use live current price. Limit entries may be pullbacks at any distance from current price when direction mechanics are valid.",
           },
           null,
           2,

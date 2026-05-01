@@ -21,6 +21,9 @@
     "SCHEDULER_ENABLED": {
       "value": "true"
     },
+    "OMEN_DAILY_SIGNAL_LIMIT": {
+      "value": "3"
+    },
     "FRONTEND_URL": {
       "required": true
     },

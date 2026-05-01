@@ -274,6 +274,7 @@ const buildTemplateIntelUserPrompt = (input: {
   marketData: ReturnType<typeof buildTemplateMarketData>;
   recentPosts: RecentPostContextItem[];
   recentHistory: RecentIntelHistoryItem[];
+  signalGenerationDisabledReason: string | null;
 }) => {
   const recentPosts = input.recentPosts
     .filter((post) => post.kind === "intel_summary" && post.status === "posted")
@@ -295,6 +296,10 @@ const buildTemplateIntelUserPrompt = (input: {
   return [
     `Analyze this market data and generate an intel report: ${JSON.stringify(input.marketData, null, 2)}`,
     "",
+    input.signalGenerationDisabledReason
+      ? `TRADE SIGNAL GENERATION IS DISABLED FOR THIS RUN: ${input.signalGenerationDisabledReason}. Produce market intel only; do not suggest a trade setup.`
+      : "Trade signal generation is available, but this intel path should still produce market intel only.",
+    "",
     "RECENTLY POSTED CONTENT (Avoid repeating these):",
     JSON.stringify(recentPosts, null, 2),
     "",
@@ -305,6 +310,7 @@ const buildTemplateIntelUserPrompt = (input: {
 const buildSearchOnlyIntelRetryPrompt = (input: {
   recentPosts: RecentPostContextItem[];
   recentHistory: RecentIntelHistoryItem[];
+  signalGenerationDisabledReason: string | null;
 }) => {
   const recentPosts = input.recentPosts
     .filter((post) => post.kind === "intel_summary" && post.status === "posted")
@@ -329,6 +335,9 @@ const buildSearchOnlyIntelRetryPrompt = (input: {
     "Search X (Twitter) and the web directly for a current crypto market intel report.",
     "Prioritize recent posts or commentary from these accounts: WatcherGuru, agentcookiefun, DeFiTracer, cryptogoos, aantonop, AshCrypto, CryptoCred, Trader_XO, Pentosh1, JacobCryptoBury, danheld, maxkeiser, cryptorover, Cointelegraph, CryptoCobain.",
     "Find the strongest recent narrative, catalyst, liquidity shift, policy development, or market-structure point. Return market news only, not a watchlist setup or trade candidate.",
+    input.signalGenerationDisabledReason
+      ? `Trade signal generation is disabled for this run: ${input.signalGenerationDisabledReason}.`
+      : "Trade signal generation is not the objective of this retry.",
     "",
     "RECENTLY POSTED CONTENT (Avoid repeating these):",
     JSON.stringify(recentPosts, null, 2),
@@ -392,10 +401,12 @@ export class IntelAgentFactory {
           marketData,
           recentPosts: parsed.recentPostContext,
           recentHistory: parsed.recentIntelHistory,
+          signalGenerationDisabledReason: parsed.signalGenerationDisabledReason,
         }),
         buildSearchOnlyIntelRetryPrompt({
           recentPosts: parsed.recentPostContext,
           recentHistory: parsed.recentIntelHistory,
+          signalGenerationDisabledReason: parsed.signalGenerationDisabledReason,
         }),
       ];
       let normalizedReport: IntelReport | null = null;

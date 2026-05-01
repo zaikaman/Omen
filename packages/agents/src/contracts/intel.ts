@@ -22,6 +22,7 @@ export const intelInputSchema = z.object({
   review: criticReviewSchema.nullable(),
   recentIntelHistory: z.array(recentIntelHistoryItemSchema).default([]),
   recentPostContext: z.array(recentPostContextItemSchema).default([]),
+  signalGenerationDisabledReason: z.string().min(1).nullable().default(null),
 });
 
 export const intelOutputSchema = z.object({

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { CriticOutput } from "../contracts/critic.js";
 import type { PublisherOutput } from "../contracts/publisher.js";
 import type { ChartVisionOutput } from "../contracts/chart-vision.js";
 import {
@@ -301,6 +302,10 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "market-bias-agent") {
+    if (state.signalGenerationDisabledReason) {
+      return "intel-agent";
+    }
+
     return state.run.marketBias === "LONG" || state.run.marketBias === "SHORT"
       ? "scanner-agent"
       : "intel-agent";
@@ -505,6 +510,7 @@ export const buildOmenNodeInput = (input: {
       review: null,
       recentIntelHistory: input.state.recentIntelHistory,
       recentPostContext: input.state.recentPostContext,
+      signalGenerationDisabledReason: input.state.signalGenerationDisabledReason,
     };
   }
 
@@ -654,7 +660,7 @@ export const applyOmenNodeOutput = (input: {
   }
 
   if (input.nodeKey === "critic-agent") {
-    const output = createCriticAgent().outputSchema.parse(input.output);
+    const output = createCriticAgent().outputSchema.parse(input.output) as CriticOutput;
     const thesis = input.state.thesisDrafts.at(-1);
     const review = normalizeReview({
       ...output.review,

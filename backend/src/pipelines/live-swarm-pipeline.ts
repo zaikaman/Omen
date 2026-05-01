@@ -80,6 +80,24 @@ const DEFAULT_MARKET_UNIVERSE = TRADEABLE_SYMBOLS;
 const DEFAULT_SCAN_INTERVAL_MINUTES = 60;
 const ZERO_G_MILESTONE_CHECKPOINT_STEPS = new Set(["checkpoint-node", "publisher-agent"]);
 
+const getUtcDayWindow = (value: string) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid scheduler timestamp for daily signal limit: ${value}`);
+  }
+
+  const start = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+  return {
+    startAt: start.toISOString(),
+    endAt: end.toISOString(),
+  };
+};
+
 const managedStepRoleMap = {
   "market-bias-agent": "market_bias",
   "scanner-agent": "scanner",
@@ -332,6 +350,7 @@ const buildZeroGComputeAdjudicationPrompt = (input: {
     "CONFIDENCE: integer 0-100",
     "RATIONALE: one sentence",
     "Do not invent data. Prefer rejected when evidence, confluence, or risk/reward is weak.",
+    "Do not reject a limit order because its entry is far from current price; far pullback limits are allowed when LONG entries are at/below current price or SHORT entries are at/above current price.",
     `Run ID: ${input.runId}`,
     `Local critic decision: ${input.localDecision}`,
     `Local objections: ${input.localObjections.join("; ") || "none"}`,
@@ -1084,6 +1103,31 @@ class LivePipelineExecutionContext {
     }
 
     return activeTradeSymbols.value;
+  }
+
+  async resolveSignalGenerationDisabledReason(): Promise<string | null> {
+    const limit = this.input.env.signalDailyLimit;
+
+    if (limit <= 0) {
+      return null;
+    }
+
+    if (!this.signalsRepository) {
+      throw new Error("Signal daily limit requires signal persistence to be configured.");
+    }
+
+    const window = getUtcDayWindow(this.input.request.triggeredAt);
+    const publishedCount = await this.signalsRepository.countPublishedSignalsBetween(window);
+
+    if (!publishedCount.ok) {
+      throw new Error(`Failed to enforce daily signal limit: ${publishedCount.error.message}`);
+    }
+
+    if (publishedCount.value < limit) {
+      return null;
+    }
+
+    return `Daily signal cap reached: ${publishedCount.value.toString()}/${limit.toString()} signals already published for ${window.startAt.slice(0, 10)} UTC.`;
   }
 
   async prepareRun(run: SwarmState["run"]) {
@@ -2869,6 +2913,23 @@ export class DefaultLiveSwarmRunPipeline implements LiveSwarmPipeline {
     initialState.recentIntelHistory = await executionContext.loadRecentIntelHistory();
     initialState.recentPostContext = await executionContext.loadRecentPostContext();
     initialState.activeTradeSymbols = await executionContext.loadActiveTradeSymbols();
+    initialState.signalGenerationDisabledReason =
+      await executionContext.resolveSignalGenerationDisabledReason();
+
+    if (initialState.signalGenerationDisabledReason) {
+      initialState.notes = [
+        ...initialState.notes,
+        `signal-generation-disabled:${initialState.signalGenerationDisabledReason}`,
+      ];
+      initialState.run = {
+        ...initialState.run,
+        configSnapshot: {
+          ...initialState.run.configSnapshot,
+          signalGenerationDisabledReason: initialState.signalGenerationDisabledReason,
+          signalDailyLimit: this.input.env.signalDailyLimit,
+        },
+      };
+    }
 
     await executionContext.prepareRun(initialState.run);
 

@@ -13,9 +13,6 @@ export type ThesisQualityGateResult = {
 const actionableDirection = (direction: ThesisDraft["direction"]) =>
   direction === "LONG" || direction === "SHORT";
 
-const maxLimitEntryDistance = (tradingStyle: ThesisDraft["tradingStyle"]) =>
-  tradingStyle === "swing_trade" ? 0.12 : 0.05;
-
 const relaxedRiskRewardFloor = 1.5;
 
 export const evaluateThesisAgainstThresholds = (input: {
@@ -96,26 +93,6 @@ export const evaluateThesisAgainstThresholds = (input: {
           "Market order entry is more than 1% away from current price.",
         );
         repairInstructions.push("For a market order, reset entryPrice to the current live price.");
-      }
-    }
-
-    if (
-      input.thesis.orderType === "limit" &&
-      input.thesis.currentPrice !== null &&
-      input.thesis.entryPrice !== null
-    ) {
-      const priceDeviation = Math.abs(
-        (input.thesis.entryPrice - input.thesis.currentPrice) / input.thesis.currentPrice,
-      );
-      const maxDistance = maxLimitEntryDistance(input.thesis.tradingStyle);
-
-      if (priceDeviation > maxDistance) {
-        blockingReasons.push(
-          `Limit entry is ${(priceDeviation * 100).toFixed(2)}% away from current price, above the ${(maxDistance * 100).toFixed(0)}% maximum for ${input.thesis.tradingStyle ?? "unspecified style"}.`,
-        );
-        repairInstructions.push(
-          "Move the entry closer to current price, switch to swing_trade only when evidence supports a wider hold, or return NONE.",
-        );
       }
     }
 

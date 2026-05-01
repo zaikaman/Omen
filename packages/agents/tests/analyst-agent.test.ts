@@ -490,7 +490,7 @@ describe("analyst agent", () => {
     expect(result.analystNotes.join(" ").toLowerCase()).not.toContain("watchlist");
   });
 
-  it("repairs a far limit entry into an executable market setup on the retry pass", async () => {
+  it("preserves a far executable limit entry on the retry pass", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createAnalystAgent({
       llmClient: {
@@ -514,7 +514,7 @@ describe("analyst agent", () => {
             targetPrice: 1.58,
             stopLoss: 1.23,
             riskReward: 6,
-            whyNow: "PENDLE has momentum but the initial pullback entry was too far.",
+            whyNow: "PENDLE has momentum and the pullback limit entry remains valid.",
             confluences: ["Momentum", "Chart", "Narrative"],
             uncertaintyNotes: "Entry must be executable.",
             missingDataNotes: "No additional missing-data flags.",
@@ -587,18 +587,18 @@ describe("analyst agent", () => {
           review: {
             candidateId: "candidate-pendle-1",
             decision: "rejected",
-            objections: ["Entry is too far below current price."],
-            forcedOutcomeReason: "Execution math needs repair.",
+            objections: ["Prior critic requested execution review."],
+            forcedOutcomeReason: "Execution math needs review.",
             repairable: true,
-            repairInstructions: ["Move entry closer to current price or downgrade."],
+            repairInstructions: ["Keep the entry executable without using forbidden stop-entry mechanics."],
           },
         },
       },
       state,
     );
 
-    expect(result.thesis.orderType).toBe("market");
-    expect(result.thesis.entryPrice).toBe(1.51);
+    expect(result.thesis.orderType).toBe("limit");
+    expect(result.thesis.entryPrice).toBe(1.28);
     expect(result.thesis.stopLoss).toBeLessThan(result.thesis.entryPrice ?? 0);
     expect(result.analystNotes.join(" ")).toContain("Repair attempt 1");
   });

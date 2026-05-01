@@ -377,6 +377,21 @@ describe("omen graph factory", () => {
     ).toBe("scanner-agent");
   });
 
+  it("routes directly to intel when signal generation is disabled", () => {
+    const baseState = createInitialSwarmState({ run, config });
+
+    expect(
+      resolveNextOmenNodeKey("market-bias-agent", {
+        ...baseState,
+        signalGenerationDisabledReason: "Daily signal cap reached.",
+        run: {
+          ...baseState.run,
+          marketBias: "LONG",
+        },
+      }),
+    ).toBe("intel-agent");
+  });
+
   it("gives repairable critic decisions one analyst retry before intel downgrade", () => {
     const baseState = createInitialSwarmState({ run, config });
     const repairableState = {

@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { OpenAiCompatibleJsonClient } from "../src/llm/openai-compatible-client.js";
+import {
+  GeminiContentJsonClient,
+  OpenAiCompatibleJsonClient,
+  ResponsesApiJsonClient,
+} from "../src/llm/openai-compatible-client.js";
 
 const createJsonResponse = (content: unknown) =>
   new Response(
@@ -153,6 +157,67 @@ describe("OpenAiCompatibleJsonClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 
+  it("retries Gemini schema failures eight times", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(createGeminiJsonResponse({ text: 123 })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new GeminiContentJsonClient({
+      apiKey: "test-key",
+      baseUrl: "https://gemini.example/v1beta",
+      model: "gemini-test",
+      disableTimeout: true,
+    });
+
+    await expect(
+      client.completeJson({
+        schema: z.object({
+          text: z.string(),
+        }),
+        systemPrompt: "Return text.",
+        userPrompt: "Say hi.",
+      }),
+    ).rejects.toThrow("Expected string");
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+  });
+
+  it("retries Responses API schema failures eight times", async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            output_text: JSON.stringify({ text: 123 }),
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new ResponsesApiJsonClient({
+      apiKey: "test-key",
+      baseUrl: "https://responses.example/v1",
+      model: "responses-test",
+    });
+
+    await expect(
+      client.completeJson({
+        schema: z.object({
+          text: z.string(),
+        }),
+        systemPrompt: "Return text.",
+        userPrompt: "Say hi.",
+      }),
+    ).rejects.toThrow("Expected string");
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+  });
+
   it("uses Gemini first for reasoning roles when scanner credentials are available", async () => {
     const fetchMock = vi.fn().mockResolvedValue(createGeminiJsonResponse({ text: "gemini" }));
     vi.stubGlobal("fetch", fetchMock);
@@ -186,15 +251,21 @@ describe("OpenAiCompatibleJsonClient", () => {
   });
 
   it("falls back to GPT when Gemini reasoning fails", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: "bad gateway" }), {
-          status: 502,
-          headers: { "content-type": "application/json" },
-        }),
-      )
-      .mockResolvedValueOnce(createJsonResponse({ text: "gpt" }));
+    let callCount = 0;
+    const fetchMock = vi.fn().mockImplementation(() => {
+      callCount += 1;
+
+      if (callCount <= 8) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: "bad gateway" }), {
+            status: 502,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+
+      return Promise.resolve(createJsonResponse({ text: "gpt" }));
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const client = OpenAiCompatibleJsonClient.fromEnv("reasoning", {
@@ -213,15 +284,20 @@ describe("OpenAiCompatibleJsonClient", () => {
     });
 
     expect(result?.text).toBe("gpt");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(9);
     expect(fetchMock.mock.calls[0][0]).toBe(
       "https://v98store.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent",
     );
-    expect(fetchMock.mock.calls[1][0]).toBe("https://openai.example/v1/chat/completions");
+    expect(fetchMock.mock.calls[7][0]).toBe(
+      "https://v98store.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent",
+    );
+    expect(fetchMock.mock.calls[8][0]).toBe("https://openai.example/v1/chat/completions");
   });
 
   it("does not fall back to GPT when Gemini returns invalid schema JSON", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(createGeminiJsonResponse({ text: 123 }));
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(createGeminiJsonResponse({ text: 123 })));
     vi.stubGlobal("fetch", fetchMock);
 
     const client = OpenAiCompatibleJsonClient.fromEnv("reasoning", {
@@ -241,6 +317,6 @@ describe("OpenAiCompatibleJsonClient", () => {
       }),
     ).rejects.toThrow("Expected string");
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 });

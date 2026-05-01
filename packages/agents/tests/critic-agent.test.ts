@@ -2,6 +2,7 @@ import type { OpenAiCompatibleJsonClient } from "../src/llm/openai-compatible-cl
 import { describe, expect, it } from "vitest";
 
 import { createCriticAgent, createInitialSwarmState } from "../src/index.js";
+import { criticOutputSchema } from "../src/contracts/critic.js";
 
 describe("critic agent", () => {
   const run = {
@@ -49,6 +50,33 @@ describe("critic agent", () => {
     scanIntervalMinutes: 60,
     updatedAt: "2026-04-25T08:00:00.000Z",
   };
+
+  it("normalizes common model critic output shapes", () => {
+    const flat = criticOutputSchema.parse({
+      candidateId: "candidate-pendle-1",
+      decision: "approved",
+      objections: [],
+      forcedOutcomeReason: null,
+      repairable: false,
+      repairInstructions: [],
+      blockingReasons: [],
+    });
+    const nested = criticOutputSchema.parse({
+      criticReview: {
+        candidateId: "candidate-pendle-1",
+        decision: "approved",
+        objections: [],
+        forcedOutcomeReason: null,
+        repairable: false,
+        repairInstructions: [],
+      },
+    });
+
+    expect(flat.review.candidateId).toBe("candidate-pendle-1");
+    expect(flat.review.decision).toBe("approved");
+    expect(nested.review.decision).toBe("approved");
+    expect(nested.blockingReasons).toEqual([]);
+  });
 
   it("approves a thesis that clears the hard quality gates", async () => {
     const state = createInitialSwarmState({ run, config });
@@ -172,20 +200,20 @@ describe("critic agent", () => {
     expect((result.blockingReasons ?? []).length).toBeGreaterThan(0);
   });
 
-  it("marks far executable entries as repairable instead of terminally rejecting them", async () => {
+  it("approves far executable limit entries", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createCriticAgent({
       llmClient: {
         completeJson: async () => ({
           review: {
             candidateId: "candidate-pendle-1",
-            decision: "rejected" as const,
-            objections: ["Entry is too far below the live market for a day trade."],
-            forcedOutcomeReason: "Execution math needs repair.",
-            repairable: true,
-            repairInstructions: ["Move the entry closer to current price or downgrade."],
+            decision: "approved" as const,
+            objections: [],
+            forcedOutcomeReason: null,
+            repairable: false,
+            repairInstructions: [],
           },
-          blockingReasons: ["Entry is too far below current price."],
+          blockingReasons: [],
         }),
       } as unknown as OpenAiCompatibleJsonClient,
     });
@@ -214,7 +242,7 @@ describe("critic agent", () => {
             riskReward: 6,
             whyNow: "Momentum is constructive but entry is far from current price.",
             confluences: ["Momentum", "Chart structure", "Narrative"],
-            uncertaintyNotes: "Entry needs repair.",
+            uncertaintyNotes: "Far pullback entry is intentional.",
             missingDataNotes: "No additional missing-data flags.",
           },
           evidence: [
@@ -238,9 +266,10 @@ describe("critic agent", () => {
       state,
     );
 
-    expect(result.review.decision).toBe("rejected");
-    expect(result.review.repairable).toBe(true);
-    expect(result.review.repairInstructions.length).toBeGreaterThan(0);
+    expect(result.review.decision).toBe("approved");
+    expect(result.review.repairable).toBe(false);
+    expect(result.review.repairInstructions).toEqual([]);
+    expect(result.blockingReasons).toEqual([]);
   });
 
   it("keeps the hard gate authoritative even when the model is too optimistic", async () => {

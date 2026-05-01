@@ -221,6 +221,54 @@ export type JsonCompletionInput<T> = {
   temperature?: number;
 };
 
+const completeJsonWithRetries = async <T>(input: {
+  model: string;
+  completion: JsonCompletionInput<T>;
+  attempt: (completion: JsonCompletionInput<T>) => Promise<T>;
+}) => {
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= MAX_JSON_COMPLETION_ATTEMPTS; attempt += 1) {
+    const isFirstAttempt = attempt === 1;
+    const isCleanRestartAttempt = attempt > MAX_JSON_COMPLETION_REPAIR_ATTEMPTS;
+
+    try {
+      return await input.attempt({
+        ...input.completion,
+        userPrompt:
+          isFirstAttempt || isCleanRestartAttempt
+            ? input.completion.userPrompt
+            : buildRetryUserPrompt({
+                originalPrompt: input.completion.userPrompt,
+                attempt: attempt - 1,
+                error: lastError,
+              }),
+      });
+    } catch (error) {
+      lastError = error;
+
+      if (isSomethingWrongProviderFailure(error)) {
+        throw error;
+      }
+
+      if (attempt >= MAX_JSON_COMPLETION_ATTEMPTS) {
+        throw error;
+      }
+
+      console.warn("[omen-llm] JSON completion failed; retrying.", {
+        model: input.model,
+        attempt,
+        maxAttempts: MAX_JSON_COMPLETION_ATTEMPTS,
+        nextAttemptMode:
+          attempt >= MAX_JSON_COMPLETION_REPAIR_ATTEMPTS ? "clean_restart" : "error_context",
+        error: getErrorMessage(error),
+      });
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("JSON completion failed.");
+};
+
 export class OpenAiCompatibleJsonClient {
   readonly config: OpenAiCompatibleClientConfig;
 
@@ -286,47 +334,11 @@ export class OpenAiCompatibleJsonClient {
   }
 
   async completeJson<T>(input: JsonCompletionInput<T>) {
-    let lastError: unknown = null;
-
-    for (let attempt = 1; attempt <= MAX_JSON_COMPLETION_ATTEMPTS; attempt += 1) {
-      const isFirstAttempt = attempt === 1;
-      const isCleanRestartAttempt = attempt > MAX_JSON_COMPLETION_REPAIR_ATTEMPTS;
-
-      try {
-        return await this.completeJsonAttempt({
-          ...input,
-          userPrompt:
-            isFirstAttempt || isCleanRestartAttempt
-              ? input.userPrompt
-              : buildRetryUserPrompt({
-                  originalPrompt: input.userPrompt,
-                  attempt: attempt - 1,
-                  error: lastError,
-                }),
-        });
-      } catch (error) {
-        lastError = error;
-
-        if (isSomethingWrongProviderFailure(error)) {
-          throw error;
-        }
-
-        if (attempt >= MAX_JSON_COMPLETION_ATTEMPTS) {
-          throw error;
-        }
-
-        console.warn("[omen-llm] JSON completion failed; retrying.", {
-          model: this.config.model,
-          attempt,
-          maxAttempts: MAX_JSON_COMPLETION_ATTEMPTS,
-          nextAttemptMode:
-            attempt >= MAX_JSON_COMPLETION_REPAIR_ATTEMPTS ? "clean_restart" : "error_context",
-          error: getErrorMessage(error),
-        });
-      }
-    }
-
-    throw lastError instanceof Error ? lastError : new Error("JSON completion failed.");
+    return completeJsonWithRetries({
+      model: this.config.model,
+      completion: input,
+      attempt: (completion) => this.completeJsonAttempt(completion),
+    });
   }
 
   private async completeJsonAttempt<T>(input: JsonCompletionInput<T>) {
@@ -403,6 +415,14 @@ export class GeminiContentJsonClient {
   }
 
   async completeJson<T>(input: JsonCompletionInput<T>) {
+    return completeJsonWithRetries({
+      model: this.config.model,
+      completion: input,
+      attempt: (completion) => this.completeJsonAttempt(completion),
+    });
+  }
+
+  private async completeJsonAttempt<T>(input: JsonCompletionInput<T>) {
     const controller = this.config.disableTimeout ? null : new AbortController();
     const timeout =
       controller === null ? null : setTimeout(() => controller.abort(), this.config.timeoutMs);
@@ -490,6 +510,14 @@ export class ResponsesApiJsonClient {
   }
 
   async completeJson<T>(input: JsonCompletionInput<T>) {
+    return completeJsonWithRetries({
+      model: this.config.model,
+      completion: input,
+      attempt: (completion) => this.completeJsonAttempt(completion),
+    });
+  }
+
+  private async completeJsonAttempt<T>(input: JsonCompletionInput<T>) {
     const controller = this.config.disableTimeout ? null : new AbortController();
     const timeout =
       controller === null ? null : setTimeout(() => controller.abort(), this.config.timeoutMs);
