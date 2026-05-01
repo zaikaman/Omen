@@ -415,6 +415,79 @@ describe("analyst agent", () => {
     expect(result.thesis.whyNow).toContain("Market order entry is more than 1% away");
   });
 
+  it("normalizes model watchlist output to NONE for live no-trade outcomes", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createAnalystAgent({
+      llmClient: createAnalystLlmClient({
+        thesis: {
+          candidateId: "ignored-by-sanitizer",
+          asset: "ignored-by-sanitizer",
+          direction: "WATCHLIST",
+          confidence: 82,
+          orderType: null,
+          tradingStyle: null,
+          expectedDuration: null,
+          currentPrice: 1.52,
+          entryPrice: null,
+          targetPrice: null,
+          stopLoss: null,
+          riskReward: 0,
+          whyNow: "PENDLE is interesting but not executable at resistance.",
+          confluences: ["Momentum is strong", "Price is at resistance"],
+          uncertaintyNotes: "No executable entry yet.",
+          missingDataNotes: "No additional missing-data flags.",
+        },
+        analystNotes: ["Model tried to return watchlist."],
+      }),
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-watchlist-normalize",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        research: {
+          candidate: {
+            id: "candidate-pendle-watchlist",
+            symbol: "PENDLE",
+            reason: "Testing disabled watchlist mode.",
+            directionHint: "LONG",
+            status: "researched",
+            sourceUniverse: "PENDLE",
+            dedupeKey: "PENDLE",
+            missingDataNotes: [],
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "PENDLE is up strongly but near immediate resistance.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: { price: 1.52 },
+            },
+            {
+              category: "chart",
+              summary: "Price is near resistance with mixed continuation.",
+              sourceLabel: "Chart Vision",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+          narrativeSummary: "PENDLE is not executable at resistance.",
+          missingDataNotes: [],
+        },
+      },
+      state,
+    );
+
+    expect(result.thesis.direction).toBe("NONE");
+    expect(result.thesis.orderType).toBeNull();
+    expect(result.thesis.entryPrice).toBeNull();
+  });
+
   it("repairs a far limit entry into an executable market setup on the retry pass", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createAnalystAgent({

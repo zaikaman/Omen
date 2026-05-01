@@ -29,7 +29,7 @@ export type ZeroGAdjudicationResult = {
   output: string;
   proof: ComputeProof;
   artifact: ProofArtifact;
-  decisionHint: "approved" | "rejected" | "watchlist_only" | "unknown";
+  decisionHint: "approved" | "rejected" | "unknown";
 };
 
 const inferDecisionHint = (
@@ -38,7 +38,7 @@ const inferDecisionHint = (
   const normalized = output.toLowerCase();
 
   if (normalized.includes("watchlist")) {
-    return "watchlist_only";
+    return "rejected";
   }
 
   if (normalized.includes("reject")) {
@@ -56,7 +56,7 @@ const buildPrompt = (input: ZeroGAdjudicationInput) =>
   [
     "You are the final adjudication step for the Omen swarm.",
     "Return a concise verdict with explicit reasoning grounded only in the supplied thesis and evidence.",
-    "Verdict must be one of: approved, rejected, watchlist_only.",
+    "Verdict must be one of: approved, rejected.",
     `Run ID: ${input.runId}`,
     `Prior Decision: ${input.priorDecision ?? "none"}`,
     "Thesis:",

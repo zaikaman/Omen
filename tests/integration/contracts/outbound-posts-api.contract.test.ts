@@ -5,7 +5,7 @@ import {
   postFeedResponseSchema,
   postStatusResponseSchema,
 } from "../../../packages/shared/src/index";
-import { demoDashboardSummary, demoRunBundles } from "../../../packages/db/src/index";
+import { demoDashboardSummary, demoRunBundles } from "../../fixtures/demo-runtime";
 
 const demoOutboundPosts = demoRunBundles.flatMap((bundle) => bundle.outboundPosts);
 
@@ -73,7 +73,7 @@ describe("outbound posts api contract", () => {
         status: "posted",
         payload: {
           text: expect.stringContaining("Omen intel"),
-          thread: [expect.stringContaining("The swarm kept this as intel")],
+          thread: [],
           metadata: {
             manifestRefId: "proof-intel-manifest-001",
           },
@@ -149,7 +149,7 @@ describe("outbound posts api contract", () => {
         lastError: null,
         payload: {
           text: expect.stringContaining("Omen intel"),
-          thread: [expect.stringContaining("The swarm kept this as intel")],
+          thread: [],
           metadata: {
             manifestRefId: "proof-intel-manifest-001",
           },

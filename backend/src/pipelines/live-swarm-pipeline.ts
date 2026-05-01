@@ -125,9 +125,8 @@ const axlHealthMethodByRole = {
 
 const criticDecisionRank = {
   approved: 0,
-  watchlist_only: 1,
-  rejected: 2,
-} as const satisfies Record<"approved" | "watchlist_only" | "rejected", number>;
+  rejected: 1,
+} as const satisfies Record<"approved" | "rejected", number>;
 
 const defaultAxlServiceByRole: Record<Exclude<AgentRole, "monitor">, string> = {
   orchestrator: "orchestrator",
@@ -293,10 +292,10 @@ const buildZeroGComputeAdjudicationPrompt = (input: {
     "You are an independent 0G Compute adjudicator inside the Omen agent loop, after research and critic review and before routing or publishing.",
     "Review the final thesis against the research evidence and local critic decision only.",
     "Return a concise risk review with these exact fields:",
-    "VERDICT: approved | rejected | watchlist_only",
+    "VERDICT: approved | rejected",
     "CONFIDENCE: integer 0-100",
     "RATIONALE: one sentence",
-    "Do not invent data. Prefer downgrading when evidence, confluence, or risk/reward is weak.",
+    "Do not invent data. Prefer rejected when evidence, confluence, or risk/reward is weak.",
     `Run ID: ${input.runId}`,
     `Local critic decision: ${input.localDecision}`,
     `Local objections: ${input.localObjections.join("; ") || "none"}`,
@@ -1489,7 +1488,8 @@ class LivePipelineExecutionContext {
     await this.safeRecordArtifact(result.value.artifact);
 
     const zeroGDecision = result.value.decisionHint;
-    const localDecision = parsedOutput.review.decision;
+    const localDecision =
+      parsedOutput.review.decision === "watchlist_only" ? "rejected" : parsedOutput.review.decision;
     const shouldUseZeroGDecision =
       zeroGDecision !== "unknown" &&
       criticDecisionRank[zeroGDecision] > criticDecisionRank[localDecision];

@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { scannerInputSchema, scannerOutputSchema } from "../contracts/scanner.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
-import { candidateStateSchema, type CandidateState, type SwarmState } from "../framework/state.js";
+import { candidateStateSchema, type SwarmState } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
 import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildScannerSystemPrompt } from "../prompts/scanner/system.js";
@@ -29,46 +29,6 @@ const scannerLlmResponseSchema = z.object({
   candidates: z.array(scannerLlmCandidateSchema).max(3).default([]),
   rejectedSymbols: z.array(z.string().min(1)).default([]),
 });
-
-const resolveSnapshotScore = (snapshot: MarketSnapshot) =>
-  snapshot.change24hPercent;
-
-const toDirectionHint = (
-  score: number,
-  bias: z.infer<typeof scannerInputSchema>["bias"]["marketBias"],
-) => {
-  if (bias === "LONG") {
-    return score >= 0 ? "LONG" : null;
-  }
-
-  if (bias === "SHORT") {
-    return score <= 0 ? "SHORT" : null;
-  }
-
-  return Math.abs(score) >= 2 ? "WATCHLIST" : null;
-};
-
-const buildCandidate = (input: {
-  symbol: string;
-  bias: z.infer<typeof scannerInputSchema>["bias"];
-  score: number;
-  sourceUniverse: string;
-}): CandidateState =>
-  candidateStateSchema.parse({
-    id: `candidate-${input.symbol.toLowerCase()}-${Math.abs(Math.round(input.score * 10)).toString()}`,
-    symbol: input.symbol,
-    reason:
-      input.bias.marketBias === "LONG"
-        ? `${input.symbol} aligned with the LONG market bias and ranked ${input.score.toFixed(2)} on the scanner momentum heuristic.`
-        : input.bias.marketBias === "SHORT"
-          ? `${input.symbol} aligned with the SHORT market bias and ranked ${input.score.toFixed(2)} on the scanner momentum heuristic.`
-          : `${input.symbol} stayed on watchlist because scanner conviction remained mixed at ${input.score.toFixed(2)}.`,
-    directionHint: toDirectionHint(input.score, input.bias.marketBias),
-    status: "pending",
-    sourceUniverse: input.sourceUniverse,
-    dedupeKey: input.symbol.toUpperCase(),
-    missingDataNotes: [],
-  });
 
 export class ScannerAgentFactory {
   private readonly binance: BinanceMarketService;
@@ -193,7 +153,12 @@ export class ScannerAgentFactory {
             id: `candidate-${candidate.symbol.toLowerCase()}-llm-${index.toString()}`,
             symbol: candidate.symbol.toUpperCase(),
             reason: candidate.reason,
-            directionHint: candidate.directionHint,
+            directionHint:
+              candidate.directionHint === "WATCHLIST"
+                ? input.parsed.bias.marketBias === "LONG" || input.parsed.bias.marketBias === "SHORT"
+                  ? input.parsed.bias.marketBias
+                  : null
+                : candidate.directionHint,
             status: "pending",
             sourceUniverse: input.state.config.marketUniverse.join(","),
             dedupeKey: candidate.symbol.toUpperCase(),

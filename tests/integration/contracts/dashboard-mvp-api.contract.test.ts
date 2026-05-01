@@ -14,7 +14,7 @@ import {
   demoAnalyticsSnapshots,
   demoDashboardSummary,
   demoRunBundles,
-} from "../../../packages/db/src/index";
+} from "../../fixtures/demo-runtime";
 import { presentIntelFeed } from "../../../backend/src/presenters/intel.presenter";
 
 describe("dashboard mvp api contract", () => {

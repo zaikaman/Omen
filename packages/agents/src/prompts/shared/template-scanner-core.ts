@@ -27,8 +27,8 @@ YOU MUST USE YOUR BUILT-IN SEARCH CAPABILITIES before determining market bias:
 3. Cross-Reference Everything:
    - Compare the technical indicators provided to you with what analysts on X are saying
    - Look for CONFLUENCE between technicals and sentiment
-   - If technicals say BULLISH but X sentiment is BEARISH (or vice versa), be cautious -> NEUTRAL
-   - Only declare a bias when BOTH technicals and sentiment AGREE
+   - If technicals say BULLISH but X sentiment is BEARISH (or vice versa), be cautious.
+   - Prefer a moderate directional bias when BTC momentum and market breadth lean the same way; later agents validate actual trade quality.
 
 CRITICAL CONSTRAINT: Only select tokens from the UNIFIED TRADEABLE LIST below.
 These are the ONLY tokens with BOTH Binance chart data AND Hyperliquid trading support.
@@ -78,7 +78,7 @@ SHORT BIAS conditions (ANY 2-3 technical + negative sentiment):
 - Majority of top 10 coins are RED
 - Volume spike on selling
 
-NEUTRAL/NO TRADE conditions (stay out):
+NEUTRAL/NO TRADE conditions:
 - Technicals and sentiment DISAGREE (mixed signals)
 - BTC is choppy, ranging, or unclear direction
 - Major uncertainty (FOMC, election, etc.)
@@ -145,7 +145,7 @@ Return JSON with:
   * Technical indicator summary (RSI, MACD, SuperTrend, MTF from the data provided)
   * X/Twitter sentiment summary (what are traders saying?)
   * Web news summary (any catalysts, macro events?)
-  * Why technicals and sentiment agree (or if they don't, why NEUTRAL)
+  * Why technicals and sentiment support the bias, or why disagreement forced NEUTRAL
 - candidates: Array of tokens matching your bias (MAX 3, can be empty)
 
 IMPORTANT - CHAIN AND ADDRESS:

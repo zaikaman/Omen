@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { demoSignalRunBundle } from "../../../packages/db/src/index";
+import { demoSignalRunBundle } from "../../fixtures/demo-runtime";
 
 describe("full mocked signal run", () => {
   it("produces a completed scheduler-driven signal run with aligned final records", () => {

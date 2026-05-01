@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { demoIntelRunBundle } from "../../../packages/db/src/index";
+import { demoIntelRunBundle } from "../../fixtures/demo-runtime";
 
 describe("full mocked intel run", () => {
   it("produces a completed scheduler-driven intel run with aligned final records", () => {
@@ -83,6 +83,6 @@ describe("full mocked intel run", () => {
     expect(outboundPosts[0]?.payload.metadata).toMatchObject({
       manifestRefId: proofBundle.manifestRefId,
     });
-    expect(outboundPosts[0]?.payload.thread).toHaveLength(1);
+    expect(outboundPosts[0]?.payload.thread).toHaveLength(0);
   });
 });

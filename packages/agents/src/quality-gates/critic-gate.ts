@@ -33,24 +33,6 @@ export const runCriticGate = (input: {
     };
   }
 
-  const watchlistEligible =
-    input.thesis.direction === "WATCHLIST" ||
-    thresholdResult.blockingReasons.every((reason) =>
-      /risk\/reward|confluence/i.test(reason),
-    );
-
-  if (watchlistEligible) {
-    return {
-      decision: "watchlist_only" as const,
-      objections: thresholdResult.warnings,
-      forcedOutcomeReason:
-        "Conviction was not strong enough for an actionable signal, but the setup can remain on watchlist.",
-      blockingReasons: thresholdResult.blockingReasons,
-      repairable: false,
-      repairInstructions: [] as string[],
-    };
-  }
-
   return {
     decision: "rejected" as const,
     objections: thresholdResult.warnings,

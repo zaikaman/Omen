@@ -251,8 +251,8 @@ const buildIntelTake = (intel: IntelPostInput) => {
 
   const take =
     tickers.length > 0
-      ? `watch ${tickers} if ${topic || "this narrative"} gets follow-through`
-      : `watch for rotation if ${topic || "this narrative"} gets follow-through`;
+      ? `market context: ${tickers} tied to ${topic || "this narrative"}`
+      : `market context: rotation tied to ${topic || "this narrative"}`;
 
   return trimLineToLength(take, MAX_TAKE_LENGTH);
 };

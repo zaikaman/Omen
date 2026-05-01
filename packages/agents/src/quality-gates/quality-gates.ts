@@ -114,7 +114,7 @@ export const evaluateThesisAgainstThresholds = (input: {
           `Limit entry is ${(priceDeviation * 100).toFixed(2)}% away from current price, above the ${(maxDistance * 100).toFixed(0)}% maximum for ${input.thesis.tradingStyle ?? "unspecified style"}.`,
         );
         repairInstructions.push(
-          "Move the entry closer to current price, switch to swing_trade only when evidence supports a wider hold, or downgrade to WATCHLIST.",
+          "Move the entry closer to current price, switch to swing_trade only when evidence supports a wider hold, or return NONE.",
         );
       }
     }
@@ -154,9 +154,8 @@ export const evaluateThesisAgainstThresholds = (input: {
   }
 
   if (input.thesis.direction === "WATCHLIST") {
-    warnings.push(
-      "Thesis remained in watchlist mode and should not be promoted to a trade signal.",
-    );
+    blockingReasons.push("WATCHLIST is disabled for live trade decisions; use NONE for no-trade.");
+    terminalReasons.push("WATCHLIST is disabled for live trade decisions; use NONE for no-trade.");
   }
 
   if (input.thesis.direction === "NONE") {

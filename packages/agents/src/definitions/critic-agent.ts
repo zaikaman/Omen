@@ -68,6 +68,19 @@ const decisionRank: Record<
   rejected: 2,
 };
 
+const normalizeNoWatchlistReview = (
+  review: z.infer<typeof criticOutputSchema>["review"],
+) =>
+  review.decision === "watchlist_only"
+    ? {
+        ...review,
+        decision: "rejected" as const,
+        forcedOutcomeReason:
+          review.forcedOutcomeReason ??
+          "The thesis did not produce an executable trade signal.",
+      }
+    : review;
+
 export class CriticAgentFactory {
   private readonly llmClient: OpenAiCompatibleJsonClient | null;
 
@@ -124,11 +137,15 @@ export class CriticAgentFactory {
           2,
         ),
       });
+      const llmReviewNoWatchlist = {
+        ...llmReview,
+        review: normalizeNoWatchlistReview(llmReview.review),
+      };
       const finalReview =
         gateReview.review.decision === "approved" || gateReview.review.repairable
           ? gateReview.review
-          : decisionRank[llmReview.review.decision] >= decisionRank[gateReview.review.decision]
-            ? llmReview.review
+          : decisionRank[llmReviewNoWatchlist.review.decision] >= decisionRank[gateReview.review.decision]
+            ? llmReviewNoWatchlist.review
             : gateReview.review;
 
       return criticOutputSchema.parse({
@@ -138,18 +155,18 @@ export class CriticAgentFactory {
           objections: Array.from(
             new Set([
               ...(gateReview.review.objections ?? []),
-              ...(llmReview.review.objections ?? []),
+              ...(llmReviewNoWatchlist.review.objections ?? []),
             ]),
           ),
           forcedOutcomeReason:
             finalReview.decision === gateReview.review.decision
               ? gateReview.review.forcedOutcomeReason
-              : llmReview.review.forcedOutcomeReason ?? gateReview.review.forcedOutcomeReason,
+              : llmReviewNoWatchlist.review.forcedOutcomeReason ?? gateReview.review.forcedOutcomeReason,
           repairable: gateReview.review.repairable,
           repairInstructions: Array.from(
             new Set([
               ...(gateReview.review.repairInstructions ?? []),
-              ...(gateReview.review.repairable ? (llmReview.review.repairInstructions ?? []) : []),
+              ...(gateReview.review.repairable ? (llmReviewNoWatchlist.review.repairInstructions ?? []) : []),
             ]),
           ),
         },
@@ -157,7 +174,7 @@ export class CriticAgentFactory {
           gateReview.review.decision === "approved"
             ? []
             : Array.from(
-                new Set([...(gateReview.blockingReasons ?? []), ...(llmReview.blockingReasons ?? [])]),
+                new Set([...(gateReview.blockingReasons ?? []), ...(llmReviewNoWatchlist.blockingReasons ?? [])]),
               ),
       });
     } catch (error) {

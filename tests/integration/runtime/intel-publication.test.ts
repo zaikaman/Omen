@@ -6,7 +6,7 @@ import {
 } from "../../../backend/src/services/x/post-formatter";
 import { transitionPost } from "../../../backend/src/services/x/post-state-machine";
 import { PostWorker } from "../../../backend/src/services/x/post-worker";
-import { demoIntelRunBundle } from "../../../packages/db/src/index";
+import { demoIntelRunBundle } from "../../fixtures/demo-runtime";
 import { outboundPostSchema, zeroGRunManifestSchema } from "../../../packages/shared/src/index";
 import { RunManifestBuilder } from "../../../packages/zero-g/src/proofs/run-manifest-builder";
 
@@ -68,7 +68,7 @@ describe("intel publication", () => {
     expect(payload.thread).toHaveLength(0);
     expect(payload.text).not.toContain("omen intel:");
     expect(payload.text).toMatch(/\n- /);
-    expect(payload.text).toContain("watch ");
+    expect(payload.text).not.toContain("watch ");
   });
 
   it("supports provider failure fallback metadata and retry transitions", () => {

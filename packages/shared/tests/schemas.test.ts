@@ -19,7 +19,7 @@ describe("shared schemas", () => {
     expect(() =>
       runSchema.parse({
         id: "run-1",
-        mode: "mocked",
+        mode: "live",
         status: "completed",
         marketBias: "LONG",
         startedAt: "2026-04-25T08:00:00.000Z",

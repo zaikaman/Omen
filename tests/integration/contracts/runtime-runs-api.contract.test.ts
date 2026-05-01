@@ -9,7 +9,7 @@ import {
   demoRunBundles,
   demoRuntimeConfig,
   demoSchedulerStatus,
-} from "../../../packages/db/src/index";
+} from "../../fixtures/demo-runtime";
 
 describe("runtime runs api contract", () => {
   it("accepts the read-only scheduled run history response contract for GET /api/runs", () => {
@@ -73,7 +73,7 @@ describe("runtime runs api contract", () => {
     };
 
     expect(response.success).toBe(true);
-    expect(runtimeModeSchema.parse(response.data.runtimeMode)).toBe("mocked");
+    expect(runtimeModeSchema.parse(response.data.runtimeMode)).toBe("live");
     expect(schedulerStatusSchema.parse(response.data.scheduler)).toMatchObject({
       enabled: true,
       scanIntervalMinutes: 60,

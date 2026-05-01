@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { formatSignalPost } from "../../../backend/src/services/x/post-formatter";
-import { demoSignalRunBundle } from "../../../packages/db/src/index";
+import { demoSignalRunBundle } from "../../fixtures/demo-runtime";
 import { outboundPostSchema } from "../../../packages/shared/src/index";
 
 describe("signal publication", () => {

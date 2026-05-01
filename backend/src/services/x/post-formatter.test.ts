@@ -5,7 +5,7 @@ import { formatIntelPost, formatSignalPost } from "./post-formatter.js";
 describe("post formatter", () => {
   it("formats intel in the compact Omen-style feed shape", () => {
     const post = formatIntelPost({
-      title: "crypto market rotation watch",
+      title: "crypto market rotation context",
       summary:
         "Crypto news: Pepeto announces investment growth while the Bitcoin price prediction bulls targets $150,000 - markets.businessinsider.com: Crypto news: Pepeto whale activity surges while the Bitcoin price prediction holds bullish after massive accumulation. Rotation is still thin but liquidity is improving.",
       symbols: ["BTC", "PEPETO"],
@@ -13,9 +13,9 @@ describe("post formatter", () => {
     });
 
     expect(post.text.length).toBeLessThanOrEqual(280);
-    expect(post.text).toMatch(/^crypto market rotation watch \$BTC \$PEPETO\n\n- /);
+    expect(post.text).toMatch(/^crypto market rotation context \$BTC \$PEPETO\n\n- /);
     expect(post.text).toContain(
-      "\nwatch $BTC / $PEPETO if btc liquidity rotation gets follow-through",
+      "\nmarket context: $BTC / $PEPETO tied to btc liquidity rotation",
     );
     expect(post.text).not.toContain("#");
     expect(post.text).not.toContain("...");
@@ -84,7 +84,7 @@ describe("post formatter", () => {
       "- lending yields pull fresh deposits",
       "- active wallets keep rising",
       "",
-      "watch $SUI if flow sustains",
+      "market context: $SUI flow needs confirmation",
     ].join("\n");
     const post = formatIntelPost({
       title: "SUI TVL Surge",
@@ -104,7 +104,7 @@ describe("post formatter", () => {
       "- pump.fun's aggressive tokenomics overhaul--burning ~36% of circulating $PUMP supply",
       "- this coincides with $PUMP trending heavily on birdeye/coingecko alongside solana",
       "",
-      "watch $PUMP $BLEND $BTC if confirmation follows",
+      "context: $PUMP $BLEND $BTC confirmation matters",
     ].join("\n");
     const post = formatIntelPost({
       title: "PUMP supply shock",
@@ -115,7 +115,7 @@ describe("post formatter", () => {
 
     expect(generatedTweetText.length).toBeGreaterThan(270);
     expect(post.text).toBe(generatedTweetText);
-    expect(post.text).toContain("watch $PUMP $BLEND $BTC if confirmation follows");
+    expect(post.text).toContain("context: $PUMP $BLEND $BTC confirmation matters");
   });
 
   it("preserves under-limit generated intel tweets exactly after whitespace normalization", () => {
@@ -125,7 +125,7 @@ describe("post formatter", () => {
       "- blend (fluent) surges into trending lists on coingecko and birdeye following its mainnet launch, tge.",
       "- concurrently, pump (pump.",
       "",
-      "watch $MON $HYPE $BTC $ETH if confirmation follows",
+      "market context: $MON $HYPE $BTC $ETH confirmation still matters",
     ].join("\n");
     const post = formatIntelPost({
       title: "Launchpad Momentum",

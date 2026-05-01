@@ -90,7 +90,7 @@ const directionFromResearch = (
     return "SHORT";
   }
 
-  return "WATCHLIST";
+  return "NONE";
 };
 
 const buildConfluences = (evidence: EvidenceItem[]) =>
@@ -813,6 +813,7 @@ const normalizeAnalystModelThesis = (input: {
   const confidence = coerceNumber(raw.confidence);
   const riskReward = coerceNullableNumber(raw.riskReward);
   const direction = normalizeDirection(raw.direction);
+  const normalizedDirection = direction === "WATCHLIST" ? "NONE" : direction;
   const orderType = normalizeOrderType(raw.orderType);
   const tradingStyle = normalizeTradingStyle(raw.tradingStyle);
   const expectedDuration = raw.expectedDuration === null ? null : coerceString(raw.expectedDuration);
@@ -822,7 +823,7 @@ const normalizeAnalystModelThesis = (input: {
     ...baseline,
     candidateId: input.candidateId,
     asset: input.symbol.toUpperCase(),
-    ...(direction ? { direction } : {}),
+    ...(normalizedDirection ? { direction: normalizedDirection } : {}),
     ...(confidence !== undefined ? { confidence: Math.round(confidence) } : {}),
     ...(orderType !== undefined ? { orderType } : {}),
     ...(tradingStyle !== undefined ? { tradingStyle } : {}),
@@ -868,7 +869,7 @@ const repairThesisForCritic = (input: {
   if (currentPrice === null) {
     return thesisDraftSchema.parse({
       ...thesis,
-      direction: "WATCHLIST",
+      direction: "NONE",
       confidence: Math.min(thesis.confidence, 79),
       orderType: null,
       tradingStyle: null,
@@ -877,7 +878,7 @@ const repairThesisForCritic = (input: {
       targetPrice: null,
       stopLoss: null,
       riskReward: 0,
-      whyNow: `${thesis.asset} stayed on watchlist because the repair pass could not confirm a live current price.`,
+      whyNow: `${thesis.asset} did not form an executable trade because the repair pass could not confirm a live current price.`,
       uncertaintyNotes: `${thesis.uncertaintyNotes} Repair pass could not validate executable pricing.`,
     });
   }
@@ -924,7 +925,7 @@ const repairThesisForCritic = (input: {
       stopLoss,
     }),
     whyNow: `${thesis.whyNow} Repair pass adjusted execution to a ${orderType} ${tradingStyle} setup using live current price constraints.`,
-    uncertaintyNotes: `${thesis.uncertaintyNotes} This was the single critic repair attempt; if it still fails, it must be downgraded to intel/watchlist.`,
+    uncertaintyNotes: `${thesis.uncertaintyNotes} This was the single critic repair attempt; if it still fails, it must become no-trade and route to clean market intel.`,
   });
 };
 
@@ -953,11 +954,7 @@ export const deriveAnalystThesis = (input: z.input<typeof analystInputSchema>) =
       candidateId: parsed.research.candidate.id,
       asset: parsed.research.candidate.symbol,
       direction:
-        direction === "WATCHLIST" && confidence < 60
-          ? "WATCHLIST"
-          : direction === "WATCHLIST"
-            ? "NONE"
-            : direction,
+        direction === "WATCHLIST" ? "NONE" : direction,
       confidence,
       orderType: tradeSetup.orderType,
       tradingStyle: tradeSetup.tradingStyle,
@@ -1072,7 +1069,7 @@ export class AnalystAgentFactory {
             instruction:
               repairContext === null
                 ? "Return one thesis draft only. Keep candidateId equal to the candidate id and asset equal to the candidate symbol. Obey the template analyzer hard rules: only market/limit orders, LONG entry at or below current price, SHORT entry at or above current price, stop at least 3% from entry, and risk/reward at least 1:2. Market orders must use the live current price. Limit entries may be pullbacks, but day_trade limits must stay within 5% of current price and swing_trade limits within 12%."
-                : "This is the single analyst repair attempt after critic review. Address every repairInstruction. Keep the trade executable with market or limit only. If the criticism cannot be fixed without weakening the setup, return WATCHLIST. Market orders must use live current price. Limit entries may be pullbacks, but day_trade limits must stay within 5% of current price and swing_trade limits within 12%.",
+                : "This is the single analyst repair attempt after critic review. Address every repairInstruction. Keep the trade executable with market or limit only. If the criticism cannot be fixed without weakening the setup, return NONE. Market orders must use live current price. Limit entries may be pullbacks, but day_trade limits must stay within 5% of current price and swing_trade limits within 12%.",
           },
           null,
           2,

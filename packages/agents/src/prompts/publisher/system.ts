@@ -44,7 +44,7 @@ export const buildPublisherSystemPrompt = (
     `Critic decision: ${parsed.reviewDecision ?? "none"}.`,
     `Intel summary available: ${parsed.hasIntelSummary ? "yes" : "no"}.`,
     "Valid JSON example:",
-    '{"drafts":[{"kind":"intel_summary","headline":"ETC range stays unresolved","summary":"ETC is still range-bound and lacks enough confirmation for a directional call.","text":"etc remains a watchlist setup\\n\\n- price is range-bound near resistance\\n- catalyst confirmation is still missing\\n\\nwatch $ETC only if volume confirms"}]}',
+    '{"drafts":[{"kind":"intel_summary","headline":"Liquidity Rotation Stays Selective","summary":"Majors are green, but capital is rotating unevenly across narratives as traders wait for cleaner confirmation.","text":"liquidity rotation stays selective\\n\\n- majors are green, but follow-through is uneven\\n- rwa, yield, and infra narratives are drawing attention\\n\\nmarket context, not a trade signal"}]}',
     "Return exactly one top-level key: drafts.",
     "Each draft must include kind, headline, summary, and text.",
     "kind must be signal_alert, intel_summary, intel_thread, or no_conviction.",

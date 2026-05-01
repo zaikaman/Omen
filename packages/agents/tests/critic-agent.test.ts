@@ -297,6 +297,68 @@ describe("critic agent", () => {
     expect((result.blockingReasons ?? []).length).toBeGreaterThan(0);
   });
 
+  it("normalizes model watchlist decisions to rejected", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createCriticAgent({
+      llmClient: {
+        completeJson: async () => ({
+          review: {
+            candidateId: "candidate-pendle-1",
+            decision: "watchlist_only" as const,
+            objections: ["No executable entry near resistance."],
+            forcedOutcomeReason: "No clean trade setup.",
+            repairable: false,
+            repairInstructions: [],
+          },
+          blockingReasons: ["No executable entry near resistance."],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        evaluation: {
+          thesis: {
+            candidateId: "candidate-pendle-1",
+            asset: "PENDLE",
+            direction: "NONE",
+            confidence: 82,
+            orderType: null,
+            tradingStyle: null,
+            expectedDuration: null,
+            currentPrice: 1.52,
+            entryPrice: null,
+            targetPrice: null,
+            stopLoss: null,
+            riskReward: 0,
+            whyNow: "PENDLE is interesting but not executable.",
+            confluences: ["Momentum is strong", "Price is at resistance"],
+            uncertaintyNotes: "No executable entry yet.",
+            missingDataNotes: "No additional missing-data flags.",
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "PENDLE is up strongly but near immediate resistance.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+        },
+      },
+      state,
+    );
+
+    expect(result.review.decision).toBe("rejected");
+  });
+
   it("keeps approved deterministic gates approved even when the model is too cautious", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createCriticAgent({

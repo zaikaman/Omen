@@ -26,7 +26,7 @@ export const buildScannerSystemPrompt = (input: z.input<typeof scannerPromptCont
       : "There are no active or pending trade symbols to exclude.",
     "Valid JSON example for NEUTRAL or UNKNOWN bias:",
     '{"marketBias":"NEUTRAL","candidates":[],"rejectedSymbols":["BTC","ETH"]}',
-    "Valid JSON example for directional or watchlist selection:",
+    "Valid JSON example for directional selection:",
     '{"marketBias":"LONG","candidates":[{"id":"candidate-SOL","symbol":"SOL","reason":"SOL is outperforming the supplied universe with stronger market momentum.","directionHint":"LONG","status":"pending","sourceUniverse":"default","dedupeKey":"SOL-long","missingDataNotes":[]}],"rejectedSymbols":["BTC","ETH"]}',
     "Every candidate must include id, symbol, reason, directionHint, status, sourceUniverse, dedupeKey, and missingDataNotes.",
     "status must be pending for new scanner candidates.",

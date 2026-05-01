@@ -41,7 +41,7 @@ const buildShortenerSystemPrompt = (runId: string) =>
     "- shortenedText: rewritten tweet at 270 characters or fewer.",
     "",
     "Rules:",
-    "- Preserve the core market thesis, tickers, and concrete watch line.",
+  "- Preserve the core market thesis, tickers, and concrete market-context line.",
     "- Keep lowercase prose and uppercase tickers when prefixed with $, e.g. $BTC.",
     "- Keep useful line breaks and '-' bullets when possible.",
     "- Remove filler before removing facts.",

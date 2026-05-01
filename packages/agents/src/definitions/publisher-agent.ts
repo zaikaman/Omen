@@ -287,7 +287,7 @@ const buildIntelSummaryDraft = (input: {
   const hashtagLine = buildHashtagLine(
     title.match(/\$?[A-Z0-9]{2,}/g)?.map((token) => token.replace(/^\$/, "")) ?? ["crypto"],
   );
-  const watchLine = `watch ${input.topic.toLowerCase()} if follow-through sticks`;
+  const contextLine = `market context: ${input.topic.toLowerCase()} follow-through remains unconfirmed`;
 
   return {
     kind: "intel_summary",
@@ -299,7 +299,7 @@ const buildIntelSummaryDraft = (input: {
         "",
         ...(bullets.length > 0 ? bullets : [`- ${insight.toLowerCase()}`]),
         "",
-        watchLine,
+        contextLine,
         hashtagLine,
       ].join("\n"),
       280,

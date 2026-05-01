@@ -14,7 +14,7 @@ import {
   demoRunBundles,
   demoRuntimeConfig,
   demoSchedulerStatus,
-} from "../../../packages/db/src/index";
+} from "../../fixtures/demo-runtime";
 import {
   buildAnalyticsSnapshotsReadModel,
   buildLatestAnalyticsSnapshotReadModel,
@@ -94,27 +94,12 @@ describe("dashboard read models", () => {
       scheduler: demoSchedulerStatus,
     });
 
-    expect(summary.ok).toBe(true);
-    if (!summary.ok) {
-      throw new Error(summary.error.message);
+    expect(summary.ok).toBe(false);
+    if (summary.ok) {
+      throw new Error("Expected dashboard read model to require persistence.");
     }
 
-    expect(summary.value).toEqual(demoDashboardSummary);
-    expect(summary.value.latestRun).not.toBeNull();
-    expect(summary.value.latestRun?.id).toBe("run-intel-001");
-    expect(summary.value.scheduler).toMatchObject({
-      enabled: true,
-      isRunning: false,
-      scanIntervalMinutes: 60,
-    });
-    expect(summary.value.latestPost).toMatchObject({
-      id: "post-intel-001",
-      runId: summary.value.latestRun?.id,
-    });
-    expect(summary.value.analytics).toMatchObject({
-      id: "analytics-snapshot-002",
-      runId: summary.value.latestRun?.id,
-    });
+    expect(summary.error.code).toBe("PERSISTENCE_NOT_CONFIGURED");
   });
 
   it("projects runtime status from active and latest run state plus scheduler timing", async () => {
@@ -124,18 +109,12 @@ describe("dashboard read models", () => {
       scheduler: demoSchedulerStatus,
     });
 
-    expect(runtimeStatus.ok).toBe(true);
-    if (!runtimeStatus.ok) {
-      throw new Error(runtimeStatus.error.message);
+    expect(runtimeStatus.ok).toBe(false);
+    if (runtimeStatus.ok) {
+      throw new Error("Expected runtime status read model to require persistence.");
     }
 
-    expect(runtimeStatus.value).toMatchObject({
-      runtimeMode: "mocked",
-      scheduler: demoSchedulerStatus,
-      activeRun: null,
-      latestRun: { id: "run-intel-001" },
-      lastCompletedRunId: "run-intel-001",
-    });
+    expect(runtimeStatus.error.code).toBe("PERSISTENCE_NOT_CONFIGURED");
   });
 
   it("projects intel feed and detail responses from intel-producing runs", () => {
@@ -222,7 +201,7 @@ describe("dashboard read models", () => {
     expect(latest.item?.mindshare).toEqual(demoDashboardSummary.analytics?.mindshare ?? []);
   });
 
-  it("returns seeded analytics snapshots through the read-model fallback when persistence is unavailable", async () => {
+  it("requires persistence for analytics snapshots", async () => {
     const snapshots = await buildAnalyticsSnapshotsReadModel({
       env: readModelEnv,
     });
@@ -230,29 +209,15 @@ describe("dashboard read models", () => {
       env: readModelEnv,
     });
 
-    expect(snapshots.ok).toBe(true);
-    expect(latest.ok).toBe(true);
+    expect(snapshots.ok).toBe(false);
+    expect(latest.ok).toBe(false);
 
-    if (!snapshots.ok || !latest.ok) {
-      throw new Error("analytics read-model fallback failed");
+    if (snapshots.ok || latest.ok) {
+      throw new Error("Expected analytics read models to require persistence.");
     }
 
-    expect(
-      analyticsFeedResponseSchema.parse({
-        items: snapshots.value,
-        nextCursor: null,
-      }),
-    ).toMatchObject({
-      items: demoAnalyticsSnapshots,
-      nextCursor: null,
-    });
-    expect(
-      analyticsLatestResponseSchema.parse({
-        item: latest.value,
-      }),
-    ).toMatchObject({
-      item: demoAnalyticsSnapshots[demoAnalyticsSnapshots.length - 1] ?? null,
-    });
+    expect(snapshots.error.code).toBe("PERSISTENCE_NOT_CONFIGURED");
+    expect(latest.error.code).toBe("PERSISTENCE_NOT_CONFIGURED");
   });
 
   it("projects analytics snapshots from runs, published signals, and published intel", () => {

@@ -328,7 +328,7 @@ const buildSearchOnlyIntelRetryPrompt = (input: {
     "",
     "Search X (Twitter) and the web directly for a current crypto market intel report.",
     "Prioritize recent posts or commentary from these accounts: WatcherGuru, agentcookiefun, DeFiTracer, cryptogoos, aantonop, AshCrypto, CryptoCred, Trader_XO, Pentosh1, JacobCryptoBury, danheld, maxkeiser, cryptorover, Cointelegraph, CryptoCobain.",
-    "Find the strongest recent narrative, catalyst, liquidity shift, policy development, or market-structure point. Return the best available intel even if it is a watch item rather than a trade.",
+    "Find the strongest recent narrative, catalyst, liquidity shift, policy development, or market-structure point. Return market news only, not a watchlist setup or trade candidate.",
     "",
     "RECENTLY POSTED CONTENT (Avoid repeating these):",
     JSON.stringify(recentPosts, null, 2),

@@ -23,7 +23,7 @@ export const buildResearchSystemPrompt = (
     `Current candidate: ${parsed.symbol.toUpperCase()}.`,
     `Direction hint: ${parsed.directionHint ?? "none"}.`,
     "Valid JSON example:",
-    '{"evidence":[{"category":"market","summary":"ETC traded near 8.42 with muted 24h change and no clear directional impulse.","sourceLabel":"Binance","sourceUrl":null,"structuredData":{"symbol":"ETC","price":8.42,"change24hPercent":0.8}},{"category":"sentiment","summary":"Social context is mixed, so the setup remains watchlist-only until stronger confirmation appears.","sourceLabel":"Omen research","sourceUrl":null,"structuredData":{}}],"narrativeSummary":"ETC has market-led watchlist evidence but lacks a strong catalyst or sentiment confirmation.","missingDataNotes":[]}',
+    '{"evidence":[{"category":"market","summary":"ETC traded near 8.42 with muted 24h change and no clear directional impulse.","sourceLabel":"Binance","sourceUrl":null,"structuredData":{"symbol":"ETC","price":8.42,"change24hPercent":0.8}},{"category":"sentiment","summary":"Social context is mixed, so evidence should remain factual until stronger confirmation appears.","sourceLabel":"Omen research","sourceUrl":null,"structuredData":{}}],"narrativeSummary":"ETC has market-led evidence but lacks a strong catalyst or sentiment confirmation.","missingDataNotes":[]}',
     "Evidence category must be one of: market, technical, liquidity, funding, fundamental, catalyst, sentiment, chart.",
     "Every evidence item must include category, summary, sourceLabel, sourceUrl, and structuredData.",
     "Use sourceUrl:null when no URL is available. Use structuredData:{} when no structured data is available.",
