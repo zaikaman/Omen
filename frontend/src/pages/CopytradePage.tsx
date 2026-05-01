@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { parseSignature } from 'viem';
-import { ApproveAgentTypes } from '@nktkas/hyperliquid/api/exchange';
 import {
   Activity,
   AlertTriangle,
@@ -36,6 +34,14 @@ declare global {
 }
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const APPROVE_AGENT_TYPES = {
+  'HyperliquidTransaction:ApproveAgent': [
+    { name: 'hyperliquidChain', type: 'string' },
+    { name: 'agentAddress', type: 'address' },
+    { name: 'agentName', type: 'string' },
+    { name: 'nonce', type: 'uint64' },
+  ],
+};
 
 const DEFAULT_RISK_SETTINGS: CopytradeRiskSettings = {
   maxAllocationUsd: 250,
@@ -70,7 +76,7 @@ const buildTypedData = (action: HyperliquidApproveAgentAction) => ({
       { name: 'chainId', type: 'uint256' },
       { name: 'verifyingContract', type: 'address' },
     ],
-    ...ApproveAgentTypes,
+    ...APPROVE_AGENT_TYPES,
   },
   primaryType: 'HyperliquidTransaction:ApproveAgent',
   message: {
@@ -82,12 +88,15 @@ const buildTypedData = (action: HyperliquidApproveAgentAction) => ({
 });
 
 const toHyperliquidSignature = (signature: `0x${string}`): HyperliquidSignature => {
-  const parsed = parseSignature(signature);
-  const v = parsed.v === 28n || parsed.yParity === 1 ? 28 : 27;
+  const normalizedSignature = signature.toLowerCase();
+  const r = `0x${normalizedSignature.slice(2, 66)}` as `0x${string}`;
+  const s = `0x${normalizedSignature.slice(66, 130)}` as `0x${string}`;
+  const recoveryByte = Number.parseInt(normalizedSignature.slice(130, 132), 16);
+  const v = recoveryByte === 28 || recoveryByte === 1 ? 28 : 27;
 
   return {
-    r: parsed.r,
-    s: parsed.s,
+    r,
+    s,
     v,
   };
 };
