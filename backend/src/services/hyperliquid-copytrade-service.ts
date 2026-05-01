@@ -45,6 +45,7 @@ const MIDS_CACHE_TTL_MS = 3_000;
 const STATE_CACHE_TTL_MS = 5_000;
 const FILLS_CACHE_TTL_MS = 10_000;
 const MARKET_ORDER_SLIPPAGE = 0.005;
+const TRIGGER_MARKET_SLIPPAGE = 0.1;
 
 const parseNumber = (value: unknown) => {
   const parsed = Number(value);
@@ -267,20 +268,15 @@ export class HyperliquidCopytradeService {
     let stopLossOrder: OrderResponse | null = null;
 
     if (entryFilled || input.orderType === "market") {
-      takeProfitOrder = await this.placeTriggerOrder({
+      const bracket = await this.placePositionTriggers({
         symbol,
-        isBuy: !isBuy,
-        size: filledQuantity,
-        triggerPrice: input.takeProfitPrice,
-        triggerType: "tp",
+        side: input.side,
+        quantity: filledQuantity,
+        takeProfitPrice: input.takeProfitPrice,
+        stopLossPrice: input.stopLossPrice,
       });
-      stopLossOrder = await this.placeTriggerOrder({
-        symbol,
-        isBuy: !isBuy,
-        size: filledQuantity,
-        triggerPrice: input.stopLossPrice,
-        triggerType: "sl",
-      });
+      takeProfitOrder = bracket.takeProfitOrder;
+      stopLossOrder = bracket.stopLossOrder;
     }
 
     this.clearCaches();
@@ -329,12 +325,13 @@ export class HyperliquidCopytradeService {
     stopLossPrice: number;
   }) {
     const isBuy = input.side === "LONG";
-    const takeProfitOrder = await this.placeTriggerOrder({
+    const takeProfitOrder = await this.placeOrder({
       symbol: input.symbol,
       isBuy: !isBuy,
       size: input.quantity,
-      triggerPrice: input.takeProfitPrice,
-      triggerType: "tp",
+      price: input.takeProfitPrice,
+      orderType: "limit",
+      reduceOnly: true,
     });
     const stopLossOrder = await this.placeTriggerOrder({
       symbol: input.symbol,
@@ -504,12 +501,15 @@ export class HyperliquidCopytradeService {
     await this.ensureConnected();
     const roundedSize = await this.roundSize(input.symbol, input.size);
     const triggerPrice = this.roundPrice(input.triggerPrice);
+    const limitPrice = this.roundPrice(
+      input.triggerPrice * (input.isBuy ? 1 + TRIGGER_MARKET_SLIPPAGE : 1 - TRIGGER_MARKET_SLIPPAGE),
+    );
 
     return this.sdk.exchange.placeOrder({
       coin: this.normalizeSymbol(input.symbol),
       is_buy: input.isBuy,
       sz: roundedSize.toString(),
-      limit_px: triggerPrice.toString(),
+      limit_px: limitPrice.toString(),
       order_type: {
         trigger: {
           triggerPx: triggerPrice.toString(),

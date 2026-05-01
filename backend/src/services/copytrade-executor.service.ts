@@ -83,6 +83,39 @@ const calculateRiskSizedNotional = (input: {
 const calculatePnlPercent = (pnlUsd: number, notionalUsd: number | null) =>
   notionalUsd && notionalUsd > 0 ? (pnlUsd / notionalUsd) * 100 : null;
 
+type HyperliquidFill = Awaited<ReturnType<HyperliquidCopytradeService["getFills"]>>[number];
+
+const parseMetadataNumber = (
+  metadata: Record<string, unknown> | null,
+  key: string,
+) => {
+  const value = metadata?.[key];
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeFillTime = (value: unknown) => {
+  if (typeof value === "number") {
+    return new Date(value).toISOString();
+  }
+
+  if (typeof value === "string" && value.length > 0) {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toISOString();
+    }
+
+    const asDate = new Date(value);
+
+    if (!Number.isNaN(asDate.getTime())) {
+      return asDate.toISOString();
+    }
+  }
+
+  return new Date().toISOString();
+};
+
 export class CopytradeExecutorService {
   private interval: NodeJS.Timeout | null = null;
 
@@ -522,6 +555,19 @@ export class CopytradeExecutorService {
     for (const trade of openTrades.value) {
       const position = positions.find((candidate) => candidate.coin === normalizeAsset(trade.asset));
 
+      if (trade.status === "queued") {
+        const syncedQueuedLimit = await this.syncQueuedLimitTrade({
+          service,
+          trade,
+          fills,
+        });
+
+        if (syncedQueuedLimit > 0) {
+          synced += syncedQueuedLimit;
+          continue;
+        }
+      }
+
       if (position) {
         synced += await this.syncOpenPositionTrade({
           enrollment,
@@ -565,6 +611,96 @@ export class CopytradeExecutorService {
     }
 
     return synced;
+  }
+
+  private async syncQueuedLimitTrade(input: {
+    service: HyperliquidCopytradeService;
+    trade: CopytradeTrade;
+    fills: HyperliquidFill[];
+  }) {
+    if (!this.repositories) {
+      return 0;
+    }
+
+    const { service, trade, fills } = input;
+    const metadata = trade.executionMetadata ?? {};
+
+    if (metadata.orderType !== "limit" || !trade.orderId) {
+      return 0;
+    }
+
+    const entryFill = fills.find((fill) => {
+      const fillOid = fill.oid.toString();
+      return (
+        fillOid === trade.orderId &&
+        normalizeAsset(fill.coin) === normalizeAsset(trade.asset)
+      );
+    });
+
+    if (!entryFill) {
+      return 0;
+    }
+
+    const targetPrice = parseMetadataNumber(metadata, "targetPrice");
+    const stopLoss = parseMetadataNumber(metadata, "stopLoss");
+    const quantity = Math.abs(Number(entryFill.sz));
+    const entryPrice = Number(entryFill.px);
+    let takeProfitOrderId = trade.takeProfitOrderId;
+    let stopLossOrderId = trade.stopLossOrderId;
+    let bracketError: string | null = null;
+
+    if (
+      targetPrice !== null &&
+      stopLoss !== null &&
+      Number.isFinite(quantity) &&
+      quantity > 0
+    ) {
+      const bracket = await service.placePositionTriggers({
+        symbol: trade.asset,
+        side: trade.direction,
+        quantity,
+        takeProfitPrice: targetPrice,
+        stopLossPrice: stopLoss,
+      }).catch((error: unknown) => {
+        bracketError = error instanceof Error ? error.message : "Failed to attach bracket orders.";
+        this.input.logger.error(
+          `Failed to attach limit-fill brackets for ${trade.walletAddress} ${trade.asset}.`,
+          error,
+        );
+        return null;
+      });
+
+      takeProfitOrderId = bracket?.takeProfitOrderId ?? takeProfitOrderId;
+      stopLossOrderId = bracket?.stopLossOrderId ?? stopLossOrderId;
+    } else {
+      bracketError = "Limit entry filled but TP/SL metadata or fill quantity was invalid.";
+    }
+
+    const openedAt = normalizeFillTime(entryFill.time);
+    const notionalUsd =
+      Number.isFinite(entryPrice) && Number.isFinite(quantity)
+        ? entryPrice * quantity
+        : trade.notionalUsd;
+    const updated = await this.repositories.trades.updateTrade(trade.id, {
+      status: "open",
+      takeProfitOrderId,
+      stopLossOrderId,
+      entryPrice: Number.isFinite(entryPrice) ? entryPrice : trade.entryPrice,
+      quantity: Number.isFinite(quantity) ? quantity : trade.quantity,
+      notionalUsd,
+      openedAt,
+      lastError:
+        bracketError ??
+        (!takeProfitOrderId || !stopLossOrderId
+          ? "Limit entry filled without complete TP/SL orders."
+          : null),
+    });
+
+    if (!updated.ok) {
+      throw new Error(updated.error.message);
+    }
+
+    return 1;
   }
 
   private async syncOpenPositionTrade(input: {
