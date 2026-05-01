@@ -170,7 +170,7 @@ const parseHfTokens = (env: NodeJS.ProcessEnv) => {
     tokens.push(primaryToken);
   }
 
-  for (let index = 2; index <= 10; index += 1) {
+  for (let index = 2; index <= 17; index += 1) {
     const token = env[`HF_TOKEN_${index.toString()}`];
 
     if (typeof token === "string" && token.trim()) {

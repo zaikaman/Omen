@@ -63,6 +63,54 @@
     "HF_TOKEN": {
       "required": false
     },
+    "HF_TOKEN_2": {
+      "required": false
+    },
+    "HF_TOKEN_3": {
+      "required": false
+    },
+    "HF_TOKEN_4": {
+      "required": false
+    },
+    "HF_TOKEN_5": {
+      "required": false
+    },
+    "HF_TOKEN_6": {
+      "required": false
+    },
+    "HF_TOKEN_7": {
+      "required": false
+    },
+    "HF_TOKEN_8": {
+      "required": false
+    },
+    "HF_TOKEN_9": {
+      "required": false
+    },
+    "HF_TOKEN_10": {
+      "required": false
+    },
+    "HF_TOKEN_11": {
+      "required": false
+    },
+    "HF_TOKEN_12": {
+      "required": false
+    },
+    "HF_TOKEN_13": {
+      "required": false
+    },
+    "HF_TOKEN_14": {
+      "required": false
+    },
+    "HF_TOKEN_15": {
+      "required": false
+    },
+    "HF_TOKEN_16": {
+      "required": false
+    },
+    "HF_TOKEN_17": {
+      "required": false
+    },
     "TWITTERAPI_BASE_URL": {
       "value": "https://api.twitterapi.io"
     },
