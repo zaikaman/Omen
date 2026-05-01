@@ -647,6 +647,21 @@ const createPublisherNode = (input: { timestamp: string; peerId?: string | null 
   },
 });
 
+const createZeroGComputeAdjudicationNode = (input: { timestamp: string }): AgentNode => ({
+  id: "agent-zero-g-compute-adjudication",
+  role: "monitor",
+  transport: "local",
+  status: "online",
+  peerId: null,
+  lastHeartbeatAt: input.timestamp,
+  lastError: null,
+  metadata: {
+    managedBy: "live-swarm-pipeline",
+    step: "0g-compute-adjudication",
+    services: ["0g-compute"],
+  },
+});
+
 const createAgentEvent = (input: {
   checkpoint: SwarmCheckpoint;
   timestamp: string;
@@ -1485,6 +1500,11 @@ class LivePipelineExecutionContext {
       : `0G Compute Adjudication verified critic decision ${localDecision}: ${zeroGPreview}`;
 
     if (this.eventPublisher) {
+      await this.safePublishNodeStatus(
+        createZeroGComputeAdjudicationNode({
+          timestamp: result.value.artifact.createdAt,
+        }),
+      );
       await this.safePublishEvent({
         id: `event-${randomUUID()}`,
         runId: input.runId,
