@@ -415,6 +415,119 @@ describe("analyst agent", () => {
     expect(result.thesis.whyNow).toContain("Market order entry is more than 1% away");
   });
 
+  it("repairs a far limit entry into an executable market setup on the retry pass", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createAnalystAgent({
+      llmClient: {
+        config: {
+          apiKey: "test-key",
+          baseUrl: "https://example.com/v1",
+          model: "test-reasoner",
+          timeoutMs: 30_000,
+        },
+        completeJson: async () => ({
+          thesis: {
+            candidateId: "ignored-by-sanitizer",
+            asset: "ignored-by-sanitizer",
+            direction: "LONG" as const,
+            confidence: 92,
+            orderType: "limit" as const,
+            tradingStyle: "day_trade" as const,
+            expectedDuration: "8-16 hours",
+            currentPrice: 1.51,
+            entryPrice: 1.28,
+            targetPrice: 1.58,
+            stopLoss: 1.23,
+            riskReward: 6,
+            whyNow: "PENDLE has momentum but the initial pullback entry was too far.",
+            confluences: ["Momentum", "Chart", "Narrative"],
+            uncertaintyNotes: "Entry must be executable.",
+            missingDataNotes: "No additional missing-data flags.",
+          },
+          analystNotes: ["Model retried the critic issue."],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+
+    const previousThesis = {
+      candidateId: "candidate-pendle-1",
+      asset: "PENDLE",
+      direction: "LONG" as const,
+      confidence: 92,
+      orderType: "limit" as const,
+      tradingStyle: "day_trade" as const,
+      expectedDuration: "8-16 hours",
+      currentPrice: 1.51,
+      entryPrice: 1.28,
+      targetPrice: 1.58,
+      stopLoss: 1.23,
+      riskReward: 6,
+      whyNow: "Initial thesis used a far pullback.",
+      confluences: ["Momentum", "Chart", "Narrative"],
+      uncertaintyNotes: "Entry may be stale.",
+      missingDataNotes: "No additional missing-data flags.",
+    };
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-repair",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        research: {
+          candidate: {
+            id: "candidate-pendle-1",
+            symbol: "PENDLE",
+            reason: "Testing repair path.",
+            directionHint: "LONG",
+            status: "researched",
+            sourceUniverse: "PENDLE",
+            dedupeKey: "PENDLE",
+            missingDataNotes: [],
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "PENDLE trades at 1.51.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: { currentPrice: 1.51, price: 1.51 },
+            },
+            {
+              category: "technical",
+              summary: "Momentum is constructive near resistance.",
+              sourceLabel: "Analyzer",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+          narrativeSummary: "Momentum stayed constructive.",
+          missingDataNotes: [],
+        },
+        repairContext: {
+          attemptNumber: 1,
+          previousThesis,
+          review: {
+            candidateId: "candidate-pendle-1",
+            decision: "rejected",
+            objections: ["Entry is too far below current price."],
+            forcedOutcomeReason: "Execution math needs repair.",
+            repairable: true,
+            repairInstructions: ["Move entry closer to current price or downgrade."],
+          },
+        },
+      },
+      state,
+    );
+
+    expect(result.thesis.orderType).toBe("market");
+    expect(result.thesis.entryPrice).toBe(1.51);
+    expect(result.thesis.stopLoss).toBeLessThan(result.thesis.entryPrice ?? 0);
+    expect(result.analystNotes.join(" ")).toContain("Repair attempt 1");
+  });
+
   it("derives a short thesis from downward chart language without a direction hint", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createAnalystAgent({

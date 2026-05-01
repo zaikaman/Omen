@@ -136,9 +136,13 @@ const normalizeReview = (review: {
   decision: "approved" | "rejected" | "watchlist_only";
   objections?: string[];
   forcedOutcomeReason: string | null;
+  repairable?: boolean;
+  repairInstructions?: string[];
 }) => ({
   ...review,
   objections: review.objections ?? [],
+  repairable: review.repairable ?? false,
+  repairInstructions: review.repairInstructions ?? [],
 });
 
 const normalizeIntelReport = (report: {
@@ -199,6 +203,8 @@ const normalizePublisherOutput = (output: {
       decision: "approved" | "rejected" | "watchlist_only";
       objections?: string[];
       forcedOutcomeReason: string | null;
+      repairable?: boolean;
+      repairInstructions?: string[];
     } | null;
   } | null;
 }): NormalizedPublisherOutput => {
@@ -319,7 +325,15 @@ export const resolveNextOmenNodeKey = (
   if (current === "critic-agent") {
     const review = state.criticReviews.at(-1);
 
-    return review?.decision === "approved" ? "memory-agent" : "intel-agent";
+    if (review?.decision === "approved") {
+      return "memory-agent";
+    }
+
+    if (review?.repairable === true && state.signalRepairAttempts < 1) {
+      return "analyst-agent";
+    }
+
+    return "intel-agent";
   }
 
   if (current === "intel-agent") {
@@ -391,10 +405,24 @@ export const buildOmenNodeInput = (input: {
 
   if (input.nodeKey === "analyst-agent") {
     const candidate = input.state.activeCandidates[0];
+    const previousThesis = input.state.thesisDrafts.at(-1) ?? null;
+    const latestReview = input.state.criticReviews.at(-1) ?? null;
 
     if (!candidate) {
       throw new Error("Analyst node requires a researched candidate.");
     }
+
+    const repairContext =
+      latestReview?.repairable === true &&
+      latestReview.decision !== "approved" &&
+      previousThesis !== null &&
+      input.state.signalRepairAttempts < 1
+        ? {
+            attemptNumber: input.state.signalRepairAttempts + 1,
+            previousThesis,
+            review: latestReview,
+          }
+        : null;
 
     const researchSummary =
       input.state.notes.findLast((note) => note.startsWith("research-summary:")) ??
@@ -413,6 +441,7 @@ export const buildOmenNodeInput = (input: {
           .filter((value) => value.length > 0),
         missingDataNotes: candidate?.missingDataNotes ?? [],
       },
+      repairContext,
     };
   }
 
@@ -603,8 +632,16 @@ export const applyOmenNodeOutput = (input: {
   if (input.nodeKey === "analyst-agent") {
     const output = createAnalystAgent().outputSchema.parse(input.output);
     const thesis = normalizeThesis(output.thesis);
+    const latestReview = input.state.criticReviews.at(-1);
+    const isRepairAttempt =
+      latestReview?.repairable === true &&
+      latestReview.decision !== "approved" &&
+      input.state.signalRepairAttempts < 1;
     const stateDelta = {
       thesisDrafts: [...input.state.thesisDrafts, thesis],
+      signalRepairAttempts: isRepairAttempt
+        ? input.state.signalRepairAttempts + 1
+        : input.state.signalRepairAttempts,
       notes: sanitizeNotes([...input.state.notes, ...(output.analystNotes ?? [])]),
     };
 

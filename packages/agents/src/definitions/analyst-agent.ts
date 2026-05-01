@@ -162,6 +162,9 @@ const calculateRiskReward = (input: {
   return Number((reward / risk).toFixed(2));
 };
 
+const maxLimitEntryDistance = (tradingStyle: "day_trade" | "swing_trade" | null) =>
+  tradingStyle === "swing_trade" ? 0.12 : 0.05;
+
 const validateTemplateTradeRules = (input: {
   direction: "LONG" | "SHORT" | "WATCHLIST" | "NONE";
   orderType: "market" | "limit" | null;
@@ -331,6 +334,7 @@ const deriveTradeSetup = (input: {
     input.confidence >= 90 && input.confluences.length >= 3 ? "swing_trade" : "day_trade";
   const expectedDuration = tradingStyle === "swing_trade" ? "2-5 days" : "8-16 hours";
   const stopDistancePercent = tradingStyle === "swing_trade" ? 0.05 : 0.035;
+  const maxEntryDistance = maxLimitEntryDistance(tradingStyle);
   const supportEntry =
     input.direction === "LONG" && supportLevel !== null && supportLevel <= currentPrice
       ? supportLevel
@@ -339,7 +343,9 @@ const deriveTradeSetup = (input: {
     input.direction === "SHORT" && resistanceLevel !== null && resistanceLevel >= currentPrice
       ? resistanceLevel
       : null;
-  const entryPrice = supportEntry ?? resistanceEntry ?? currentPrice;
+  const candidateEntry = supportEntry ?? resistanceEntry ?? currentPrice;
+  const entryDistance = Math.abs((candidateEntry - currentPrice) / currentPrice);
+  const entryPrice = entryDistance <= maxEntryDistance ? candidateEntry : currentPrice;
   const stopLoss =
     input.direction === "LONG"
       ? Math.min(
@@ -801,7 +807,7 @@ const normalizeAnalystModelThesis = (input: {
   baseline: z.infer<typeof analystOutputSchema>;
   candidateId: string;
   symbol: string;
-}) => {
+}): z.infer<typeof thesisDraftSchema> => {
   const raw = input.rawThesis;
   const baseline = input.baseline.thesis;
   const confidence = coerceNumber(raw.confidence);
@@ -842,6 +848,83 @@ const normalizeAnalystModelThesis = (input: {
     ...(coerceString(raw.missingDataNotes)
       ? { missingDataNotes: coerceString(raw.missingDataNotes) }
       : {}),
+  });
+};
+
+const repairThesisForCritic = (input: {
+  thesis: z.infer<typeof thesisDraftSchema>;
+  previousThesis: z.infer<typeof thesisDraftSchema>;
+  evidence: EvidenceItem[];
+}) => {
+  const thesis = input.thesis;
+
+  if (thesis.direction !== "LONG" && thesis.direction !== "SHORT") {
+    return thesis;
+  }
+
+  const currentPrice =
+    thesis.currentPrice ?? input.previousThesis.currentPrice ?? extractCurrentPrice(input.evidence);
+
+  if (currentPrice === null) {
+    return thesisDraftSchema.parse({
+      ...thesis,
+      direction: "WATCHLIST",
+      confidence: Math.min(thesis.confidence, 79),
+      orderType: null,
+      tradingStyle: null,
+      expectedDuration: null,
+      entryPrice: null,
+      targetPrice: null,
+      stopLoss: null,
+      riskReward: 0,
+      whyNow: `${thesis.asset} stayed on watchlist because the repair pass could not confirm a live current price.`,
+      uncertaintyNotes: `${thesis.uncertaintyNotes} Repair pass could not validate executable pricing.`,
+    });
+  }
+
+  const tradingStyle =
+    thesis.tradingStyle ??
+    input.previousThesis.tradingStyle ??
+    (thesis.confidence >= 90 && thesis.confluences.length >= 3 ? "swing_trade" : "day_trade");
+  const expectedDuration =
+    thesis.expectedDuration ??
+    input.previousThesis.expectedDuration ??
+    (tradingStyle === "swing_trade" ? "2-5 days" : "8-16 hours");
+  const candidateEntry = thesis.entryPrice ?? input.previousThesis.entryPrice ?? currentPrice;
+  const entryDistance = Math.abs((candidateEntry - currentPrice) / currentPrice);
+  const maxDistance = maxLimitEntryDistance(tradingStyle);
+  const orderType =
+    thesis.orderType === "limit" && entryDistance <= maxDistance ? "limit" : "market";
+  const entryPrice = orderType === "market" ? currentPrice : candidateEntry;
+  const riskReward = Math.max(thesis.riskReward ?? input.previousThesis.riskReward ?? 2, 2);
+  const stopDistancePercent = tradingStyle === "swing_trade" ? 0.05 : 0.035;
+  const stopLoss =
+    thesis.direction === "LONG"
+      ? entryPrice * (1 - stopDistancePercent)
+      : entryPrice * (1 + stopDistancePercent);
+  const riskPerUnit = Math.abs(entryPrice - stopLoss);
+  const targetPrice =
+    thesis.direction === "LONG"
+      ? entryPrice + riskPerUnit * riskReward
+      : entryPrice - riskPerUnit * riskReward;
+
+  return thesisDraftSchema.parse({
+    ...thesis,
+    orderType,
+    tradingStyle,
+    expectedDuration,
+    currentPrice: roundTradingPrice(currentPrice),
+    entryPrice: roundTradingPrice(entryPrice),
+    targetPrice: roundTradingPrice(targetPrice),
+    stopLoss: roundTradingPrice(stopLoss),
+    riskReward: calculateRiskReward({
+      direction: thesis.direction,
+      entryPrice,
+      targetPrice,
+      stopLoss,
+    }),
+    whyNow: `${thesis.whyNow} Repair pass adjusted execution to a ${orderType} ${tradingStyle} setup using live current price constraints.`,
+    uncertaintyNotes: `${thesis.uncertaintyNotes} This was the single critic repair attempt; if it still fails, it must be downgraded to intel/watchlist.`,
   });
 };
 
@@ -960,7 +1043,9 @@ export class AnalystAgentFactory {
   private async analyze(input: z.input<typeof analystInputSchema>, state: SwarmState) {
     const parsed = analystInputSchema.parse(input);
     const enrichedInput = await this.enrichInputWithAnalystTools(parsed, state);
-    const baseline = deriveAnalystThesis(enrichedInput);
+    const enrichedParsed = analystInputSchema.parse(enrichedInput);
+    const repairContext = enrichedParsed.repairContext;
+    const baseline = deriveAnalystThesis(enrichedParsed);
 
     if (this.llmClient === null) {
       throw new Error("Analyst thesis generation requires a configured LLM client.");
@@ -977,14 +1062,17 @@ export class AnalystAgentFactory {
         systemPrompt: prompt,
         userPrompt: JSON.stringify(
           {
-            candidate: enrichedInput.research.candidate,
-            narrativeSummary: enrichedInput.research.narrativeSummary,
-            chartVisionSummary: enrichedInput.research.chartVisionSummary,
-            chartVisionTimeframes: enrichedInput.research.chartVisionTimeframes,
-            missingDataNotes: enrichedInput.research.missingDataNotes,
-            evidence: enrichedInput.research.evidence,
+            candidate: enrichedParsed.research.candidate,
+            narrativeSummary: enrichedParsed.research.narrativeSummary,
+            chartVisionSummary: enrichedParsed.research.chartVisionSummary,
+            chartVisionTimeframes: enrichedParsed.research.chartVisionTimeframes,
+            missingDataNotes: enrichedParsed.research.missingDataNotes,
+            evidence: enrichedParsed.research.evidence,
+            repairContext,
             instruction:
-              "Return one thesis draft only. Keep candidateId equal to the candidate id and asset equal to the candidate symbol. Obey the template analyzer hard rules: only market/limit orders, LONG entry at or below current price, SHORT entry at or above current price, stop at least 3% from entry, and risk/reward at least 1:2.",
+              repairContext === null
+                ? "Return one thesis draft only. Keep candidateId equal to the candidate id and asset equal to the candidate symbol. Obey the template analyzer hard rules: only market/limit orders, LONG entry at or below current price, SHORT entry at or above current price, stop at least 3% from entry, and risk/reward at least 1:2. Market orders must use the live current price. Limit entries may be pullbacks, but day_trade limits must stay within 5% of current price and swing_trade limits within 12%."
+                : "This is the single analyst repair attempt after critic review. Address every repairInstruction. Keep the trade executable with market or limit only. If the criticism cannot be fixed without weakening the setup, return WATCHLIST. Market orders must use live current price. Limit entries may be pullbacks, but day_trade limits must stay within 5% of current price and swing_trade limits within 12%.",
           },
           null,
           2,
@@ -992,14 +1080,21 @@ export class AnalystAgentFactory {
       });
       const rawResponse = rawAnalystOutputSchema.parse(response);
 
-      const mergedThesis = enforceTemplateTradeRules(
-        normalizeAnalystModelThesis({
-          rawThesis: rawResponse.thesis,
-          baseline,
-          candidateId: enrichedInput.research.candidate.id,
-          symbol: enrichedInput.research.candidate.symbol,
-        }),
-      );
+      const normalizedThesis = normalizeAnalystModelThesis({
+        rawThesis: rawResponse.thesis,
+        baseline,
+        candidateId: enrichedParsed.research.candidate.id,
+        symbol: enrichedParsed.research.candidate.symbol,
+      });
+      const repairedThesis =
+        repairContext === null
+          ? normalizedThesis
+          : repairThesisForCritic({
+              thesis: normalizedThesis,
+              previousThesis: repairContext.previousThesis,
+              evidence: enrichedParsed.research.evidence,
+            });
+      const mergedThesis = enforceTemplateTradeRules(repairedThesis);
 
       return analystOutputSchema.parse({
         ...rawResponse,
@@ -1007,6 +1102,9 @@ export class AnalystAgentFactory {
         analystNotes: [
           ...rawResponse.analystNotes,
           `Model-backed analyst path: ${this.llmClient.config.model}`,
+          ...(repairContext === null
+            ? []
+            : [`Repair attempt ${repairContext.attemptNumber.toString()} applied critic instructions.`]),
         ],
       });
     } catch (error) {

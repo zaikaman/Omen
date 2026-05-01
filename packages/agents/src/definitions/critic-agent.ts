@@ -52,6 +52,8 @@ export const reviewThesisWithCritic = (input: z.input<typeof criticInputSchema>)
       decision: gate.decision,
       objections: gate.objections,
       forcedOutcomeReason: gate.forcedOutcomeReason,
+      repairable: gate.repairable,
+      repairInstructions: gate.repairInstructions,
     },
     blockingReasons: gate.blockingReasons,
   });
@@ -116,7 +118,7 @@ export class CriticAgentFactory {
             evidence: parsed.evaluation.evidence,
             deterministicGate: gateReview,
             instruction:
-              "Act as a pragmatic trading reviewer. Approve when the deterministic quality gate passed and no clear safety issue is present. Downgrade only for specific evidence-backed problems, not vague caution. Return concise blockingReasons when downgrading.",
+              "Act as a pragmatic trading reviewer. Approve when the deterministic quality gate passed and no clear safety issue is present. If the only problem is fixable execution math, keep repairable true and return concrete repairInstructions. Downgrade only for specific evidence-backed problems, not vague caution. Return concise blockingReasons when downgrading.",
           },
           null,
           2,
@@ -141,6 +143,13 @@ export class CriticAgentFactory {
             stricterReview.decision === gateReview.review.decision
               ? gateReview.review.forcedOutcomeReason
               : llmReview.review.forcedOutcomeReason ?? gateReview.review.forcedOutcomeReason,
+          repairable: gateReview.review.repairable || llmReview.review.repairable,
+          repairInstructions: Array.from(
+            new Set([
+              ...(gateReview.review.repairInstructions ?? []),
+              ...(llmReview.review.repairInstructions ?? []),
+            ]),
+          ),
         },
         blockingReasons: Array.from(
           new Set([...(gateReview.blockingReasons ?? []), ...(llmReview.blockingReasons ?? [])]),

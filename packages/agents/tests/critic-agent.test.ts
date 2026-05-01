@@ -172,6 +172,77 @@ describe("critic agent", () => {
     expect((result.blockingReasons ?? []).length).toBeGreaterThan(0);
   });
 
+  it("marks far executable entries as repairable instead of terminally rejecting them", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createCriticAgent({
+      llmClient: {
+        completeJson: async () => ({
+          review: {
+            candidateId: "candidate-pendle-1",
+            decision: "rejected" as const,
+            objections: ["Entry is too far below the live market for a day trade."],
+            forcedOutcomeReason: "Execution math needs repair.",
+            repairable: true,
+            repairInstructions: ["Move the entry closer to current price or downgrade."],
+          },
+          blockingReasons: ["Entry is too far below current price."],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        evaluation: {
+          thesis: {
+            candidateId: "candidate-pendle-1",
+            asset: "PENDLE",
+            direction: "LONG",
+            confidence: 92,
+            orderType: "limit",
+            tradingStyle: "day_trade",
+            expectedDuration: "8-16 hours",
+            currentPrice: 1.51,
+            entryPrice: 1.28,
+            targetPrice: 1.58,
+            stopLoss: 1.23,
+            riskReward: 6,
+            whyNow: "Momentum is constructive but entry is far from current price.",
+            confluences: ["Momentum", "Chart structure", "Narrative"],
+            uncertaintyNotes: "Entry needs repair.",
+            missingDataNotes: "No additional missing-data flags.",
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "PENDLE is trading near 1.51.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: { currentPrice: 1.51 },
+            },
+            {
+              category: "technical",
+              summary: "Price is near resistance after a momentum move.",
+              sourceLabel: "Analyzer",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+        },
+      },
+      state,
+    );
+
+    expect(result.review.decision).toBe("rejected");
+    expect(result.review.repairable).toBe(true);
+    expect(result.review.repairInstructions.length).toBeGreaterThan(0);
+  });
+
   it("keeps the hard gate authoritative even when the model is too optimistic", async () => {
     const state = createInitialSwarmState({ run, config });
     const agent = createCriticAgent({

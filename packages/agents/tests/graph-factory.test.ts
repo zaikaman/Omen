@@ -361,6 +361,104 @@ describe("omen graph factory", () => {
     ).toBe("scanner-agent");
   });
 
+  it("gives repairable critic decisions one analyst retry before intel downgrade", () => {
+    const baseState = createInitialSwarmState({ run, config });
+    const repairableState = {
+      ...baseState,
+      criticReviews: [
+        {
+          candidateId: "candidate-pendle-1",
+          decision: "rejected" as const,
+          objections: ["Entry is too far below market."],
+          forcedOutcomeReason: "Execution math needs repair.",
+          repairable: true,
+          repairInstructions: ["Move entry closer to current price."],
+        },
+      ],
+      signalRepairAttempts: 0,
+    };
+
+    expect(resolveNextOmenNodeKey("critic-agent", repairableState)).toBe("analyst-agent");
+
+    expect(
+      resolveNextOmenNodeKey("critic-agent", {
+        ...repairableState,
+        signalRepairAttempts: 1,
+      }),
+    ).toBe("intel-agent");
+  });
+
+  it("passes critic repair context into the analyst retry input", () => {
+    const state = createInitialSwarmState({ run, config });
+    const input = buildOmenNodeInput({
+      nodeKey: "analyst-agent",
+      state: {
+        ...state,
+        activeCandidates: [
+          {
+            id: "candidate-pendle-1",
+            symbol: "PENDLE",
+            reason: "Momentum candidate.",
+            directionHint: "LONG",
+            status: "researched",
+            sourceUniverse: "PENDLE",
+            dedupeKey: "PENDLE",
+            missingDataNotes: [],
+          },
+        ],
+        evidenceItems: [
+          {
+            category: "market",
+            summary: "PENDLE spot snapshot recorded 1.51.",
+            sourceLabel: "Binance",
+            sourceUrl: null,
+            structuredData: { currentPrice: 1.51 },
+          },
+        ],
+        thesisDrafts: [
+          {
+            candidateId: "candidate-pendle-1",
+            asset: "PENDLE",
+            direction: "LONG",
+            confidence: 92,
+            orderType: "limit",
+            tradingStyle: "day_trade",
+            expectedDuration: "8-16 hours",
+            currentPrice: 1.51,
+            entryPrice: 1.28,
+            targetPrice: 1.58,
+            stopLoss: 1.23,
+            riskReward: 6,
+            whyNow: "Fixture thesis.",
+            confluences: ["Momentum", "Chart", "Narrative"],
+            uncertaintyNotes: "Entry may be stale.",
+            missingDataNotes: "No additional missing-data flags.",
+          },
+        ],
+        criticReviews: [
+          {
+            candidateId: "candidate-pendle-1",
+            decision: "rejected",
+            objections: ["Entry is too far below market."],
+            forcedOutcomeReason: "Execution math needs repair.",
+            repairable: true,
+            repairInstructions: ["Move entry closer to current price."],
+          },
+        ],
+      },
+      threadId: "thread-graph-1",
+    });
+
+    expect(input).toMatchObject({
+      repairContext: {
+        attemptNumber: 1,
+        review: {
+          repairable: true,
+        },
+      },
+    });
+  });
+
   it("starts intel from a clean brief instead of rejected trade context", () => {
     const state = createInitialSwarmState({ run, config });
     const input = buildOmenNodeInput({

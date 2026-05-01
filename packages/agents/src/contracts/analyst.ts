@@ -1,10 +1,23 @@
 import { z } from "zod";
 
-import { orchestrationContextSchema, researchBundleSchema, thesisDraftSchema } from "./common.js";
+import {
+  criticReviewSchema,
+  orchestrationContextSchema,
+  researchBundleSchema,
+  thesisDraftSchema,
+} from "./common.js";
 
 export const analystInputSchema = z.object({
   context: orchestrationContextSchema,
   research: researchBundleSchema,
+  repairContext: z
+    .object({
+      attemptNumber: z.number().int().min(1),
+      previousThesis: thesisDraftSchema,
+      review: criticReviewSchema,
+    })
+    .nullable()
+    .default(null),
 });
 
 export const analystOutputSchema = z.object({

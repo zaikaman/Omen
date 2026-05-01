@@ -63,6 +63,8 @@ export const criticReviewSchema = z.object({
   decision: z.enum(["approved", "rejected", "watchlist_only"]),
   objections: z.array(z.string().min(1)).default([]),
   forcedOutcomeReason: z.string().min(1).nullable(),
+  repairable: z.boolean().default(false),
+  repairInstructions: z.array(z.string().min(1)).default([]),
 });
 
 export const intelReportSchema = z.object({
@@ -133,6 +135,7 @@ export const swarmStateSchema = z.object({
   recentIntelHistory: z.array(recentIntelHistoryItemSchema),
   recentPostContext: z.array(recentPostContextItemSchema),
   activeTradeSymbols: z.array(z.string().min(1)).default([]),
+  signalRepairAttempts: z.number().int().min(0).default(0),
   publisherDrafts: z.array(publisherDraftSchema),
   events: z.array(agentEventSchema),
   axlMessages: z.array(axlEnvelopeSchema),
@@ -164,6 +167,7 @@ export const createInitialSwarmState = (input: {
     recentIntelHistory: [],
     recentPostContext: [],
     activeTradeSymbols: [],
+    signalRepairAttempts: 0,
     publisherDrafts: [],
     events: [],
     axlMessages: [],
