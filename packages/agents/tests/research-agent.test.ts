@@ -289,4 +289,65 @@ describe("research agent", () => {
     expect(result.evidence[0]?.structuredData).not.toHaveProperty("prompt");
     expect(result.evidence.some((item) => item.summary.includes("ETF-flow headlines"))).toBe(true);
   });
+
+  it("filters model-sourced executable market data out of research evidence", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createResearchAgent({
+      llmClient: {
+        completeJson: async () => ({
+          evidence: [
+            {
+              category: "market" as const,
+              summary: "PENDLE is trading near $3.85 according to an unverified web result.",
+              sourceLabel: "CoinGecko",
+              sourceUrl: null,
+              structuredData: {
+                symbol: "PENDLE",
+                price: 3.85,
+                currentPrice: 3.85,
+              },
+            },
+            {
+              category: "sentiment" as const,
+              summary: "Traders are discussing PENDLE strength without requiring execution data.",
+              sourceLabel: "X",
+              sourceUrl: null,
+              structuredData: {
+                symbol: "PENDLE",
+              },
+            },
+          ],
+          narrativeSummary: "PENDLE sentiment stayed constructive.",
+          missingDataNotes: [],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-filter-market-evidence",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        candidate: {
+          id: "candidate-pendle-1",
+          symbol: "PENDLE",
+          reason: "Testing model market evidence filtering.",
+          directionHint: "LONG",
+          status: "pending",
+          sourceUniverse: "PENDLE",
+          dedupeKey: "PENDLE",
+          missingDataNotes: [],
+        },
+      },
+      state,
+    );
+
+    expect(result.evidence).toHaveLength(1);
+    expect(result.evidence[0]?.category).toBe("sentiment");
+    expect(result.evidence[0]?.structuredData).not.toHaveProperty("price");
+    expect(result.missingDataNotes.join(" ")).toContain("discarded 1 model-sourced");
+  });
 });

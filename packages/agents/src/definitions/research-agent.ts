@@ -6,6 +6,7 @@ import {
   candidateStateSchema,
   evidenceItemSchema,
   type CandidateState,
+  type EvidenceItem,
   type SwarmState,
 } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
@@ -21,6 +22,15 @@ const researchSynthesisSchema = z.object({
   narrativeSummary: z.string().min(1),
   missingDataNotes: z.array(z.string().min(1)).default([]),
 });
+
+const modelResearchEvidenceCategories = new Set<EvidenceItem["category"]>([
+  "fundamental",
+  "catalyst",
+  "sentiment",
+]);
+
+const sanitizeModelResearchEvidence = (evidence: EvidenceItem[]) =>
+  evidence.filter((item) => modelResearchEvidenceCategories.has(item.category));
 
 const promoteCandidateToResearched = (candidate: CandidateState) =>
   candidateStateSchema.parse({
@@ -71,11 +81,26 @@ export class ResearchAgentFactory {
       missingDataNotes,
     });
 
-    const evidence = synthesized.evidence.map((item) => evidenceItemSchema.parse(item));
+    const parsedEvidence = synthesized.evidence.map((item) => evidenceItemSchema.parse(item));
+    const evidence = sanitizeModelResearchEvidence(parsedEvidence);
     const narrativeSummary = synthesized.narrativeSummary;
 
     if ((synthesized.missingDataNotes ?? []).length > 0) {
       missingDataNotes.splice(0, missingDataNotes.length, ...(synthesized.missingDataNotes ?? []));
+    }
+
+    const filteredEvidenceCount = parsedEvidence.length - evidence.length;
+
+    if (filteredEvidenceCount > 0) {
+      missingDataNotes.push(
+        `Research discarded ${filteredEvidenceCount.toString()} model-sourced market/technical/funding/liquidity/chart item(s); deterministic provider nodes own executable price evidence.`,
+      );
+    }
+
+    if (evidence.length === 0) {
+      throw new Error(
+        "Research synthesis returned no narrative, fundamental, catalyst, or sentiment evidence after filtering model-sourced market data.",
+      );
     }
 
     evidence[0] = evidenceItemSchema.parse({
@@ -117,6 +142,8 @@ export class ResearchAgentFactory {
             instruction: [
               "Use only the candidate, market bias, injected evidence, and your built-in web and X search capabilities exactly like the template scanner flow.",
               "Do not call market-data tools, DeFiLlama, Binance, or any local provider service from this research node.",
+              "Do not return market, technical, liquidity, funding, or chart evidence categories because deterministic provider nodes own live prices, funding, volume, and execution data.",
+              "Return only fundamental, catalyst, or sentiment evidence from research.",
               "Gather only the most relevant confirming or disconfirming evidence for this candidate.",
               "Prefer a small, focused evidence set over a broad article dump.",
               "Do not invent extra sources, catalysts, numbers, or claims.",

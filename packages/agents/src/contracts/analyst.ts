@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  evidenceItemSchema,
   criticReviewSchema,
   orchestrationContextSchema,
   researchBundleSchema,
@@ -22,6 +23,7 @@ export const analystInputSchema = z.object({
 
 export const analystOutputSchema = z.object({
   thesis: thesisDraftSchema,
+  evidence: z.array(evidenceItemSchema).optional().default([]),
   analystNotes: z.array(z.string().min(1)).default([]),
 });
 

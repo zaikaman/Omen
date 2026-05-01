@@ -121,6 +121,27 @@ const roundTradingPrice = (value: number) => {
 };
 
 const extractCurrentPrice = (evidence: EvidenceItem[]) => {
+  const verifiedMarketItem = evidence.find((item) => {
+    const source = item.sourceLabel.toLowerCase();
+
+    return (
+      item.category === "market" &&
+      (source.includes("binance") ||
+        source.includes("coinmarketcap") ||
+        source.includes("coingecko"))
+    );
+  });
+  const verifiedCandidate =
+    verifiedMarketItem?.structuredData.price ?? verifiedMarketItem?.structuredData.currentPrice;
+
+  if (
+    typeof verifiedCandidate === "number" &&
+    Number.isFinite(verifiedCandidate) &&
+    verifiedCandidate > 0
+  ) {
+    return verifiedCandidate;
+  }
+
   for (const item of evidence) {
     const candidate = item.structuredData.price ?? item.structuredData.currentPrice;
 
@@ -1103,6 +1124,7 @@ export class AnalystAgentFactory {
       return analystOutputSchema.parse({
         ...rawResponse,
         thesis: mergedThesis,
+        evidence: enrichedParsed.research.evidence,
         analystNotes: [
           ...rawResponse.analystNotes.map(sanitizeNoWatchlistText),
           `Model-backed analyst path: ${this.llmClient.config.model}`,

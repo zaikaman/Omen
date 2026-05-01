@@ -832,5 +832,11 @@ describe("analyst agent", () => {
     );
     expect(result.analystNotes?.join(" ")).toContain("technical");
     expect(result.thesis.whyNow).toMatch(/analyzer TA|market chart|1H structure/i);
+    expect(result.evidence.map((item) => item.sourceLabel)).toEqual(
+      expect.arrayContaining(["Binance", "CoinMarketCap", "CoinGecko"]),
+    );
+    expect(
+      result.evidence.find((item) => item.sourceLabel === "Binance")?.structuredData.currentPrice,
+    ).toBe(112);
   });
 });

@@ -220,6 +220,19 @@ describe("omen graph factory", () => {
               uncertaintyNotes: "Fixture-only thesis.",
               missingDataNotes: "No missing fixture data.",
             },
+            evidence: [
+              {
+                category: "market",
+                summary: "Fixture analyst verified BTC live price at 100.",
+                sourceLabel: "Fixture Analyst Market",
+                sourceUrl: null,
+                structuredData: {
+                  symbol: candidate.symbol,
+                  currentPrice: 100,
+                  price: 100,
+                },
+              },
+            ],
             analystNotes: ["fixture-analyst-output"],
           };
         }
@@ -323,6 +336,9 @@ describe("omen graph factory", () => {
     expect(finalState.run.currentCheckpointRefId).not.toBeNull();
     expect(finalState.run.outcome).not.toBeNull();
     expect(finalState.publisherDrafts.length).toBeGreaterThan(0);
+    expect(finalState.evidenceItems.map((item) => item.sourceLabel)).toContain(
+      "Fixture Analyst Market",
+    );
     expect(checkpoints.map((checkpoint) => checkpoint.step)).toContain("checkpoint-node");
     expect(checkpoints.at(-1)?.step).toBe("publisher-agent");
   });

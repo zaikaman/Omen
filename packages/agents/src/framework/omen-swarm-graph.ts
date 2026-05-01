@@ -632,6 +632,7 @@ export const applyOmenNodeOutput = (input: {
   if (input.nodeKey === "analyst-agent") {
     const output = createAnalystAgent().outputSchema.parse(input.output);
     const thesis = normalizeThesis(output.thesis);
+    const analystEvidence = (output.evidence ?? []).map(normalizeEvidenceItem);
     const latestReview = input.state.criticReviews.at(-1);
     const isRepairAttempt =
       latestReview?.repairable === true &&
@@ -639,6 +640,7 @@ export const applyOmenNodeOutput = (input: {
       input.state.signalRepairAttempts < 1;
     const stateDelta = {
       thesisDrafts: [...input.state.thesisDrafts, thesis],
+      evidenceItems: analystEvidence.length > 0 ? analystEvidence : input.state.evidenceItems,
       signalRepairAttempts: isRepairAttempt
         ? input.state.signalRepairAttempts + 1
         : input.state.signalRepairAttempts,
