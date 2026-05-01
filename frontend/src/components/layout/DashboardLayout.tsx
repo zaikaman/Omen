@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
     Activity01Icon,
+    AiBrain03Icon,
     Calendar01Icon,
     Certificate01Icon,
     ChartHistogramIcon,
@@ -67,6 +68,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         { icon: News01Icon, label: 'Intel', path: '/app/intel' },
         { icon: ChartHistogramIcon, label: 'Analytics', path: '/app/analytics' },
         { icon: Certificate01Icon, label: 'Proof Console', path: '/app/evidence' },
+        { icon: AiBrain03Icon, label: 'Trace History', path: '/app/traces' },
     ];
 
     const pageTitles: Record<string, string> = {
@@ -76,6 +78,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         '/app/intel': 'INTELLIGENCE FEED',
         '/app/analytics': 'SYSTEM ANALYTICS',
         '/app/evidence': 'PROOF CONSOLE',
+        '/app/traces': 'AGENT TRACE HISTORY',
     };
 
     const currentTitle = pageTitles[location.pathname] || 'SYSTEM OVERVIEW';

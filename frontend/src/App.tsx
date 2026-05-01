@@ -11,6 +11,7 @@ import { MarketAnalytics } from "./pages/analytics/MarketAnalytics";
 import { SignalAnalytics } from "./pages/analytics/SignalAnalytics";
 import { EvidencePage } from "./pages/EvidencePage";
 import { CopytradePage } from "./pages/CopytradePage";
+import { TraceHistoryPage } from "./pages/TraceHistoryPage";
 
 export default function App() {
   return (
@@ -55,6 +56,11 @@ export default function App() {
         <Route path="/app/evidence" element={
           <DashboardLayout>
             <EvidencePage />
+          </DashboardLayout>
+        } />
+        <Route path="/app/traces" element={
+          <DashboardLayout>
+            <TraceHistoryPage />
           </DashboardLayout>
         } />
         <Route path="/docs" element={<Home />} />
