@@ -3,9 +3,17 @@ import {
   CoinGeckoMarketService,
   assetNarrativeSchema,
   marketSnapshotSchema,
+  type MarketCandle,
   type AssetNarrative,
   type MarketSnapshot,
 } from "@omen/market-data";
+import {
+  assessMultiTimeframeAlignment,
+  calculateBollingerBands,
+  calculateEma,
+  calculateMacd,
+  calculateRsi,
+} from "@omen/indicators";
 import { z } from "zod";
 
 import { biasDecisionSchema, orchestrationContextSchema } from "../contracts/common.js";
@@ -29,6 +37,52 @@ const marketBiasServiceOptionsSchema = z.object({
   llmClient: z.custom<OpenAiCompatibleJsonClient>().nullable().optional(),
 });
 
+type BtcTimeframeContext = {
+  timeframe: "1h" | "4h" | "1d";
+  candleCount: number;
+  latestClose: number | null;
+  changePercent: number | null;
+  rsi: {
+    value: number;
+    state: "overbought" | "oversold" | "neutral";
+  } | null;
+  macd: {
+    histogram: number;
+    bias: "bullish" | "bearish" | "neutral";
+  } | null;
+  bollinger: {
+    position: "above_upper" | "below_lower" | "upper_half" | "lower_half" | "middle";
+    bandwidthPercent: number | null;
+  } | null;
+  emaTrend: "bullish" | "bearish" | "neutral";
+  trendConfidence: number;
+};
+
+type MarketBreadthContext = {
+  sampledSymbols: number;
+  greenCount: number;
+  redCount: number;
+  flatCount: number;
+  averageChange24hPercent: number | null;
+  healthyVolumeCount: number;
+  topGainers: Array<{ symbol: string; change24hPercent: number }>;
+  topLosers: Array<{ symbol: string; change24hPercent: number }>;
+};
+
+type MarketBiasContext = {
+  snapshots: MarketSnapshot[];
+  btcTechnicals: {
+    timeframes: BtcTimeframeContext[];
+    multiTimeframeAlignment: {
+      dominantTrend: "bullish" | "bearish" | "neutral";
+      confidence: number;
+      alignedTimeframes: string[];
+      conflictingTimeframes: string[];
+    } | null;
+  };
+  marketBreadth: MarketBreadthContext;
+};
+
 const average = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
 
@@ -46,6 +100,159 @@ const narrativeSentimentScore = (
 
     return score;
   }, 0);
+
+const round = (value: number, decimals = 2) => {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+};
+
+const calculateChangePercent = (values: number[]) => {
+  const first = values[0];
+  const last = values[values.length - 1];
+
+  if (!first || !last) {
+    return null;
+  }
+
+  return ((last - first) / first) * 100;
+};
+
+const calculateEmaTrend = (values: number[]) => {
+  if (values.length < 50) {
+    return {
+      trend: "neutral" as const,
+      confidence: 35,
+    };
+  }
+
+  const latest = values[values.length - 1] ?? 0;
+  const ema20 = calculateEma({ values, period: 20 });
+  const ema50 = calculateEma({ values, period: 50 });
+  const bullish = latest > ema20.latest && ema20.latest > ema50.latest && ema20.slope > 0;
+  const bearish = latest < ema20.latest && ema20.latest < ema50.latest && ema20.slope < 0;
+  const spreadPercent = latest === 0 ? 0 : Math.abs((ema20.latest - ema50.latest) / latest) * 100;
+  const slopeComponent = latest === 0 ? 0 : Math.abs(ema20.slope / latest) * 5000;
+  const confidence = Math.min(90, 45 + spreadPercent * 8 + slopeComponent);
+
+  return {
+    trend: bullish ? "bullish" as const : bearish ? "bearish" as const : "neutral" as const,
+    confidence: round(confidence, 1),
+  };
+};
+
+const buildBtcTimeframeContext = (
+  timeframe: BtcTimeframeContext["timeframe"],
+  candles: MarketCandle[],
+): BtcTimeframeContext => {
+  const closes = candles.map((candle) => candle.close).filter(Number.isFinite);
+  const latestClose = closes[closes.length - 1] ?? null;
+  const emaTrend = closes.length >= 50
+    ? calculateEmaTrend(closes)
+    : { trend: "neutral" as const, confidence: 25 };
+
+  const rsi =
+    closes.length > 14
+      ? (() => {
+          const value = calculateRsi({ values: closes, period: 14 });
+          return {
+            value: round(value.latest, 1),
+            state: value.state,
+          };
+        })()
+      : null;
+  const macd =
+    closes.length >= 35
+      ? (() => {
+          const value = calculateMacd({ values: closes });
+          return {
+            histogram: round(value.histogram, 4),
+            bias: value.bias,
+          };
+        })()
+      : null;
+  const bollinger =
+    closes.length >= 20
+      ? (() => {
+          const value = calculateBollingerBands({ values: closes, period: 20 });
+          return {
+            position: value.position,
+            bandwidthPercent: latestClose === null ? null : round((value.bandwidth / latestClose) * 100, 2),
+          };
+        })()
+      : null;
+
+  return {
+    timeframe,
+    candleCount: candles.length,
+    latestClose,
+    changePercent: calculateChangePercent(closes),
+    rsi,
+    macd,
+    bollinger,
+    emaTrend: emaTrend.trend,
+    trendConfidence: emaTrend.confidence,
+  };
+};
+
+const buildMarketBreadthContext = (snapshots: MarketSnapshot[]): MarketBreadthContext => {
+  const changes = snapshots
+    .map((snapshot) => ({
+      symbol: snapshot.symbol.toUpperCase(),
+      change24hPercent: snapshot.change24hPercent,
+    }))
+    .filter((entry): entry is { symbol: string; change24hPercent: number } =>
+      entry.change24hPercent !== null,
+    );
+
+  return {
+    sampledSymbols: snapshots.length,
+    greenCount: changes.filter((entry) => entry.change24hPercent > 0.25).length,
+    redCount: changes.filter((entry) => entry.change24hPercent < -0.25).length,
+    flatCount: changes.filter((entry) => Math.abs(entry.change24hPercent) <= 0.25).length,
+    averageChange24hPercent:
+      changes.length === 0
+        ? null
+        : round(average(changes.map((entry) => entry.change24hPercent)), 2),
+    healthyVolumeCount: snapshots.filter((snapshot) => (snapshot.volume24h ?? 0) > 0).length,
+    topGainers: [...changes]
+      .sort((a, b) => b.change24hPercent - a.change24hPercent)
+      .slice(0, 3)
+      .map((entry) => ({
+        symbol: entry.symbol,
+        change24hPercent: round(entry.change24hPercent, 2),
+      })),
+    topLosers: [...changes]
+      .sort((a, b) => a.change24hPercent - b.change24hPercent)
+      .slice(0, 3)
+      .map((entry) => ({
+        symbol: entry.symbol,
+        change24hPercent: round(entry.change24hPercent, 2),
+      })),
+  };
+};
+
+const buildMultiTimeframeAlignment = (timeframes: BtcTimeframeContext[]) => {
+  const usable = timeframes.filter((timeframe) => timeframe.candleCount >= 50);
+
+  if (usable.length < 2) {
+    return null;
+  }
+
+  const alignment = assessMultiTimeframeAlignment({
+    timeframes: usable.map((timeframe) => ({
+      timeframe: timeframe.timeframe,
+      trend: timeframe.emaTrend,
+      confidence: timeframe.trendConfidence,
+    })),
+  });
+
+  return {
+    dominantTrend: alignment.dominantTrend,
+    confidence: round(alignment.confidence, 1),
+    alignedTimeframes: alignment.alignedTimeframes,
+    conflictingTimeframes: alignment.conflictingTimeframes,
+  };
+};
 
 export const deriveMarketBias = (input: z.input<typeof marketBiasAgentInputSchema>) => {
   const parsed = marketBiasAgentInputSchema.parse(input);
@@ -124,24 +331,24 @@ export class MarketBiasAgentFactory {
 
     if (parsed.snapshots.length > 0 || parsed.narratives.length > 0) {
       return this.analyzeWithModel({
-        snapshots: parsed.snapshots,
+        context: await this.buildMarketBiasContext(parsed.snapshots),
         narratives: parsed.narratives,
         state,
       });
     }
 
-    const snapshots = await this.collectSnapshots(state.config.marketUniverse);
+    const context = await this.collectMarketBiasContext(state.config.marketUniverse);
     const narratives: AssetNarrative[] = [];
 
     return this.analyzeWithModel({
-      snapshots,
+      context,
       narratives,
       state,
     });
   }
 
-  private async collectSnapshots(universe: string[]): Promise<MarketSnapshot[]> {
-    const targets = universe.slice(0, 5);
+  private async collectMarketBiasContext(universe: string[]): Promise<MarketBiasContext> {
+    const targets = universe.slice(0, 10);
     const [binanceResult, coinGeckoResult] = await Promise.all([
       this.binance.getSnapshots(targets),
       this.coinGecko.getAssetSnapshots(targets),
@@ -162,11 +369,33 @@ export class MarketBiasAgentFactory {
       append(coinGeckoResult.value);
     }
 
-    return Array.from(bySymbol.values());
+    return this.buildMarketBiasContext(Array.from(bySymbol.values()));
+  }
+
+  private async buildMarketBiasContext(snapshots: MarketSnapshot[]): Promise<MarketBiasContext> {
+    const [oneHour, fourHour, oneDay] = await Promise.all([
+      this.binance.getCandles({ symbol: "BTC", interval: "1h", limit: 80 }),
+      this.binance.getCandles({ symbol: "BTC", interval: "4h", limit: 80 }),
+      this.binance.getCandles({ symbol: "BTC", interval: "1d", limit: 80 }),
+    ]);
+    const timeframes = [
+      buildBtcTimeframeContext("1h", oneHour.ok ? oneHour.value : []),
+      buildBtcTimeframeContext("4h", fourHour.ok ? fourHour.value : []),
+      buildBtcTimeframeContext("1d", oneDay.ok ? oneDay.value : []),
+    ];
+
+    return {
+      snapshots,
+      btcTechnicals: {
+        timeframes,
+        multiTimeframeAlignment: buildMultiTimeframeAlignment(timeframes),
+      },
+      marketBreadth: buildMarketBreadthContext(snapshots),
+    };
   }
 
   private async analyzeWithModel(input: {
-    snapshots: MarketSnapshot[];
+    context: MarketBiasContext;
     narratives: AssetNarrative[];
     state: SwarmState;
   }) {
@@ -179,13 +408,15 @@ export class MarketBiasAgentFactory {
         schema: marketBiasAgentOutputSchema,
         systemPrompt: buildMarketBiasSystemPrompt({
           universe: input.state.config.marketUniverse,
-          snapshotCount: input.snapshots.length,
+          snapshotCount: input.context.snapshots.length,
           narrativeCount: input.narratives.length,
         }),
         userPrompt: JSON.stringify(
           {
             marketUniverse: input.state.config.marketUniverse,
-            snapshots: input.snapshots.map((snapshot) => ({
+            btcTechnicalContext: input.context.btcTechnicals,
+            marketBreadth: input.context.marketBreadth,
+            snapshots: input.context.snapshots.map((snapshot) => ({
               symbol: snapshot.symbol,
               price: snapshot.price,
               change24hPercent: snapshot.change24hPercent,
@@ -204,7 +435,7 @@ export class MarketBiasAgentFactory {
               capturedAt: narrative.capturedAt,
             })),
             instruction:
-              "Determine one overall market bias for the next swarm cycle. Keep the reasoning compact but explicit about whether market and narrative signals aligned or conflicted.",
+              "Determine one overall market bias for the next swarm cycle. Start from BTC technical context, confirm with top-market breadth, then use narratives only when supplied. Keep reasoning compact but explicit about whether technicals, breadth, and narratives aligned or conflicted.",
           },
           null,
           2,
