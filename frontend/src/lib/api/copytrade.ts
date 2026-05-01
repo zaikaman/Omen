@@ -66,6 +66,18 @@ export type CopytradeDashboard = {
   trades: CopytradeTrade[];
 };
 
+export type CopytradeAccount = {
+  walletAddress: `0x${string}`;
+  hyperliquidChain: HyperliquidChain;
+  accountValue: number;
+  withdrawable: number;
+  totalMarginUsed: number;
+  totalNtlPos: number;
+  totalRawUsd: number;
+  minimumAccountValue: number;
+  meetsMinimum: boolean;
+};
+
 export type HyperliquidApproveAgentAction = {
   type: 'approveAgent';
   signatureChainId: `0x${string}`;
@@ -98,6 +110,21 @@ const dashboardParser: Parser<CopytradeDashboard> = {
     return input as CopytradeDashboard;
   },
 };
+
+const accountParser: Parser<CopytradeAccount> = {
+  parse(input) {
+    return input as CopytradeAccount;
+  },
+};
+
+export const getCopytradeAccount = (input: {
+  walletAddress: string;
+  hyperliquidChain: HyperliquidChain;
+}) =>
+  apiRequest<CopytradeAccount>(
+    `/copytrade/account?walletAddress=${encodeURIComponent(input.walletAddress)}&hyperliquidChain=${encodeURIComponent(input.hyperliquidChain)}`,
+    accountParser,
+  );
 
 export const getCopytradeStatus = (walletAddress: string) =>
   apiRequest<CopytradeEnrollment | null>(

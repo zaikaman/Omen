@@ -19,9 +19,11 @@ import {
 
 import {
   finalizeCopytradeApproval,
+  getCopytradeAccount,
   getCopytradeDashboard,
   getCopytradeStatus,
   prepareCopytradeApproval,
+  type CopytradeAccount,
   type CopytradeDashboard,
   type CopytradeEnrollment,
   type CopytradeRiskSettings,
@@ -392,8 +394,10 @@ export function CopytradePage() {
   const [chainId, setChainId] = useState<`0x${string}` | null>(null);
   const [hyperliquidChain, setHyperliquidChain] = useState<HyperliquidChain>('Mainnet');
   const [riskSettings, setRiskSettings] = useState<CopytradeRiskSettings>(DEFAULT_RISK_SETTINGS);
+  const [account, setAccount] = useState<CopytradeAccount | null>(null);
   const [enrollment, setEnrollment] = useState<CopytradeEnrollment | null>(null);
   const [dashboard, setDashboard] = useState<CopytradeDashboard | null>(null);
+  const [isLoadingAccount, setIsLoadingAccount] = useState(false);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -401,7 +405,21 @@ export function CopytradePage() {
   const [error, setError] = useState<string | null>(null);
 
   const isActive = enrollment?.status === 'active';
-  const canApprove = Boolean(walletAddress && chainId && !isApproving);
+  const canApprove = Boolean(
+    walletAddress &&
+      chainId &&
+      !isApproving &&
+      !isLoadingAccount &&
+      account?.meetsMinimum,
+  );
+  const depositAmount = Math.max(
+    0,
+    (account?.minimumAccountValue ?? 100) - (account?.accountValue ?? 0),
+  );
+  const depositUrl =
+    hyperliquidChain === 'Testnet'
+      ? 'https://app.hyperliquid-testnet.xyz/'
+      : 'https://app.hyperliquid.xyz/';
 
   useEffect(() => {
     if (!walletAddress) {
@@ -422,6 +440,19 @@ export function CopytradePage() {
       })
       .finally(() => setIsLoadingStatus(false));
   }, [walletAddress]);
+
+  useEffect(() => {
+    if (!walletAddress) {
+      setAccount(null);
+      return;
+    }
+
+    setIsLoadingAccount(true);
+    getCopytradeAccount({ walletAddress, hyperliquidChain })
+      .then(setAccount)
+      .catch(() => setAccount(null))
+      .finally(() => setIsLoadingAccount(false));
+  }, [hyperliquidChain, walletAddress]);
 
   useEffect(() => {
     if (!walletAddress || !isActive) {
@@ -469,7 +500,9 @@ export function CopytradePage() {
     setError(null);
     setWalletAddress(null);
     setChainId(null);
+    setAccount(null);
     setEnrollment(null);
+    setDashboard(null);
 
     try {
       await window.ethereum?.request({
@@ -483,6 +516,11 @@ export function CopytradePage() {
 
   const approveCopytrade = async () => {
     if (!walletAddress || !chainId || !window.ethereum) {
+      return;
+    }
+
+    if (!account?.meetsMinimum) {
+      setError(`Deposit at least ${formatCurrency(depositAmount)} more to Hyperliquid before enabling copytrading.`);
       return;
     }
 
@@ -633,6 +671,49 @@ export function CopytradePage() {
               </div>
             </div>
           </div>
+
+          {walletAddress ? (
+            <div
+              className={`mt-5 rounded-lg border p-4 ${
+                account?.meetsMinimum
+                  ? 'border-green-500/20 bg-green-500/10'
+                  : 'border-amber-500/30 bg-amber-500/10'
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                    Hyperliquid account value
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    {isLoadingAccount ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                    ) : account?.meetsMinimum ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-400" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 text-amber-400" />
+                    )}
+                    <span className="font-mono text-lg font-bold text-white">
+                      {account ? formatCurrency(account.accountValue) : 'Unavailable'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Copytrading requires at least {formatCurrency(account?.minimumAccountValue ?? 100)} in Hyperliquid account value.
+                  </p>
+                </div>
+                {!account?.meetsMinimum && !isLoadingAccount ? (
+                  <a
+                    href={depositUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-500/20"
+                  >
+                    Deposit {formatCurrency(depositAmount)}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           <button
             type="button"

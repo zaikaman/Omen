@@ -16,7 +16,12 @@ const HYPERLIQUID_EXCHANGE_URLS: Record<HyperliquidChain, string> = {
   Mainnet: "https://api.hyperliquid.xyz/exchange",
   Testnet: "https://api.hyperliquid-testnet.xyz/exchange",
 };
+const HYPERLIQUID_INFO_URLS: Record<HyperliquidChain, string> = {
+  Mainnet: "https://api.hyperliquid.xyz/info",
+  Testnet: "https://api.hyperliquid-testnet.xyz/info",
+};
 const AGENT_NAME = "OmenCopy";
+const MINIMUM_ACCOUNT_VALUE_USD = 100;
 
 type HyperliquidChain = "Mainnet" | "Testnet";
 
@@ -167,6 +172,48 @@ const buildTradeStats = (trades: CopytradeTrade[]) => {
   };
 };
 
+const fetchHyperliquidAccount = async (
+  walletAddress: `0x${string}`,
+  hyperliquidChain: HyperliquidChain,
+) => {
+  const response = await fetch(HYPERLIQUID_INFO_URLS[hyperliquidChain], {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "clearinghouseState",
+      user: walletAddress,
+    }),
+  });
+  const payload = await response.json().catch(() => null) as {
+    marginSummary?: {
+      accountValue?: string;
+      totalMarginUsed?: string;
+      totalNtlPos?: string;
+      totalRawUsd?: string;
+    };
+    withdrawable?: string;
+  } | null;
+
+  if (!response.ok || !payload) {
+    throw new Error(`Hyperliquid account lookup failed with status ${response.status.toString()}.`);
+  }
+
+  const accountValue = Number(payload.marginSummary?.accountValue ?? 0);
+  const withdrawable = Number(payload.withdrawable ?? 0);
+
+  return {
+    accountValue: Number.isFinite(accountValue) ? accountValue : 0,
+    hyperliquidChain,
+    meetsMinimum: Number.isFinite(accountValue) && accountValue >= MINIMUM_ACCOUNT_VALUE_USD,
+    minimumAccountValue: MINIMUM_ACCOUNT_VALUE_USD,
+    totalMarginUsed: Number(payload.marginSummary?.totalMarginUsed ?? 0),
+    totalNtlPos: Number(payload.marginSummary?.totalNtlPos ?? 0),
+    totalRawUsd: Number(payload.marginSummary?.totalRawUsd ?? 0),
+    walletAddress,
+    withdrawable: Number.isFinite(withdrawable) ? withdrawable : 0,
+  };
+};
+
 export const createCopytradeStatusController =
   (env: BackendEnv) => async (req: Request, res: Response) => {
     const repositories = createRepositories(env);
@@ -192,6 +239,31 @@ export const createCopytradeStatusController =
     }
 
     res.json({ success: true, data: found.value ? presentEnrollment(found.value) : null });
+  };
+
+export const createCopytradeAccountController =
+  async (req: Request, res: Response) => {
+    const walletAddress = typeof req.query.walletAddress === "string"
+      ? req.query.walletAddress.toLowerCase()
+      : "";
+    const hyperliquidChain = req.query.hyperliquidChain === "Testnet" ? "Testnet" : "Mainnet";
+
+    if (!isAddress(walletAddress)) {
+      res.status(400).json({ success: false, error: "A valid walletAddress is required." });
+      return;
+    }
+
+    try {
+      res.json({
+        success: true,
+        data: await fetchHyperliquidAccount(walletAddress, hyperliquidChain),
+      });
+    } catch (caught) {
+      res.status(502).json({
+        success: false,
+        error: caught instanceof Error ? caught.message : "Hyperliquid account lookup failed.",
+      });
+    }
   };
 
 export const createCopytradeDashboardController =
