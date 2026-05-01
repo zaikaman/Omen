@@ -460,13 +460,8 @@ export class HyperliquidCopytradeService {
   }
 
   private roundPrice(price: number) {
-    if (price >= 1000) return Math.round(price * 10) / 10;
-    if (price >= 100) return Math.round(price * 100) / 100;
-    if (price >= 10) return Math.round(price * 1000) / 1000;
-    if (price >= 1) return Math.round(price * 10_000) / 10_000;
-    if (price >= 0.1) return Math.round(price * 100_000) / 100_000;
-    if (price >= 0.01) return Math.round(price * 1_000_000) / 1_000_000;
-    return Math.round(price * 100_000_000) / 100_000_000;
+    const significant = Number(price.toPrecision(5));
+    return Number(significant.toFixed(6));
   }
 
   private async setLeverage(symbol: string, leverage: number) {
