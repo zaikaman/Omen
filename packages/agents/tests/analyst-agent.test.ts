@@ -432,7 +432,7 @@ describe("analyst agent", () => {
           targetPrice: null,
           stopLoss: null,
           riskReward: 0,
-          whyNow: "PENDLE is interesting but not executable at resistance.",
+          whyNow: "PENDLE is interesting but should stay on watchlist at resistance.",
           confluences: ["Momentum is strong", "Price is at resistance"],
           uncertaintyNotes: "No executable entry yet.",
           missingDataNotes: "No additional missing-data flags.",
@@ -486,6 +486,8 @@ describe("analyst agent", () => {
     expect(result.thesis.direction).toBe("NONE");
     expect(result.thesis.orderType).toBeNull();
     expect(result.thesis.entryPrice).toBeNull();
+    expect(result.thesis.whyNow.toLowerCase()).not.toContain("watchlist");
+    expect(result.analystNotes.join(" ").toLowerCase()).not.toContain("watchlist");
   });
 
   it("repairs a far limit entry into an executable market setup on the retry pass", async () => {

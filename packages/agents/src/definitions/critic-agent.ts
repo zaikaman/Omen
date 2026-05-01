@@ -68,18 +68,42 @@ const decisionRank: Record<
   rejected: 2,
 };
 
+const stripWatchlistLanguage = (value: string) =>
+  value
+    .replace(/\bwatchlist[-\s]*only\b/gi, "market-context only")
+    .replace(/\bwatchlist\b/gi, "market-context")
+    .replace(/\bwatch item\b/gi, "market-context item")
+    .replace(/\bsetup can remain on market-context\b/gi, "setup should route to market intel")
+    .trim();
+
+const sanitizeReviewText = (value: string | null | undefined) =>
+  typeof value === "string" && value.trim().length > 0
+    ? stripWatchlistLanguage(value)
+    : value;
+
+const sanitizeReviewTextArray = (values: readonly string[] | null | undefined) =>
+  (values ?? []).map(stripWatchlistLanguage);
+
 const normalizeNoWatchlistReview = (
   review: z.infer<typeof criticOutputSchema>["review"],
-) =>
-  review.decision === "watchlist_only"
+) => {
+  const sanitized = {
+    ...review,
+    objections: sanitizeReviewTextArray(review.objections),
+    forcedOutcomeReason: sanitizeReviewText(review.forcedOutcomeReason),
+    repairInstructions: sanitizeReviewTextArray(review.repairInstructions),
+  };
+
+  return sanitized.decision === "watchlist_only"
     ? {
-        ...review,
+        ...sanitized,
         decision: "rejected" as const,
         forcedOutcomeReason:
-          review.forcedOutcomeReason ??
+          sanitized.forcedOutcomeReason ??
           "The thesis did not produce an executable trade signal.",
       }
-    : review;
+    : sanitized;
+};
 
 export class CriticAgentFactory {
   private readonly llmClient: OpenAiCompatibleJsonClient | null;
@@ -153,28 +177,42 @@ export class CriticAgentFactory {
           ...finalReview,
           candidateId: parsed.evaluation.thesis.candidateId,
           objections: Array.from(
-            new Set([
-              ...(gateReview.review.objections ?? []),
-              ...(llmReviewNoWatchlist.review.objections ?? []),
-            ]),
+            new Set(
+              sanitizeReviewTextArray([
+                ...(gateReview.review.objections ?? []),
+                ...(llmReviewNoWatchlist.review.objections ?? []),
+              ]),
+            ),
           ),
           forcedOutcomeReason:
-            finalReview.decision === gateReview.review.decision
-              ? gateReview.review.forcedOutcomeReason
-              : llmReviewNoWatchlist.review.forcedOutcomeReason ?? gateReview.review.forcedOutcomeReason,
+            sanitizeReviewText(
+              finalReview.decision === gateReview.review.decision
+                ? gateReview.review.forcedOutcomeReason
+                : llmReviewNoWatchlist.review.forcedOutcomeReason ??
+                    gateReview.review.forcedOutcomeReason,
+            ),
           repairable: gateReview.review.repairable,
           repairInstructions: Array.from(
-            new Set([
-              ...(gateReview.review.repairInstructions ?? []),
-              ...(gateReview.review.repairable ? (llmReviewNoWatchlist.review.repairInstructions ?? []) : []),
-            ]),
+            new Set(
+              sanitizeReviewTextArray([
+                ...(gateReview.review.repairInstructions ?? []),
+                ...(gateReview.review.repairable
+                  ? (llmReviewNoWatchlist.review.repairInstructions ?? [])
+                  : []),
+              ]),
+            ),
           ),
         },
         blockingReasons:
           gateReview.review.decision === "approved"
             ? []
             : Array.from(
-                new Set([...(gateReview.blockingReasons ?? []), ...(llmReviewNoWatchlist.blockingReasons ?? [])]),
+                new Set(
+                  sanitizeReviewTextArray([
+                    ...(gateReview.blockingReasons ?? []),
+                    ...(llmReviewNoWatchlist.blockingReasons ?? []),
+                  ]),
+                ),
               ),
       });
     } catch (error) {

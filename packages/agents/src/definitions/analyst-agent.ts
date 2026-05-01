@@ -721,13 +721,13 @@ const coerceNullableNumber = (value: unknown) => {
 
 const coerceString = (value: unknown) => {
   if (typeof value === "string" && value.trim().length > 0) {
-    return value.trim();
+    return sanitizeNoWatchlistText(value.trim());
   }
 
   if (Array.isArray(value)) {
     const joined = value
       .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
-      .map((entry) => entry.trim())
+      .map((entry) => sanitizeNoWatchlistText(entry.trim()))
       .join(" ");
 
     return joined.length > 0 ? joined : undefined;
@@ -740,11 +740,11 @@ const coerceStringArray = (value: unknown) => {
   if (Array.isArray(value)) {
     return value
       .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
-      .map((entry) => entry.trim());
+      .map((entry) => sanitizeNoWatchlistText(entry.trim()));
   }
 
   if (typeof value === "string" && value.trim().length > 0) {
-    return [value.trim()];
+    return [sanitizeNoWatchlistText(value.trim())];
   }
 
   return undefined;
@@ -851,6 +851,13 @@ const normalizeAnalystModelThesis = (input: {
       : {}),
   });
 };
+
+const sanitizeNoWatchlistText = (value: string) =>
+  value
+    .replace(/\bwatchlist[-\s]*only\b/gi, "market-context only")
+    .replace(/\bwatchlist\b/gi, "market-context")
+    .replace(/\bwatch item\b/gi, "market-context item")
+    .trim();
 
 const repairThesisForCritic = (input: {
   thesis: z.infer<typeof thesisDraftSchema>;
@@ -1097,7 +1104,7 @@ export class AnalystAgentFactory {
         ...rawResponse,
         thesis: mergedThesis,
         analystNotes: [
-          ...rawResponse.analystNotes,
+          ...rawResponse.analystNotes.map(sanitizeNoWatchlistText),
           `Model-backed analyst path: ${this.llmClient.config.model}`,
           ...(repairContext === null
             ? []

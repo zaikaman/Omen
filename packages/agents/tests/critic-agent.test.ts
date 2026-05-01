@@ -305,12 +305,12 @@ describe("critic agent", () => {
           review: {
             candidateId: "candidate-pendle-1",
             decision: "watchlist_only" as const,
-            objections: ["No executable entry near resistance."],
-            forcedOutcomeReason: "No clean trade setup.",
+            objections: ["Setup can remain on watchlist near resistance."],
+            forcedOutcomeReason: "Conviction was not strong enough, but the setup can remain on watchlist.",
             repairable: false,
             repairInstructions: [],
           },
-          blockingReasons: ["No executable entry near resistance."],
+          blockingReasons: ["No executable entry; keep as watchlist only."],
         }),
       } as unknown as OpenAiCompatibleJsonClient,
     });
@@ -357,6 +357,9 @@ describe("critic agent", () => {
     );
 
     expect(result.review.decision).toBe("rejected");
+    expect(result.review.objections.join(" ").toLowerCase()).not.toContain("watchlist");
+    expect(result.review.forcedOutcomeReason?.toLowerCase()).not.toContain("watchlist");
+    expect(result.blockingReasons.join(" ").toLowerCase()).not.toContain("watchlist");
   });
 
   it("keeps approved deterministic gates approved even when the model is too cautious", async () => {
