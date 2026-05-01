@@ -516,7 +516,7 @@ export function CopytradePage() {
   const [isApproving, setIsApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isActive = enrollment?.status === 'active';
+  const isActive = enrollment?.status === 'active' && enrollment.hyperliquidChain === hyperliquidChain;
   const canApprove = Boolean(
     walletAddress &&
       chainId &&
@@ -535,28 +535,46 @@ export function CopytradePage() {
 
   useEffect(() => {
     if (!walletAddress) {
+      setEnrollment(null);
+      setDashboard(null);
+      setTradePage(1);
       return;
     }
 
+    let ignore = false;
+    setEnrollment(null);
+    setDashboard(null);
+    setTradePage(1);
     setIsLoadingStatus(true);
-    getCopytradeStatus(walletAddress)
+    getCopytradeStatus({ walletAddress, hyperliquidChain })
       .then((latestEnrollment) => {
-        setEnrollment(latestEnrollment);
-        if (latestEnrollment) {
-          setHyperliquidChain(latestEnrollment.hyperliquidChain);
+        if (ignore) {
+          return;
         }
+        setEnrollment(latestEnrollment);
         if (latestEnrollment?.status !== 'active') {
           setDashboard(null);
           setTradePage(1);
         }
       })
       .catch(() => {
+        if (ignore) {
+          return;
+        }
         setEnrollment(null);
         setDashboard(null);
         setTradePage(1);
       })
-      .finally(() => setIsLoadingStatus(false));
-  }, [walletAddress]);
+      .finally(() => {
+        if (!ignore) {
+          setIsLoadingStatus(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [hyperliquidChain, walletAddress]);
 
   useEffect(() => {
     if (!walletAddress) {
@@ -564,32 +582,69 @@ export function CopytradePage() {
       return;
     }
 
+    let ignore = false;
+    setAccount(null);
     setIsLoadingAccount(true);
     getCopytradeAccount({ walletAddress, hyperliquidChain })
-      .then(setAccount)
-      .catch(() => setAccount(null))
-      .finally(() => setIsLoadingAccount(false));
+      .then((nextAccount) => {
+        if (!ignore) {
+          setAccount(nextAccount);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setAccount(null);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoadingAccount(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, [hyperliquidChain, walletAddress]);
 
   useEffect(() => {
     if (!walletAddress || !isActive) {
+      setDashboard(null);
+      setTradePage(1);
       return;
     }
 
+    let ignore = false;
     setIsLoadingDashboard(true);
     getCopytradeDashboard(walletAddress, {
+      hyperliquidChain,
       page: tradePage,
       pageSize: TRADE_HISTORY_PAGE_SIZE,
     })
       .then((nextDashboard) => {
+        if (ignore) {
+          return;
+        }
         setDashboard(nextDashboard);
         if (nextDashboard.enrollment) {
           setEnrollment(nextDashboard.enrollment);
         }
       })
-      .catch(() => setDashboard(null))
-      .finally(() => setIsLoadingDashboard(false));
-  }, [isActive, tradePage, walletAddress]);
+      .catch(() => {
+        if (!ignore) {
+          setDashboard(null);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoadingDashboard(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [hyperliquidChain, isActive, tradePage, walletAddress]);
 
   const connectWallet = async () => {
     setError(null);
@@ -669,6 +724,7 @@ export function CopytradePage() {
       if (finalized.status === 'active') {
         setTradePage(1);
         setDashboard(await getCopytradeDashboard(walletAddress, {
+          hyperliquidChain: finalized.hyperliquidChain,
           page: 1,
           pageSize: TRADE_HISTORY_PAGE_SIZE,
         }));

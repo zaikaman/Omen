@@ -134,17 +134,21 @@ export const getCopytradeAccount = (input: {
     accountParser,
   );
 
-export const getCopytradeStatus = (walletAddress: string) =>
+export const getCopytradeStatus = (input: {
+  walletAddress: string;
+  hyperliquidChain: HyperliquidChain;
+}) =>
   apiRequest<CopytradeEnrollment | null>(
-    `/copytrade/status?walletAddress=${encodeURIComponent(walletAddress)}`,
+    `/copytrade/status?walletAddress=${encodeURIComponent(input.walletAddress)}&hyperliquidChain=${encodeURIComponent(input.hyperliquidChain)}`,
     nullableEnrollmentParser,
   );
 
 export const getCopytradeDashboard = (
   walletAddress: string,
-  input: { page?: number; pageSize?: number } = {},
+  input: { hyperliquidChain: HyperliquidChain; page?: number; pageSize?: number },
 ) => {
   const params = new URLSearchParams({
+    hyperliquidChain: input.hyperliquidChain,
     walletAddress,
     page: String(input.page ?? 1),
     pageSize: String(input.pageSize ?? 20),

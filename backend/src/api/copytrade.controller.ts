@@ -91,6 +91,9 @@ const parsePositiveInteger = (
   return Math.min(Math.floor(parsed), max);
 };
 
+const parseHyperliquidChain = (value: unknown): HyperliquidChain =>
+  value === "Testnet" ? "Testnet" : "Mainnet";
+
 const normalizeAsset = (asset: string) =>
   asset.toUpperCase().replace(/USDT$/, "").replace(/-PERP$/, "").trim();
 
@@ -427,6 +430,7 @@ export const createCopytradeStatusController =
     const walletAddress = typeof req.query.walletAddress === "string"
       ? req.query.walletAddress.toLowerCase()
       : "";
+    const hyperliquidChain = parseHyperliquidChain(req.query.hyperliquidChain);
 
     if (!isAddress(walletAddress)) {
       res.status(400).json({ success: false, error: "A valid walletAddress is required." });
@@ -438,7 +442,7 @@ export const createCopytradeStatusController =
       return;
     }
 
-    const found = await repositories.enrollments.findLatestByWallet(walletAddress);
+    const found = await repositories.enrollments.findLatestByWalletAndChain(walletAddress, hyperliquidChain);
 
     if (!found.ok) {
       res.status(500).json({ success: false, error: found.error.message });
@@ -453,7 +457,7 @@ export const createCopytradeAccountController =
     const walletAddress = typeof req.query.walletAddress === "string"
       ? req.query.walletAddress.toLowerCase()
       : "";
-    const hyperliquidChain = req.query.hyperliquidChain === "Testnet" ? "Testnet" : "Mainnet";
+    const hyperliquidChain = parseHyperliquidChain(req.query.hyperliquidChain);
 
     if (!isAddress(walletAddress)) {
       res.status(400).json({ success: false, error: "A valid walletAddress is required." });
@@ -479,6 +483,7 @@ export const createCopytradeDashboardController =
     const walletAddress = typeof req.query.walletAddress === "string"
       ? req.query.walletAddress.toLowerCase()
       : "";
+    const hyperliquidChain = parseHyperliquidChain(req.query.hyperliquidChain);
     const page = parsePositiveInteger(req.query.page, 1);
     const pageSize = parsePositiveInteger(
       req.query.pageSize,
@@ -497,17 +502,28 @@ export const createCopytradeDashboardController =
       return;
     }
 
-    const [enrollmentResult, statsTradesResult, tradesResult, totalTradesResult] = await Promise.all([
-      repositories.enrollments.findLatestByWallet(walletAddress),
-      repositories.trades.listByWallet(walletAddress, TRADE_STATS_HISTORY_LIMIT),
-      repositories.trades.listByWallet(walletAddress, pageSize, offset),
-      repositories.trades.countByWallet(walletAddress),
-    ]);
+    const enrollmentResult = await repositories.enrollments.findLatestByWalletAndChain(
+      walletAddress,
+      hyperliquidChain,
+    );
 
     if (!enrollmentResult.ok) {
       res.status(500).json({ success: false, error: enrollmentResult.error.message });
       return;
     }
+
+    const enrollment = enrollmentResult.value;
+    const [statsTradesResult, tradesResult, totalTradesResult] = enrollment
+      ? await Promise.all([
+          repositories.trades.listByEnrollment(enrollment.id, TRADE_STATS_HISTORY_LIMIT),
+          repositories.trades.listByEnrollment(enrollment.id, pageSize, offset),
+          repositories.trades.countByEnrollment(enrollment.id),
+        ])
+      : [
+          { ok: true as const, value: [] },
+          { ok: true as const, value: [] },
+          { ok: true as const, value: 0 },
+        ];
 
     if (!statsTradesResult.ok) {
       res.status(500).json({ success: false, error: statsTradesResult.error.message });
@@ -524,7 +540,6 @@ export const createCopytradeDashboardController =
       return;
     }
 
-    const enrollment = enrollmentResult.value;
     let statsTrades = statsTradesResult.value;
     let trades = tradesResult.value;
 
@@ -590,7 +605,7 @@ export const createCopytradePrepareController =
       ? body.walletAddress.toLowerCase()
       : "";
     const signatureChainId = body.signatureChainId;
-    const hyperliquidChain = body.hyperliquidChain === "Testnet" ? "Testnet" : "Mainnet";
+    const hyperliquidChain = parseHyperliquidChain(body.hyperliquidChain);
 
     if (!isAddress(walletAddress) || !isHexChainId(signatureChainId)) {
       res.status(400).json({ success: false, error: "Wallet address and signature chain id are required." });
@@ -644,10 +659,9 @@ export const createCopytradeFinalizeController =
       return;
     }
 
-    const hyperliquidChain =
-      (action as { hyperliquidChain?: unknown }).hyperliquidChain === "Testnet"
-        ? "Testnet"
-        : "Mainnet";
+    const hyperliquidChain = parseHyperliquidChain(
+      (action as { hyperliquidChain?: unknown }).hyperliquidChain,
+    );
 
     const exchangeResponse = await fetch(HYPERLIQUID_EXCHANGE_URLS[hyperliquidChain], {
       method: "POST",
