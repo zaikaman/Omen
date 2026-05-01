@@ -26,8 +26,7 @@ const DEFAULT_RESOLUTION = "2048x1152 ( 16:9 )";
 const TARGET_IMAGE_WIDTH = 2048;
 const TARGET_IMAGE_HEIGHT = 1152;
 const HF_TOKEN_ROTATION_SOURCE = "hf_token_rotation";
-const NO_TEXT_IMAGE_CONSTRAINT =
-  "no readable text, no pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no watermarks, no signatures, no ticker symbols, no logos containing text";
+const NO_TEXT_IMAGE_CONSTRAINT = "no visible or readable text";
 
 type HfTokenRotationSnapshotRow = {
   metadata: Record<string, unknown> | null;

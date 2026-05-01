@@ -537,21 +537,12 @@ describe("generator agent", () => {
       createInitialSwarmState({ run, config }),
     );
 
-    expect(result.content.imagePrompt).toContain("PREMIUM COVER IMAGE");
-    expect(result.content.imagePrompt).toContain("Financial Times, Bloomberg Markets");
-    expect(result.content.imagePrompt).toContain("make it look like a $10,000 stock photo");
     expect(result.content.imagePrompt).toContain("Big glowing an unmarked digital asset logo");
     expect(result.content.imagePrompt).toContain("dashboard UI");
-    expect(result.content.imagePrompt).toContain(
-      "connect the scene to an unmarked digital asset tvl surge",
-    );
-    expect(result.content.imagePrompt).toContain("no readable text");
-    expect(result.content.imagePrompt).toContain("no letters");
-    expect(result.content.imagePrompt).toContain("no numbers");
-    expect(result.content.imagePrompt).toContain("no ticker symbols");
-    expect(result.content.imagePrompt).toContain("no logos containing text");
+    expect(result.content.imagePrompt).toContain("no visible or readable text");
     expect(result.content.imagePrompt).not.toContain("$SUI");
     expect(result.content.imagePrompt).not.toMatch(/with the words/i);
+    expect(result.content.imagePrompt).not.toMatch(/PREMIUM COVER IMAGE/i);
     expect(result.content.imagePrompt).not.toMatch(/visual thesis:/i);
     expect(result.content.imagePrompt).not.toMatch(/secondary style direction/i);
   });

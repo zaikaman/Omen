@@ -111,10 +111,7 @@ const trimLine = (value: string, maxLength: number) => {
 };
 
 const imageTextExclusion =
-  "no readable text, no pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no watermarks, no signatures, no ticker symbols, no logos containing text";
-
-const premiumEditorialImageDirection =
-  "PREMIUM COVER IMAGE, sophisticated editorial-style image prompt; think Financial Times, Bloomberg Markets, or premium research report covers; avoid crypto cliches such as coins, generic blockchain visuals, mascot art, meme art, and obvious AI crypto art; use cinematic lighting, architectural elements, abstract financial concepts, luxury aesthetic, premium editorial photography, high-end materials, and a clear focal composition; make it look like a $10,000 stock photo, not AI crypto art";
+  "no visible or readable text, no pseudo-readable text, no words, no letters, no numbers, no captions, no labels, no watermarks, no signatures";
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -144,27 +141,11 @@ const removeTextLikeTokens = (value: string) =>
 const buildImageVisualBrief = (report: IntelReport) => {
   const topic = removeTextLikeTokens(replaceSymbolMentions(report.title, report.symbols));
   const summary = removeTextLikeTokens(replaceSymbolMentions(report.summary || report.insight, report.symbols));
-  const category = report.category.replace(/_/g, " ");
-  const symbolCount = report.symbols.length;
-  const assetContext =
-    symbolCount > 0
-      ? "represent the tracked crypto assets through abstract financial concepts, architectural contrast, premium materials, directional light, and institutional-scale tension without writing or marked coins"
-      : "represent broad crypto market structure through institutional liquidity, macro pressure, social attention, risk rotation, and tension between buyers and sellers without writing";
-  const visualCatalyst =
-    symbolCount > 0
-      ? "depict the specific named-asset thesis as a premium editorial cover scene with capital rotation, changing momentum, and risk/attention pressure matching the report"
-      : "depict the specific market thesis through macro pressure, liquidity depth, narrative attention, and risk rotation matching the report";
 
   return [
-    premiumEditorialImageDirection,
-    imageTextExclusion,
-    "single sophisticated editorial cover image, not a poster, not an infographic, not a UI screenshot, not a social media card",
-    `depict ${topic.toLowerCase()} as visual metaphor only`,
-    `the scene should be driven by ${trimLine(summary, 180).toLowerCase()}`,
-    `market category mood is ${category}`,
-    visualCatalyst,
-    assetContext,
-    "hyperrealistic, ultra-detailed, cinematic lighting, luxury research-report cover aesthetic, strong depth, clear focal subject, full-bleed 16:9 composition",
+    `A detailed, creative prompt for an AI image generator to create a visual for this intel: ${topic}.`,
+    `Context: ${trimLine(summary, 180)}.`,
+    "Style: cyberpunk, futuristic, high-tech, cinematic.",
     imageTextExclusion,
   ].join(", ");
 };
@@ -179,8 +160,6 @@ const normalizeImagePrompt = (input: z.infer<typeof rawGeneratorContentSchema>, 
 
   return [
     removeTextLikeTokens(replaceSymbolMentions(candidate, report.symbols)),
-    premiumEditorialImageDirection,
-    `connect the scene to ${removeTextLikeTokens(replaceSymbolMentions(report.title, report.symbols)).toLowerCase()} without written labels`,
     imageTextExclusion,
   ].join(", ");
 };
