@@ -295,7 +295,9 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "market-bias-agent") {
-    return "scanner-agent";
+    return state.run.marketBias === "LONG" || state.run.marketBias === "SHORT"
+      ? "scanner-agent"
+      : "intel-agent";
   }
 
   if (current === "scanner-agent") {

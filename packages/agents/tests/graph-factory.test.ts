@@ -4,6 +4,7 @@ import {
   buildOmenNodeInput,
   createInitialSwarmState,
   createOmenGraphFactory,
+  resolveNextOmenNodeKey,
   type SwarmCheckpoint,
   type SwarmCheckpointStore,
 } from "../src/index.js";
@@ -324,6 +325,40 @@ describe("omen graph factory", () => {
     expect(finalState.publisherDrafts.length).toBeGreaterThan(0);
     expect(checkpoints.map((checkpoint) => checkpoint.step)).toContain("memory-agent");
     expect(checkpoints.at(-1)?.step).toBe("publisher-agent");
+  });
+
+  it("skips scanner and routes directly to intel when market bias is not directional", () => {
+    const baseState = createInitialSwarmState({ run, config });
+
+    expect(
+      resolveNextOmenNodeKey("market-bias-agent", {
+        ...baseState,
+        run: {
+          ...baseState.run,
+          marketBias: "NEUTRAL",
+        },
+      }),
+    ).toBe("intel-agent");
+
+    expect(
+      resolveNextOmenNodeKey("market-bias-agent", {
+        ...baseState,
+        run: {
+          ...baseState.run,
+          marketBias: "UNKNOWN",
+        },
+      }),
+    ).toBe("intel-agent");
+
+    expect(
+      resolveNextOmenNodeKey("market-bias-agent", {
+        ...baseState,
+        run: {
+          ...baseState.run,
+          marketBias: "LONG",
+        },
+      }),
+    ).toBe("scanner-agent");
   });
 
   it("starts intel from a clean brief instead of rejected trade context", () => {
