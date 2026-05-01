@@ -37,6 +37,8 @@ export type CopytradeTrade = {
   direction: 'LONG' | 'SHORT';
   status: 'queued' | 'open' | 'closed' | 'failed' | 'skipped';
   orderId: string | null;
+  takeProfitOrderId: string | null;
+  stopLossOrderId: string | null;
   entryPrice: number | null;
   exitPrice: number | null;
   quantity: number | null;

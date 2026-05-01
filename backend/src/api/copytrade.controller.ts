@@ -1,4 +1,3 @@
-import { createCipheriv, createHash, randomBytes } from "crypto";
 import type { Request, Response } from "express";
 import { Wallet } from "ethers";
 
@@ -11,6 +10,7 @@ import {
 } from "@omen/db";
 
 import type { BackendEnv } from "../bootstrap/env.js";
+import { encryptAgentKey } from "../services/copytrade-crypto.js";
 
 const HYPERLIQUID_EXCHANGE_URLS: Record<HyperliquidChain, string> = {
   Mainnet: "https://api.hyperliquid.xyz/exchange",
@@ -77,21 +77,6 @@ const parseRiskSettings = (input: unknown): CopytradeRiskSettings => {
   };
 };
 
-const encryptAgentKey = (privateKey: string, encryptionKey: string) => {
-  const key = createHash("sha256").update(encryptionKey).digest();
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-  const ciphertext = Buffer.concat([cipher.update(privateKey, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-
-  return [
-    "v1",
-    iv.toString("base64url"),
-    tag.toString("base64url"),
-    ciphertext.toString("base64url"),
-  ].join(".");
-};
-
 const presentEnrollment = (enrollment: {
   id: string;
   walletAddress: string;
@@ -131,6 +116,8 @@ const presentTrade = (trade: CopytradeTrade) => ({
   direction: trade.direction,
   status: trade.status,
   orderId: trade.orderId,
+  takeProfitOrderId: trade.takeProfitOrderId,
+  stopLossOrderId: trade.stopLossOrderId,
   entryPrice: trade.entryPrice,
   exitPrice: trade.exitPrice,
   quantity: trade.quantity,

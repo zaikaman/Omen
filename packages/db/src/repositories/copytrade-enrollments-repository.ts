@@ -152,6 +152,26 @@ export class CopytradeEnrollmentsRepository extends BaseRepository<
     return ok(data ? toEnrollment(data) : null);
   }
 
+  async listActive(limit = 250): Promise<Result<CopytradeEnrollment[], RepositoryError>> {
+    const { data, error } = await this.table()
+      .select("*")
+      .eq("status", "active")
+      .order("created_at", { ascending: true })
+      .limit(limit)
+      .returns<CopytradeEnrollmentRow[]>();
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok((data ?? []).map((row) => toEnrollment(row)));
+  }
+
   async updateEnrollment(
     enrollmentId: string,
     patch: CopytradeEnrollmentUpdate,

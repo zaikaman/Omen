@@ -373,6 +373,7 @@ function CopytradeDashboardView({
                   <th className="px-3 py-3 text-right">Exit</th>
                   <th className="px-3 py-3 text-right">PnL</th>
                   <th className="px-3 py-3">Opened</th>
+                  <th className="px-3 py-3">Details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/80">
@@ -392,6 +393,9 @@ function CopytradeDashboardView({
                       {formatCurrency(trade.pnlUsd)}
                     </td>
                     <td className="px-3 py-3 text-gray-400">{formatDate(trade.openedAt ?? trade.createdAt)}</td>
+                    <td className="max-w-[220px] truncate px-3 py-3 text-gray-500" title={trade.lastError ?? trade.orderId ?? undefined}>
+                      {trade.lastError ?? (trade.orderId ? `Entry ${trade.orderId}` : '-')}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -111,6 +111,8 @@ CREATE TABLE public.copytrade_trades (
   direction text NOT NULL CHECK (direction = ANY (ARRAY['LONG'::text, 'SHORT'::text])),
   status text NOT NULL CHECK (status = ANY (ARRAY['queued'::text, 'open'::text, 'closed'::text, 'failed'::text, 'skipped'::text])),
   order_id text,
+  take_profit_order_id text,
+  stop_loss_order_id text,
   entry_price numeric,
   exit_price numeric,
   quantity numeric,
@@ -121,12 +123,16 @@ CREATE TABLE public.copytrade_trades (
   opened_at timestamp with time zone,
   closed_at timestamp with time zone,
   last_error text,
+  execution_metadata jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT copytrade_trades_pkey PRIMARY KEY (id),
   CONSTRAINT copytrade_trades_enrollment_id_fkey FOREIGN KEY (enrollment_id) REFERENCES public.copytrade_enrollments(id),
   CONSTRAINT copytrade_trades_signal_id_fkey FOREIGN KEY (signal_id) REFERENCES public.signals(id)
 );
+CREATE UNIQUE INDEX copytrade_trades_enrollment_signal_uidx
+  ON public.copytrade_trades (enrollment_id, signal_id)
+  WHERE signal_id IS NOT NULL;
 CREATE TABLE public.intels (
   id text NOT NULL DEFAULT (gen_random_uuid())::text,
   run_id text NOT NULL,

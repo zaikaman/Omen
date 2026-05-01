@@ -34,6 +34,7 @@
     "ethers": "6.13.1",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
+    "hyperliquid": "1.7.7",
     "morgan": "^1.10.1",
     "sharp": "^0.34.5",
     "tsx": "^4.19.4"

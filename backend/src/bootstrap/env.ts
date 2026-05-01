@@ -12,6 +12,8 @@ export type BackendEnv = {
   runtimeMode: RuntimeMode;
   allowConcurrentRuns: boolean;
   schedulerEnabled: boolean;
+  copytradeExecutorEnabled: boolean;
+  copytradeExecutorIntervalMs: number;
   logLevel: "debug" | "info" | "warn" | "error";
   supabase: {
     url: string | null;
@@ -236,6 +238,8 @@ export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendE
     runtimeMode: normalizeRuntimeMode(env.RUNTIME_MODE),
     allowConcurrentRuns: parseBoolean(env.ALLOW_CONCURRENT_RUNS, false),
     schedulerEnabled: parseBoolean(env.SCHEDULER_ENABLED, true),
+    copytradeExecutorEnabled: parseBoolean(env.COPYTRADE_EXECUTOR_ENABLED, true),
+    copytradeExecutorIntervalMs: parsePort(env.COPYTRADE_EXECUTOR_INTERVAL_MS, 20_000),
     logLevel: normalizeLogLevel(env.LOG_LEVEL),
     supabase: {
       url: env.SUPABASE_URL ?? null,

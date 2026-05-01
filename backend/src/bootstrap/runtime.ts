@@ -13,6 +13,7 @@ import { DefaultLiveSwarmRunPipeline } from "../pipelines/live-swarm-pipeline.js
 import { HourlyScheduler } from "../scheduler/hourly-scheduler.js";
 import { RunLock } from "../scheduler/run-lock.js";
 import { getRuntimeModeFlags } from "../scheduler/runtime-mode.js";
+import { CopytradeExecutorService } from "../services/copytrade-executor.service.js";
 import { DefaultRuntimeWorker } from "../workers/runtime-worker.js";
 
 export type BackendRuntime = {
@@ -20,6 +21,7 @@ export type BackendRuntime = {
   logger: Logger;
   server: Server;
   scheduler: HourlyScheduler;
+  copytradeExecutor: CopytradeExecutorService;
 };
 
 export const startBackendRuntime = (): BackendRuntime => {
@@ -46,6 +48,7 @@ export const startBackendRuntime = (): BackendRuntime => {
     failedRunStore: schedulerRunsRepository,
   });
   const runtimeWorker = new DefaultRuntimeWorker({ env, logger, coordinator });
+  const copytradeExecutor = new CopytradeExecutorService({ env, logger });
   const scheduler = new HourlyScheduler({
     logger,
     runLock: new RunLock(env.allowConcurrentRuns),
@@ -97,6 +100,15 @@ export const startBackendRuntime = (): BackendRuntime => {
     } else {
       logger.info("Hourly scheduler disabled by env.");
     }
+
+    if (env.copytradeExecutorEnabled) {
+      copytradeExecutor.start(env.copytradeExecutorIntervalMs);
+      logger.info(
+        `Copytrade executor started at ${env.copytradeExecutorIntervalMs.toString()}ms interval.`,
+      );
+    } else {
+      logger.info("Copytrade executor disabled by env.");
+    }
   });
 
   registerGracefulShutdown({
@@ -107,8 +119,11 @@ export const startBackendRuntime = (): BackendRuntime => {
         await scheduler.stop();
         logger.info("Hourly scheduler stopped.");
       }
+
+      copytradeExecutor.stop();
+      logger.info("Copytrade executor stopped.");
     },
   });
 
-  return { env, logger, server, scheduler };
+  return { env, logger, server, scheduler, copytradeExecutor };
 };
