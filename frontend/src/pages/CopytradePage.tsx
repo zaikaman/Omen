@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
   CheckCircle2,
   CopyCheck,
   KeyRound,
+  LogOut,
   Loader2,
   PauseCircle,
   ShieldCheck,
@@ -48,7 +49,7 @@ const DEFAULT_RISK_SETTINGS: CopytradeRiskSettings = {
   riskPerSignalPercent: 1,
   maxLeverage: 5,
   maxOpenPositions: 3,
-  allowedAssets: ['BTC', 'ETH', 'SOL', 'HYPE'],
+  allowedAssets: [],
   copyLongs: true,
   copyShorts: true,
 };
@@ -153,7 +154,6 @@ export function CopytradePage() {
   const [chainId, setChainId] = useState<`0x${string}` | null>(null);
   const [hyperliquidChain, setHyperliquidChain] = useState<HyperliquidChain>('Mainnet');
   const [riskSettings, setRiskSettings] = useState<CopytradeRiskSettings>(DEFAULT_RISK_SETTINGS);
-  const [assetInput, setAssetInput] = useState(DEFAULT_RISK_SETTINGS.allowedAssets.join(', '));
   const [enrollment, setEnrollment] = useState<CopytradeEnrollment | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -162,19 +162,6 @@ export function CopytradePage() {
 
   const isActive = enrollment?.status === 'active';
   const canApprove = Boolean(walletAddress && chainId && !isApproving);
-
-  const selectedAssets = useMemo(
-    () =>
-      assetInput
-        .split(',')
-        .map((asset) => asset.trim().toUpperCase())
-        .filter(Boolean),
-    [assetInput],
-  );
-
-  useEffect(() => {
-    setRiskSettings((current) => ({ ...current, allowedAssets: selectedAssets }));
-  }, [selectedAssets]);
 
   useEffect(() => {
     if (!walletAddress) {
@@ -210,6 +197,22 @@ export function CopytradePage() {
       setError(caught instanceof Error ? caught.message : 'Wallet connection failed.');
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  const disconnectWallet = async () => {
+    setError(null);
+    setWalletAddress(null);
+    setChainId(null);
+    setEnrollment(null);
+
+    try {
+      await window.ethereum?.request({
+        method: 'wallet_revokePermissions',
+        params: [{ eth_accounts: {} }],
+      });
+    } catch {
+      // Some injected wallets do not support permission revocation. Clearing local state is enough for Omen.
     }
   };
 
@@ -262,15 +265,32 @@ export function CopytradePage() {
             Connect an EVM wallet, approve Omen as a Hyperliquid API wallet, then copy approved Omen signals with account-level limits.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={connectWallet}
-          disabled={isConnecting}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500 px-4 text-sm font-semibold text-black transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
-          {walletAddress ? formatAddress(walletAddress) : 'Connect wallet'}
-        </button>
+        {walletAddress ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-4 text-sm font-mono text-gray-200">
+              <Wallet className="h-4 w-4 text-cyan-400" />
+              {formatAddress(walletAddress)}
+            </div>
+            <button
+              type="button"
+              onClick={disconnectWallet}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-800 bg-black px-4 text-sm font-semibold text-gray-300 transition-colors hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-200"
+            >
+              <LogOut className="h-4 w-4" />
+              Disconnect
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={connectWallet}
+            disabled={isConnecting}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500 px-4 text-sm font-semibold text-black transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+            Connect wallet
+          </button>
+        )}
       </div>
 
       {error ? (
@@ -388,16 +408,6 @@ export function CopytradePage() {
               onChange={(value) => updateRisk({ maxOpenPositions: value })}
             />
           </div>
-
-          <label className="mt-4 block space-y-2">
-            <span className="block text-[10px] font-mono uppercase tracking-wider text-gray-500">Allowed assets</span>
-            <input
-              type="text"
-              value={assetInput}
-              onChange={(event) => setAssetInput(event.target.value)}
-              className="h-10 w-full rounded-lg border border-gray-800 bg-black/50 px-3 font-mono text-sm text-white outline-none focus:border-cyan-500/50"
-            />
-          </label>
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <label className="flex items-center justify-between rounded-lg border border-gray-800 bg-black/40 px-3 py-2 text-sm text-gray-300">
