@@ -97,6 +97,7 @@ export class HyperliquidCopytradeService {
     },
   ) {
     this.sdk = new Hyperliquid({
+      enableWs: false,
       privateKey: input.agentPrivateKey,
       testnet: input.chain === "Testnet",
       disableAssetMapRefresh: false,
@@ -470,7 +471,7 @@ export class HyperliquidCopytradeService {
 
   private async setLeverage(symbol: string, leverage: number) {
     await this.ensureConnected();
-    await this.sdk.exchange.updateLeverage(this.formatSymbol(symbol), "cross", leverage);
+    await this.sdk.exchange.updateLeverage(this.normalizeSymbol(symbol), "cross", leverage);
   }
 
   private async placeOrder(input: {
@@ -485,7 +486,7 @@ export class HyperliquidCopytradeService {
     const roundedSize = await this.roundSize(input.symbol, input.size);
 
     return this.sdk.exchange.placeOrder({
-      coin: this.formatSymbol(input.symbol),
+      coin: this.normalizeSymbol(input.symbol),
       is_buy: input.isBuy,
       sz: roundedSize.toString(),
       limit_px: this.roundPrice(input.price).toString(),
@@ -510,7 +511,7 @@ export class HyperliquidCopytradeService {
     const triggerPrice = this.roundPrice(input.triggerPrice);
 
     return this.sdk.exchange.placeOrder({
-      coin: this.formatSymbol(input.symbol),
+      coin: this.normalizeSymbol(input.symbol),
       is_buy: input.isBuy,
       sz: roundedSize.toString(),
       limit_px: triggerPrice.toString(),

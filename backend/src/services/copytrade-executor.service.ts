@@ -5,6 +5,7 @@ import {
   createSupabaseServiceRoleClient,
   type CopytradeEnrollment,
   type CopytradeTrade,
+  type CreateCopytradeTradeInput,
 } from "@omen/db";
 import { type Signal } from "@omen/shared";
 
@@ -297,22 +298,34 @@ export class CopytradeExecutorService {
       throw new Error(existing.error.message);
     }
 
+    let retryTrade: CopytradeTrade | null = null;
+
     if (existing.value) {
-      return "skipped" as const;
+      if (existing.value.status === "failed" && !existing.value.orderId) {
+        retryTrade = existing.value;
+      } else {
+        return "skipped" as const;
+      }
     }
 
     if (!isValidDirectionalSetup(signal)) {
-      await this.recordSkipped(enrollment, signal, asset, "Signal target/stop are not valid for its direction.");
+      await this.recordSkipped(
+        enrollment,
+        signal,
+        asset,
+        "Signal target/stop are not valid for its direction.",
+        retryTrade,
+      );
       return "skipped" as const;
     }
 
     if (signal.direction === "LONG" && !enrollment.riskSettings.copyLongs) {
-      await this.recordSkipped(enrollment, signal, asset, "Long copying is disabled.");
+      await this.recordSkipped(enrollment, signal, asset, "Long copying is disabled.", retryTrade);
       return "skipped" as const;
     }
 
     if (signal.direction === "SHORT" && !enrollment.riskSettings.copyShorts) {
-      await this.recordSkipped(enrollment, signal, asset, "Short copying is disabled.");
+      await this.recordSkipped(enrollment, signal, asset, "Short copying is disabled.", retryTrade);
       return "skipped" as const;
     }
 
@@ -320,7 +333,13 @@ export class CopytradeExecutorService {
       enrollment.riskSettings.allowedAssets.length > 0 &&
       !enrollment.riskSettings.allowedAssets.includes(asset)
     ) {
-      await this.recordSkipped(enrollment, signal, asset, `${asset} is not enabled in risk settings.`);
+      await this.recordSkipped(
+        enrollment,
+        signal,
+        asset,
+        `${asset} is not enabled in risk settings.`,
+        retryTrade,
+      );
       return "skipped" as const;
     }
 
@@ -331,12 +350,24 @@ export class CopytradeExecutorService {
     }
 
     if (openTrades.value.length >= enrollment.riskSettings.maxOpenPositions) {
-      await this.recordSkipped(enrollment, signal, asset, "Maximum open copied positions reached.");
+      await this.recordSkipped(
+        enrollment,
+        signal,
+        asset,
+        "Maximum open copied positions reached.",
+        retryTrade,
+      );
       return "skipped" as const;
     }
 
     if (openTrades.value.some((trade) => normalizeAsset(trade.asset) === asset)) {
-      await this.recordSkipped(enrollment, signal, asset, `A copied ${asset} position is already open.`);
+      await this.recordSkipped(
+        enrollment,
+        signal,
+        asset,
+        `A copied ${asset} position is already open.`,
+        retryTrade,
+      );
       return "skipped" as const;
     }
 
@@ -348,6 +379,7 @@ export class CopytradeExecutorService {
         signal,
         asset,
         tradable.reason ?? `${asset} is not tradable on Hyperliquid.`,
+        retryTrade,
       );
       return "skipped" as const;
     }
@@ -360,6 +392,7 @@ export class CopytradeExecutorService {
         signal,
         asset,
         `Hyperliquid account equity is below $${MINIMUM_ACCOUNT_VALUE_USD.toString()}.`,
+        retryTrade,
       );
       return "skipped" as const;
     }
@@ -370,13 +403,14 @@ export class CopytradeExecutorService {
 
       if (deviationPercent > MAX_MARKET_ENTRY_DEVIATION_PERCENT) {
         await this.recordSkipped(
-          enrollment,
-          signal,
-          asset,
-          `Current price is ${deviationPercent.toFixed(2)}% away from signal entry.`,
-        );
-        return "skipped" as const;
-      }
+        enrollment,
+        signal,
+        asset,
+        `Current price is ${deviationPercent.toFixed(2)}% away from signal entry.`,
+        retryTrade,
+      );
+      return "skipped" as const;
+    }
     }
 
     const notionalUsd = calculateRiskSizedNotional({
@@ -388,7 +422,13 @@ export class CopytradeExecutorService {
     });
 
     if (notionalUsd <= 0) {
-      await this.recordSkipped(enrollment, signal, asset, "Calculated copied position size is zero.");
+      await this.recordSkipped(
+        enrollment,
+        signal,
+        asset,
+        "Calculated copied position size is zero.",
+        retryTrade,
+      );
       return "skipped" as const;
     }
 
@@ -410,7 +450,7 @@ export class CopytradeExecutorService {
       })
       .catch(async (error: unknown) => {
         const message = error instanceof Error ? error.message : "Hyperliquid order submission failed.";
-        await this.recordFailed(enrollment, signal, asset, message);
+        await this.recordFailed(enrollment, signal, asset, message, retryTrade);
         return null;
       });
 
@@ -419,7 +459,7 @@ export class CopytradeExecutorService {
     }
     const now = new Date().toISOString();
     const isOpen = Boolean(order.takeProfitOrderId && order.stopLossOrderId);
-    const created = await this.repositories.trades.createTrade({
+    const tradeInput = {
       enrollmentId: enrollment.id,
       walletAddress: enrollment.walletAddress,
       signalId: signal.id,
@@ -443,7 +483,10 @@ export class CopytradeExecutorService {
         orderType: signal.orderType ?? "market",
         signalPublishedAt: signal.publishedAt,
       },
-    });
+    } satisfies CreateCopytradeTradeInput;
+    const created = retryTrade
+      ? await this.repositories.trades.updateTrade(retryTrade.id, tradeInput)
+      : await this.repositories.trades.createTrade(tradeInput);
 
     if (!created.ok) {
       throw new Error(created.error.message);
@@ -600,12 +643,13 @@ export class CopytradeExecutorService {
     signal: Signal & { direction: "LONG" | "SHORT" },
     asset: string,
     reason: string,
+    existingTrade: CopytradeTrade | null = null,
   ) {
     if (!this.repositories) {
       return;
     }
 
-    const created = await this.repositories.trades.createTrade({
+    const tradeInput = {
       enrollmentId: enrollment.id,
       walletAddress: enrollment.walletAddress,
       signalId: signal.id,
@@ -617,7 +661,10 @@ export class CopytradeExecutorService {
         reason,
         signalPublishedAt: signal.publishedAt,
       },
-    });
+    } satisfies CreateCopytradeTradeInput;
+    const created = existingTrade
+      ? await this.repositories.trades.updateTrade(existingTrade.id, tradeInput)
+      : await this.repositories.trades.createTrade(tradeInput);
 
     if (!created.ok) {
       throw new Error(created.error.message);
@@ -629,12 +676,13 @@ export class CopytradeExecutorService {
     signal: Signal & { direction: "LONG" | "SHORT" },
     asset: string,
     reason: string,
+    existingTrade: CopytradeTrade | null = null,
   ) {
     if (!this.repositories) {
       return;
     }
 
-    const created = await this.repositories.trades.createTrade({
+    const tradeInput = {
       enrollmentId: enrollment.id,
       walletAddress: enrollment.walletAddress,
       signalId: signal.id,
@@ -646,7 +694,10 @@ export class CopytradeExecutorService {
         reason,
         signalPublishedAt: signal.publishedAt,
       },
-    });
+    } satisfies CreateCopytradeTradeInput;
+    const created = existingTrade
+      ? await this.repositories.trades.updateTrade(existingTrade.id, tradeInput)
+      : await this.repositories.trades.createTrade(tradeInput);
 
     if (!created.ok) {
       throw new Error(created.error.message);
