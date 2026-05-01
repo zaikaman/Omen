@@ -13,6 +13,7 @@
     "a2a:callback-adapter": "tsx src/scripts/omen-a2a-callback-adapter.ts",
     "run:scheduled": "tsx src/scripts/run-scheduled-cycle.ts",
     "run:scheduled:prod": "tsx src/scripts/run-scheduled-cycle.ts",
+    "force:hackathon-signal": "tsx src/scripts/force-hackathon-signal.ts",
     "smoke:live": "tsx src/scripts/smoke-live-swarm.ts",
     "lint": "eslint \"src/**/*.ts\" --no-error-on-unmatched-pattern",
     "lint:fix": "eslint \"src/**/*.ts\" --fix --no-error-on-unmatched-pattern",
