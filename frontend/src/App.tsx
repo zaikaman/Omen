@@ -10,6 +10,7 @@ import { PerformanceAnalytics } from "./pages/analytics/PerformanceAnalytics";
 import { MarketAnalytics } from "./pages/analytics/MarketAnalytics";
 import { SignalAnalytics } from "./pages/analytics/SignalAnalytics";
 import { EvidencePage } from "./pages/EvidencePage";
+import { CopytradePage } from "./pages/CopytradePage";
 
 export default function App() {
   return (
@@ -24,6 +25,11 @@ export default function App() {
         <Route path="/app/signals" element={
           <DashboardLayout>
             <SignalsPage />
+          </DashboardLayout>
+        } />
+        <Route path="/app/copytrade" element={
+          <DashboardLayout>
+            <CopytradePage />
           </DashboardLayout>
         } />
         <Route path="/app/intel" element={

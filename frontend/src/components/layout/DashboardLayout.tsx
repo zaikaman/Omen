@@ -11,6 +11,7 @@ import {
     Menu01Icon,
     Cancel01Icon,
     News01Icon,
+    Copy01Icon,
 } from '@hugeicons/core-free-icons';
 import { useRunStatus } from '../../hooks/useRunStatus';
 import { SwarmRunModal } from '../SwarmRunModal';
@@ -62,6 +63,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     const navItems = [
         { icon: Home01Icon, label: 'Dashboard', path: '/app' },
         { icon: GpsSignal01Icon, label: 'Signals', path: '/app/signals' },
+        { icon: Copy01Icon, label: 'Copytrade', path: '/app/copytrade' },
         { icon: News01Icon, label: 'Intel', path: '/app/intel' },
         { icon: ChartHistogramIcon, label: 'Analytics', path: '/app/analytics' },
         { icon: Certificate01Icon, label: 'Proof Console', path: '/app/evidence' },
@@ -70,6 +72,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     const pageTitles: Record<string, string> = {
         '/app': 'MISSION CONTROL',
         '/app/signals': 'SIGNAL INTERCEPT',
+        '/app/copytrade': 'COPYTRADE EXECUTION',
         '/app/intel': 'INTELLIGENCE FEED',
         '/app/analytics': 'SYSTEM ANALYTICS',
         '/app/evidence': 'PROOF CONSOLE',
