@@ -22,14 +22,32 @@ const HYPERLIQUID_INFO_URLS: Record<HyperliquidChain, string> = {
 };
 const AGENT_NAME = "OmenCopy";
 const MINIMUM_ACCOUNT_VALUE_USD = 100;
+const DEFAULT_TRADE_PAGE_SIZE = 20;
+const MAX_TRADE_PAGE_SIZE = 100;
+const TRADE_STATS_HISTORY_LIMIT = 1_000;
 
 type HyperliquidChain = "Mainnet" | "Testnet";
+type PresentedTradeStatus = "queued" | "open" | "closed" | "failed" | "skipped";
 
 const isAddress = (value: unknown): value is `0x${string}` =>
   typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
 
 const isHexChainId = (value: unknown): value is `0x${string}` =>
   typeof value === "string" && /^0x[a-fA-F0-9]+$/.test(value);
+
+const parsePositiveInteger = (
+  value: unknown,
+  fallback: number,
+  max = Number.MAX_SAFE_INTEGER,
+) => {
+  const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return Math.min(Math.floor(parsed), max);
+};
 
 const createRepositories = (env: BackendEnv) => {
   if (!env.supabase.url || !env.supabase.serviceRoleKey) {
@@ -107,6 +125,22 @@ const presentEnrollment = (enrollment: {
   createdAt: enrollment.createdAt ?? null,
 });
 
+const resolveTradeLifecycleStatus = (trade: CopytradeTrade): PresentedTradeStatus => {
+  if (trade.status === "failed" || trade.status === "skipped") {
+    return trade.status;
+  }
+
+  if (trade.closedAt) {
+    return "closed";
+  }
+
+  if (trade.openedAt || trade.status === "open") {
+    return "open";
+  }
+
+  return trade.status;
+};
+
 const presentTrade = (trade: CopytradeTrade) => ({
   id: trade.id,
   enrollmentId: trade.enrollmentId,
@@ -114,7 +148,7 @@ const presentTrade = (trade: CopytradeTrade) => ({
   signalId: trade.signalId,
   asset: trade.asset,
   direction: trade.direction,
-  status: trade.status,
+  status: resolveTradeLifecycleStatus(trade),
   orderId: trade.orderId,
   takeProfitOrderId: trade.takeProfitOrderId,
   stopLossOrderId: trade.stopLossOrderId,
@@ -133,9 +167,9 @@ const presentTrade = (trade: CopytradeTrade) => ({
 });
 
 const buildTradeStats = (trades: CopytradeTrade[]) => {
-  const closedTrades = trades.filter((trade) => trade.status === "closed");
-  const openTrades = trades.filter((trade) => trade.status === "open");
-  const failedTrades = trades.filter((trade) => trade.status === "failed");
+  const closedTrades = trades.filter((trade) => resolveTradeLifecycleStatus(trade) === "closed");
+  const openTrades = trades.filter((trade) => resolveTradeLifecycleStatus(trade) === "open");
+  const failedTrades = trades.filter((trade) => resolveTradeLifecycleStatus(trade) === "failed");
   const realizedPnlUsd = closedTrades.reduce((total, trade) => total + (trade.pnlUsd ?? 0), 0);
   const pnlPercentValues = closedTrades
     .map((trade) => trade.pnlPercent)
@@ -259,6 +293,13 @@ export const createCopytradeDashboardController =
     const walletAddress = typeof req.query.walletAddress === "string"
       ? req.query.walletAddress.toLowerCase()
       : "";
+    const page = parsePositiveInteger(req.query.page, 1);
+    const pageSize = parsePositiveInteger(
+      req.query.pageSize,
+      DEFAULT_TRADE_PAGE_SIZE,
+      MAX_TRADE_PAGE_SIZE,
+    );
+    const offset = (page - 1) * pageSize;
 
     if (!isAddress(walletAddress)) {
       res.status(400).json({ success: false, error: "A valid walletAddress is required." });
@@ -270,13 +311,20 @@ export const createCopytradeDashboardController =
       return;
     }
 
-    const [enrollmentResult, tradesResult] = await Promise.all([
+    const [enrollmentResult, statsTradesResult, tradesResult, totalTradesResult] = await Promise.all([
       repositories.enrollments.findLatestByWallet(walletAddress),
-      repositories.trades.listByWallet(walletAddress, 50),
+      repositories.trades.listByWallet(walletAddress, TRADE_STATS_HISTORY_LIMIT),
+      repositories.trades.listByWallet(walletAddress, pageSize, offset),
+      repositories.trades.countByWallet(walletAddress),
     ]);
 
     if (!enrollmentResult.ok) {
       res.status(500).json({ success: false, error: enrollmentResult.error.message });
+      return;
+    }
+
+    if (!statsTradesResult.ok) {
+      res.status(500).json({ success: false, error: statsTradesResult.error.message });
       return;
     }
 
@@ -285,11 +333,24 @@ export const createCopytradeDashboardController =
       return;
     }
 
+    if (!totalTradesResult.ok) {
+      res.status(500).json({ success: false, error: totalTradesResult.error.message });
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(totalTradesResult.value / pageSize));
+
     res.json({
       success: true,
       data: {
         enrollment: enrollmentResult.value ? presentEnrollment(enrollmentResult.value) : null,
-        stats: buildTradeStats(tradesResult.value),
+        stats: buildTradeStats(statsTradesResult.value),
+        tradePagination: {
+          page,
+          pageSize,
+          total: totalTradesResult.value,
+          totalPages,
+        },
         trades: tradesResult.value.map((trade) => presentTrade(trade)),
       },
     });

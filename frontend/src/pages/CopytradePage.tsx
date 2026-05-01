@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   CopyCheck,
   DollarSign,
@@ -62,6 +64,7 @@ const DEFAULT_RISK_SETTINGS: CopytradeRiskSettings = {
   copyLongs: true,
   copyShorts: true,
 };
+const TRADE_HISTORY_PAGE_SIZE = 20;
 
 const buildApprovalAction = (enrollment: CopytradeEnrollment): HyperliquidApproveAgentAction => ({
   type: 'approveAgent',
@@ -162,6 +165,36 @@ const tradeStatusClass = (status: CopytradeTrade['status']) => {
   }
 };
 
+const resolveTradeStatus = (trade: CopytradeTrade): CopytradeTrade['status'] => {
+  if (trade.status === 'failed' || trade.status === 'skipped') {
+    return trade.status;
+  }
+
+  if (trade.closedAt) {
+    return 'closed';
+  }
+
+  if (trade.openedAt || trade.status === 'open') {
+    return 'open';
+  }
+
+  return trade.status;
+};
+
+const tradeLifecycleLabel = (trade: CopytradeTrade) => {
+  const status = resolveTradeStatus(trade);
+
+  if (status === 'closed') {
+    return trade.closedAt ? `Closed ${formatDate(trade.closedAt)}` : 'Closed';
+  }
+
+  if (status === 'open') {
+    return 'Position open';
+  }
+
+  return status.replace(/_/g, ' ');
+};
+
 function RiskInput({
   label,
   value,
@@ -235,15 +268,27 @@ function CopytradeDashboardView({
   enrollment,
   isLoading,
   isLoadingAccount,
+  onTradePageChange,
+  tradePage,
 }: {
   account: CopytradeAccount | null;
   dashboard: CopytradeDashboard | null;
   enrollment: CopytradeEnrollment;
   isLoading: boolean;
   isLoadingAccount: boolean;
+  onTradePageChange: (page: number) => void;
+  tradePage: number;
 }) {
   const stats = dashboard?.stats;
   const trades = dashboard?.trades ?? [];
+  const pagination = dashboard?.tradePagination ?? {
+    page: tradePage,
+    pageSize: TRADE_HISTORY_PAGE_SIZE,
+    total: trades.length,
+    totalPages: Math.max(1, Math.ceil(trades.length / TRADE_HISTORY_PAGE_SIZE)),
+  };
+  const startTrade = pagination.total > 0 ? (pagination.page - 1) * pagination.pageSize + 1 : 0;
+  const endTrade = Math.min(pagination.total, pagination.page * pagination.pageSize);
   const pnlTone = (stats?.realizedPnlUsd ?? 0) > 0
     ? 'positive'
     : (stats?.realizedPnlUsd ?? 0) < 0
@@ -361,45 +406,85 @@ function CopytradeDashboardView({
         </div>
 
         {trades.length > 0 ? (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="border-b border-gray-800 text-[10px] font-mono uppercase tracking-wider text-gray-500">
-                <tr>
-                  <th className="px-3 py-3">Asset</th>
-                  <th className="px-3 py-3">Side</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3 text-right">Notional</th>
-                  <th className="px-3 py-3 text-right">Entry</th>
-                  <th className="px-3 py-3 text-right">Exit</th>
-                  <th className="px-3 py-3 text-right">PnL</th>
-                  <th className="px-3 py-3">Opened</th>
-                  <th className="px-3 py-3">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800/80">
-                {trades.map((trade) => (
-                  <tr key={trade.id} className="text-gray-300">
-                    <td className="px-3 py-3 font-mono font-bold text-white">{trade.asset}</td>
-                    <td className="px-3 py-3">{trade.direction}</td>
-                    <td className="px-3 py-3">
-                      <span className={`rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-wider ${tradeStatusClass(trade.status)}`}>
-                        {trade.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono">{formatCurrency(trade.notionalUsd)}</td>
-                    <td className="px-3 py-3 text-right font-mono">{trade.entryPrice?.toString() ?? '-'}</td>
-                    <td className="px-3 py-3 text-right font-mono">{trade.exitPrice?.toString() ?? '-'}</td>
-                    <td className={`px-3 py-3 text-right font-mono ${(trade.pnlUsd ?? 0) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                      {formatCurrency(trade.pnlUsd)}
-                    </td>
-                    <td className="px-3 py-3 text-gray-400">{formatDate(trade.openedAt ?? trade.createdAt)}</td>
-                    <td className="max-w-[220px] truncate px-3 py-3 text-gray-500" title={trade.lastError ?? trade.orderId ?? undefined}>
-                      {trade.lastError ?? (trade.orderId ? `Entry ${trade.orderId}` : '-')}
-                    </td>
+          <div className="mt-4">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] text-left text-sm">
+                <thead className="border-b border-gray-800 text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                  <tr>
+                    <th className="px-3 py-3">Asset</th>
+                    <th className="px-3 py-3">Side</th>
+                    <th className="px-3 py-3">Lifecycle</th>
+                    <th className="px-3 py-3 text-right">Notional</th>
+                    <th className="px-3 py-3 text-right">Entry</th>
+                    <th className="px-3 py-3 text-right">Exit</th>
+                    <th className="px-3 py-3 text-right">PnL</th>
+                    <th className="px-3 py-3">Opened</th>
+                    <th className="px-3 py-3">Closed</th>
+                    <th className="px-3 py-3">Details</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-800/80">
+                  {trades.map((trade) => {
+                    const status = resolveTradeStatus(trade);
+
+                    return (
+                      <tr key={trade.id} className="text-gray-300">
+                        <td className="px-3 py-3 font-mono font-bold text-white">{trade.asset}</td>
+                        <td className="px-3 py-3">{trade.direction}</td>
+                        <td className="px-3 py-3">
+                          <div className="flex flex-col items-start gap-1">
+                            <span className={`rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-wider ${tradeStatusClass(status)}`}>
+                              {status}
+                            </span>
+                            <span className="text-[10px] text-gray-500">{tradeLifecycleLabel(trade)}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono">{formatCurrency(trade.notionalUsd)}</td>
+                        <td className="px-3 py-3 text-right font-mono">{trade.entryPrice?.toString() ?? '-'}</td>
+                        <td className="px-3 py-3 text-right font-mono">{trade.exitPrice?.toString() ?? '-'}</td>
+                        <td className={`px-3 py-3 text-right font-mono ${(trade.pnlUsd ?? 0) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                          {formatCurrency(trade.pnlUsd)}
+                        </td>
+                        <td className="px-3 py-3 text-gray-400">{formatDate(trade.openedAt ?? trade.createdAt)}</td>
+                        <td className="px-3 py-3 text-gray-400">{trade.closedAt ? formatDate(trade.closedAt) : 'Still open'}</td>
+                        <td className="max-w-[220px] truncate px-3 py-3 text-gray-500" title={trade.lastError ?? trade.orderId ?? undefined}>
+                          {trade.lastError ?? (trade.orderId ? `Entry ${trade.orderId}` : '-')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 border-t border-gray-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs font-mono text-gray-500">
+                Showing {startTrade}-{endTrade} of {pagination.total} trades
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onTradePageChange(Math.max(1, pagination.page - 1))}
+                  disabled={pagination.page <= 1 || isLoading}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-800 bg-black text-gray-300 transition-colors hover:border-cyan-500/40 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Previous trade history page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="min-w-[76px] text-center text-xs font-mono text-gray-400">
+                  Page {pagination.page} / {pagination.totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onTradePageChange(Math.min(pagination.totalPages, pagination.page + 1))}
+                  disabled={pagination.page >= pagination.totalPages || isLoading}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-800 bg-black text-gray-300 transition-colors hover:border-cyan-500/40 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Next trade history page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="mt-4 rounded-lg border border-dashed border-gray-800 bg-black/30 p-8 text-center">
@@ -423,6 +508,7 @@ export function CopytradePage() {
   const [account, setAccount] = useState<CopytradeAccount | null>(null);
   const [enrollment, setEnrollment] = useState<CopytradeEnrollment | null>(null);
   const [dashboard, setDashboard] = useState<CopytradeDashboard | null>(null);
+  const [tradePage, setTradePage] = useState(1);
   const [isLoadingAccount, setIsLoadingAccount] = useState(false);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
@@ -461,11 +547,13 @@ export function CopytradePage() {
         }
         if (latestEnrollment?.status !== 'active') {
           setDashboard(null);
+          setTradePage(1);
         }
       })
       .catch(() => {
         setEnrollment(null);
         setDashboard(null);
+        setTradePage(1);
       })
       .finally(() => setIsLoadingStatus(false));
   }, [walletAddress]);
@@ -489,7 +577,10 @@ export function CopytradePage() {
     }
 
     setIsLoadingDashboard(true);
-    getCopytradeDashboard(walletAddress)
+    getCopytradeDashboard(walletAddress, {
+      page: tradePage,
+      pageSize: TRADE_HISTORY_PAGE_SIZE,
+    })
       .then((nextDashboard) => {
         setDashboard(nextDashboard);
         if (nextDashboard.enrollment) {
@@ -498,7 +589,7 @@ export function CopytradePage() {
       })
       .catch(() => setDashboard(null))
       .finally(() => setIsLoadingDashboard(false));
-  }, [isActive, walletAddress]);
+  }, [isActive, tradePage, walletAddress]);
 
   const connectWallet = async () => {
     setError(null);
@@ -532,6 +623,7 @@ export function CopytradePage() {
     setAccount(null);
     setEnrollment(null);
     setDashboard(null);
+    setTradePage(1);
 
     try {
       await window.ethereum?.request({
@@ -575,7 +667,11 @@ export function CopytradePage() {
 
       setEnrollment(finalized);
       if (finalized.status === 'active') {
-        setDashboard(await getCopytradeDashboard(walletAddress));
+        setTradePage(1);
+        setDashboard(await getCopytradeDashboard(walletAddress, {
+          page: 1,
+          pageSize: TRADE_HISTORY_PAGE_SIZE,
+        }));
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Hyperliquid approval failed.');
@@ -642,6 +738,8 @@ export function CopytradePage() {
           enrollment={enrollment}
           isLoading={isLoadingDashboard}
           isLoadingAccount={isLoadingAccount}
+          onTradePageChange={setTradePage}
+          tradePage={tradePage}
         />
       ) : (
         <>

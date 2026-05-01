@@ -65,6 +65,12 @@ export type CopytradeDashboard = {
     averagePnlPercent: number;
     copiedNotionalUsd: number;
   };
+  tradePagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
   trades: CopytradeTrade[];
 };
 
@@ -134,11 +140,21 @@ export const getCopytradeStatus = (walletAddress: string) =>
     nullableEnrollmentParser,
   );
 
-export const getCopytradeDashboard = (walletAddress: string) =>
-  apiRequest<CopytradeDashboard>(
-    `/copytrade/dashboard?walletAddress=${encodeURIComponent(walletAddress)}`,
+export const getCopytradeDashboard = (
+  walletAddress: string,
+  input: { page?: number; pageSize?: number } = {},
+) => {
+  const params = new URLSearchParams({
+    walletAddress,
+    page: String(input.page ?? 1),
+    pageSize: String(input.pageSize ?? 20),
+  });
+
+  return apiRequest<CopytradeDashboard>(
+    `/copytrade/dashboard?${params.toString()}`,
     dashboardParser,
   );
+};
 
 export const prepareCopytradeApproval = (input: {
   walletAddress: string;

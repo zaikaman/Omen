@@ -185,12 +185,15 @@ export class CopytradeTradesRepository extends BaseRepository<
   async listByWallet(
     walletAddress: string,
     limit = 50,
+    offset = 0,
   ): Promise<Result<CopytradeTrade[], RepositoryError>> {
+    const normalizedLimit = Math.max(1, Math.floor(limit));
+    const normalizedOffset = Math.max(0, Math.floor(offset));
     const { data, error } = await this.table()
       .select("*")
       .eq("wallet_address", walletAddress.toLowerCase())
       .order("created_at", { ascending: false })
-      .limit(limit)
+      .range(normalizedOffset, normalizedOffset + normalizedLimit - 1)
       .returns<CopytradeTradeRow[]>();
 
     if (error) {
@@ -203,6 +206,25 @@ export class CopytradeTradesRepository extends BaseRepository<
     }
 
     return ok((data ?? []).map((row) => toTrade(row)));
+  }
+
+  async countByWallet(
+    walletAddress: string,
+  ): Promise<Result<number, RepositoryError>> {
+    const { count, error } = await this.table()
+      .select("id", { count: "exact", head: true })
+      .eq("wallet_address", walletAddress.toLowerCase());
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok(count ?? 0);
   }
 
   async findByEnrollmentAndSignal(
