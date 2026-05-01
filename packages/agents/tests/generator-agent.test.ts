@@ -540,11 +540,11 @@ describe("generator agent", () => {
     expect(result.content.imagePrompt).toContain("PREMIUM COVER IMAGE");
     expect(result.content.imagePrompt).toContain("Financial Times, Bloomberg Markets");
     expect(result.content.imagePrompt).toContain("make it look like a $10,000 stock photo");
-    expect(result.content.imagePrompt).toContain("lending yields attract new liquidity");
-    expect(result.content.imagePrompt).toContain("the scene should be driven by");
-    expect(result.content.imagePrompt).toContain("single sophisticated editorial cover image");
-    expect(result.content.imagePrompt).toContain("capital rotation");
-    expect(result.content.imagePrompt).toContain("luxury research-report cover aesthetic");
+    expect(result.content.imagePrompt).toContain("Big glowing an unmarked digital asset logo");
+    expect(result.content.imagePrompt).toContain("dashboard UI");
+    expect(result.content.imagePrompt).toContain(
+      "connect the scene to an unmarked digital asset tvl surge",
+    );
     expect(result.content.imagePrompt).toContain("no readable text");
     expect(result.content.imagePrompt).toContain("no letters");
     expect(result.content.imagePrompt).toContain("no numbers");

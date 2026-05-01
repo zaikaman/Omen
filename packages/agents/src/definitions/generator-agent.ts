@@ -130,11 +130,11 @@ const removeTextLikeTokens = (value: string) =>
     .replace(/\$[A-Za-z0-9_]+/g, "an unmarked digital asset")
     .replace(/\b(?:with|showing|displaying|featuring)?\s*the\s+words?\s+[^,.]+/gi, "")
     .replace(
-      /\b(?:with|showing|displaying|featuring)?\s*(?:big\s+)?(?:glowing\s+)?(?:coin\s+)?logos?\b[^,.]*/gi,
+      /\b(?:with|showing|displaying|featuring)?\s*(?:big\s+)?(?:glowing\s+)?(?:coin\s+)?logos?\s+containing\s+text\b[^,.]*/gi,
       " abstract symbolic forms",
     )
     .replace(
-      /\b(?:headline|caption|label|labels|watermark|ticker symbol|ticker symbols|lettering|typography|text overlay|poster|signage|sign|document|documents|whitepaper|interface|dashboard|ui|screen|screens|monitor|terminal|chart axes|legend|legends)\b/gi,
+      /\b(?:headline|caption|label|labels|watermark|ticker symbol|ticker symbols|lettering|typography|text overlay|signage|chart axes|legend|legends)\b/gi,
       " abstract detail",
     )
     .replace(/\s+/g, " ")
@@ -178,8 +178,9 @@ const normalizeImagePrompt = (input: z.infer<typeof rawGeneratorContentSchema>, 
   }
 
   return [
-    visualBrief,
-    `use this secondary style only as abstract visual metaphor without layout text ${removeTextLikeTokens(replaceSymbolMentions(candidate, report.symbols))}`,
+    removeTextLikeTokens(replaceSymbolMentions(candidate, report.symbols)),
+    premiumEditorialImageDirection,
+    `connect the scene to ${removeTextLikeTokens(replaceSymbolMentions(report.title, report.symbols)).toLowerCase()} without written labels`,
     imageTextExclusion,
   ].join(", ");
 };
