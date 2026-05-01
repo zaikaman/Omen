@@ -10,7 +10,15 @@ import {
 
 export const criticInputSchema = z.object({
   context: orchestrationContextSchema,
-  evaluation: thesisEvaluationSchema,
+  evaluation: thesisEvaluationSchema.extend({
+    qualityThresholds: z
+      .object({
+        minConfidence: z.number().min(0).max(100),
+        minRiskReward: z.number().min(0),
+        minConfluences: z.number().int().min(0),
+      })
+      .optional(),
+  }),
 });
 
 export const criticOutputSchema = z.object({

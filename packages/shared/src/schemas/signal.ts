@@ -66,10 +66,10 @@ export const signalSchema = signalBaseSchema.superRefine((signal, ctx) => {
     const actionable =
       signal.direction === "LONG" || signal.direction === "SHORT";
 
-    if (actionable && signal.confidence < 85) {
+    if (actionable && signal.confidence < 80) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "actionable signals require confidence >= 85",
+        message: "actionable signals require confidence >= 80",
         path: ["confidence"],
       });
     }

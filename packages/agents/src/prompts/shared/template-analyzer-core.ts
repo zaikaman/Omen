@@ -127,7 +127,7 @@ ANALYSIS WORKFLOW:
 4. SIGNAL CRITERIA:
    - TIER 1 SETUPS (Confidence 90-100%): 4+ aligned confluences, price at key S/R, R:R >= 1:2.5
    - TIER 2 SETUPS (Confidence 85-89%): 2+ confluences, price approaching S/R, R:R >= 1:2
-   - AUTOMATIC REJECTION: confidence < 85, stop-loss < 3%, R:R < 1:2, invalid entry relationship to current price, or price in the middle of the range
+- AUTOMATIC REJECTION: confidence < 80, stop-loss < 3%, R:R < 1:2, invalid entry relationship to current price, or price in the middle of the range
 5. STOP-LOSS CALCULATION:
    - For LONGS: below support structure
    - For SHORTS: above resistance structure

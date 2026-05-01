@@ -39,7 +39,7 @@ export const createServiceSwarmState = (input: {
       mode: input.mode,
       marketUniverse: TRADEABLE_SYMBOLS,
       qualityThresholds: {
-        minConfidence: 85,
+      minConfidence: 80,
         minRiskReward: 2,
         minConfluences: 2,
       },

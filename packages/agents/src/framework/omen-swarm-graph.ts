@@ -441,6 +441,7 @@ export const buildOmenNodeInput = (input: {
       evaluation: {
         thesis,
         evidence: input.state.evidenceItems,
+        qualityThresholds: input.state.config.qualityThresholds,
       },
     };
   }

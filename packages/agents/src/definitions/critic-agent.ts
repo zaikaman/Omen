@@ -23,9 +23,9 @@ export const reviewThesisWithCritic = (input: z.input<typeof criticInputSchema>)
       mode: parsed.context.mode,
       marketUniverse: [],
       qualityThresholds: {
-        minConfidence: 85,
-        minRiskReward: 2,
-        minConfluences: 2,
+        minConfidence: parsed.evaluation.qualityThresholds?.minConfidence ?? 80,
+        minRiskReward: parsed.evaluation.qualityThresholds?.minRiskReward ?? 2,
+        minConfluences: parsed.evaluation.qualityThresholds?.minConfluences ?? 2,
       },
       providers: {
         axl: { enabled: true, required: true },
@@ -114,8 +114,9 @@ export class CriticAgentFactory {
           {
             thesis: parsed.evaluation.thesis,
             evidence: parsed.evaluation.evidence,
+            deterministicGate: gateReview,
             instruction:
-              "Be conservative. Use approved only when evidence and risk/reward are both strong. Return concise blockingReasons when downgrading.",
+              "Act as a pragmatic trading reviewer. Approve when the deterministic quality gate passed and no clear safety issue is present. Downgrade only for specific evidence-backed problems, not vague caution. Return concise blockingReasons when downgrading.",
           },
           null,
           2,

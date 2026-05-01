@@ -15,6 +15,11 @@ export type BackendEnv = {
   copytradeExecutorEnabled: boolean;
   copytradeExecutorIntervalMs: number;
   logLevel: "debug" | "info" | "warn" | "error";
+  signalQuality: {
+    minConfidence: number;
+    minRiskReward: number;
+    minConfluences: number;
+  };
   supabase: {
     url: string | null;
     anonKey: string | null;
@@ -145,6 +150,11 @@ const parsePort = (value: string | undefined, defaultValue: number) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
 };
 
+const parseNumber = (value: string | undefined, defaultValue: number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : defaultValue;
+};
+
 const parseApiKeyArray = (env: NodeJS.ProcessEnv, prefix: "COINGECKO" | "BIRDEYE" | "CMC") => {
   const keys: string[] = [];
   const primaryKey = env[`${prefix}_API_KEY`];
@@ -241,6 +251,11 @@ export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendE
     copytradeExecutorEnabled: parseBoolean(env.COPYTRADE_EXECUTOR_ENABLED, true),
     copytradeExecutorIntervalMs: parsePort(env.COPYTRADE_EXECUTOR_INTERVAL_MS, 20_000),
     logLevel: normalizeLogLevel(env.LOG_LEVEL),
+    signalQuality: {
+      minConfidence: parseNumber(env.OMEN_MIN_SIGNAL_CONFIDENCE, 80),
+      minRiskReward: parseNumber(env.OMEN_MIN_RISK_REWARD, 2),
+      minConfluences: parsePort(env.OMEN_MIN_CONFLUENCES, 2),
+    },
     supabase: {
       url: env.SUPABASE_URL ?? null,
       anonKey: env.SUPABASE_ANON_KEY ?? null,

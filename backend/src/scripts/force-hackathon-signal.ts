@@ -190,7 +190,7 @@ const buildForcedSignal = async (input: {
     candidateId: `forced-${input.symbol.toLowerCase()}-${input.runId}`,
     asset: input.symbol,
     direction: input.direction,
-    confidence: 85,
+    confidence: 80,
     orderType: "market",
     tradingStyle: "day_trade",
     expectedDuration: "4-24 hours",

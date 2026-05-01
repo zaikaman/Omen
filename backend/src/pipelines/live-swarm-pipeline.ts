@@ -398,9 +398,9 @@ const createLiveRuntimeConfig = (input: {
     mode: input.request.mode.mode,
     marketUniverse: input.marketUniverse,
     qualityThresholds: {
-      minConfidence: 85,
-      minRiskReward: 2,
-      minConfluences: 2,
+      minConfidence: input.env.signalQuality.minConfidence,
+      minRiskReward: input.env.signalQuality.minRiskReward,
+      minConfluences: input.env.signalQuality.minConfluences,
     },
     providers: {
       axl: { enabled: hasAxlTransportConfig(input.env), required: false },
