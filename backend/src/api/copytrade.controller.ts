@@ -10,7 +10,10 @@ import {
 
 import type { BackendEnv } from "../bootstrap/env.js";
 
-const HYPERLIQUID_EXCHANGE_URL = "https://api.hyperliquid.xyz/exchange";
+const HYPERLIQUID_EXCHANGE_URLS: Record<HyperliquidChain, string> = {
+  Mainnet: "https://api.hyperliquid.xyz/exchange",
+  Testnet: "https://api.hyperliquid-testnet.xyz/exchange",
+};
 const AGENT_NAME = "OmenCopy";
 
 type HyperliquidChain = "Mainnet" | "Testnet";
@@ -212,7 +215,12 @@ export const createCopytradeFinalizeController =
       return;
     }
 
-    const exchangeResponse = await fetch(HYPERLIQUID_EXCHANGE_URL, {
+    const hyperliquidChain =
+      (action as { hyperliquidChain?: unknown }).hyperliquidChain === "Testnet"
+        ? "Testnet"
+        : "Mainnet";
+
+    const exchangeResponse = await fetch(HYPERLIQUID_EXCHANGE_URLS[hyperliquidChain], {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
