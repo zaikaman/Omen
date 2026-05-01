@@ -230,13 +230,17 @@ function StatCard({
 }
 
 function CopytradeDashboardView({
+  account,
   dashboard,
   enrollment,
   isLoading,
+  isLoadingAccount,
 }: {
+  account: CopytradeAccount | null;
   dashboard: CopytradeDashboard | null;
   enrollment: CopytradeEnrollment;
   isLoading: boolean;
+  isLoadingAccount: boolean;
 }) {
   const stats = dashboard?.stats;
   const trades = dashboard?.trades ?? [];
@@ -248,7 +252,13 @@ function CopytradeDashboardView({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <StatCard
+          icon={isLoadingAccount ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+          label="Current equity"
+          value={account ? formatCurrency(account.accountValue) : 'Unavailable'}
+          tone="cyan"
+        />
         <StatCard
           icon={<DollarSign className="h-4 w-4" />}
           label="Realized PnL"
@@ -294,6 +304,18 @@ function CopytradeDashboardView({
               <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Network</div>
                 <div className="mt-1 text-sm font-semibold text-white">{enrollment.hyperliquidChain}</div>
+              </div>
+              <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Withdrawable</div>
+                <div className="mt-1 font-mono text-sm text-white">
+                  {account ? formatCurrency(account.withdrawable) : 'Unavailable'}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Margin used</div>
+                <div className="mt-1 font-mono text-sm text-white">
+                  {account ? formatCurrency(account.totalMarginUsed) : 'Unavailable'}
+                </div>
               </div>
               <div className="rounded-lg border border-gray-800 bg-black/40 p-4">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Approved at</div>
@@ -430,6 +452,9 @@ export function CopytradePage() {
     getCopytradeStatus(walletAddress)
       .then((latestEnrollment) => {
         setEnrollment(latestEnrollment);
+        if (latestEnrollment) {
+          setHyperliquidChain(latestEnrollment.hyperliquidChain);
+        }
         if (latestEnrollment?.status !== 'active') {
           setDashboard(null);
         }
@@ -608,9 +633,11 @@ export function CopytradePage() {
 
       {isActive && enrollment ? (
         <CopytradeDashboardView
+          account={account}
           dashboard={dashboard}
           enrollment={enrollment}
           isLoading={isLoadingDashboard}
+          isLoadingAccount={isLoadingAccount}
         />
       ) : (
         <>
