@@ -124,14 +124,16 @@ export class CriticAgentFactory {
           2,
         ),
       });
-      const stricterReview =
-        decisionRank[llmReview.review.decision] >= decisionRank[gateReview.review.decision]
-          ? llmReview.review
-          : gateReview.review;
+      const finalReview =
+        gateReview.review.decision === "approved" || gateReview.review.repairable
+          ? gateReview.review
+          : decisionRank[llmReview.review.decision] >= decisionRank[gateReview.review.decision]
+            ? llmReview.review
+            : gateReview.review;
 
       return criticOutputSchema.parse({
         review: {
-          ...stricterReview,
+          ...finalReview,
           candidateId: parsed.evaluation.thesis.candidateId,
           objections: Array.from(
             new Set([
@@ -140,20 +142,23 @@ export class CriticAgentFactory {
             ]),
           ),
           forcedOutcomeReason:
-            stricterReview.decision === gateReview.review.decision
+            finalReview.decision === gateReview.review.decision
               ? gateReview.review.forcedOutcomeReason
               : llmReview.review.forcedOutcomeReason ?? gateReview.review.forcedOutcomeReason,
-          repairable: gateReview.review.repairable || llmReview.review.repairable,
+          repairable: gateReview.review.repairable,
           repairInstructions: Array.from(
             new Set([
               ...(gateReview.review.repairInstructions ?? []),
-              ...(llmReview.review.repairInstructions ?? []),
+              ...(gateReview.review.repairable ? (llmReview.review.repairInstructions ?? []) : []),
             ]),
           ),
         },
-        blockingReasons: Array.from(
-          new Set([...(gateReview.blockingReasons ?? []), ...(llmReview.blockingReasons ?? [])]),
-        ),
+        blockingReasons:
+          gateReview.review.decision === "approved"
+            ? []
+            : Array.from(
+                new Set([...(gateReview.blockingReasons ?? []), ...(llmReview.blockingReasons ?? [])]),
+              ),
       });
     } catch (error) {
       throw new Error(

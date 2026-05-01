@@ -296,4 +296,75 @@ describe("critic agent", () => {
     expect(["watchlist_only", "rejected"]).toContain(result.review.decision);
     expect((result.blockingReasons ?? []).length).toBeGreaterThan(0);
   });
+
+  it("keeps approved deterministic gates approved even when the model is too cautious", async () => {
+    const state = createInitialSwarmState({ run, config });
+    const agent = createCriticAgent({
+      llmClient: {
+        completeJson: async () => ({
+          review: {
+            candidateId: "candidate-btc-1",
+            decision: "rejected" as const,
+            objections: ["Model is cautious about resistance nearby."],
+            forcedOutcomeReason: "Resistance may slow follow-through.",
+            repairable: false,
+            repairInstructions: [],
+          },
+          blockingReasons: ["Resistance may slow follow-through."],
+        }),
+      } as unknown as OpenAiCompatibleJsonClient,
+    });
+
+    const result = await agent.invoke(
+      {
+        context: {
+          runId: run.id,
+          threadId: "thread-1",
+          mode: "live",
+          triggeredBy: "scheduler",
+        },
+        evaluation: {
+          thesis: {
+            candidateId: "candidate-btc-1",
+            asset: "BTC",
+            direction: "LONG",
+            confidence: 90,
+            orderType: "market",
+            tradingStyle: "day_trade",
+            expectedDuration: "8-16 hours",
+            currentPrice: 65000,
+            entryPrice: 65000,
+            targetPrice: 71890,
+            stopLoss: 62350,
+            riskReward: 2.6,
+            whyNow: "Momentum and market structure aligned.",
+            confluences: ["Breakout held", "Funding stayed controlled"],
+            uncertaintyNotes: "Macro risk remains.",
+            missingDataNotes: "No additional missing-data flags.",
+          },
+          evidence: [
+            {
+              category: "market",
+              summary: "BTC reclaimed local highs.",
+              sourceLabel: "Binance",
+              sourceUrl: null,
+              structuredData: {},
+            },
+            {
+              category: "technical",
+              summary: "Structure stayed above resistance.",
+              sourceLabel: "Indicators",
+              sourceUrl: null,
+              structuredData: {},
+            },
+          ],
+        },
+      },
+      state,
+    );
+
+    expect(result.review.decision).toBe("approved");
+    expect(result.review.objections).toContain("Model is cautious about resistance nearby.");
+    expect(result.blockingReasons).toEqual([]);
+  });
 });

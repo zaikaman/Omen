@@ -16,6 +16,8 @@ const actionableDirection = (direction: ThesisDraft["direction"]) =>
 const maxLimitEntryDistance = (tradingStyle: ThesisDraft["tradingStyle"]) =>
   tradingStyle === "swing_trade" ? 0.12 : 0.05;
 
+const relaxedRiskRewardFloor = 1.5;
+
 export const evaluateThesisAgainstThresholds = (input: {
   thesis: ThesisDraft;
   evidence: EvidenceItem[];
@@ -34,9 +36,15 @@ export const evaluateThesisAgainstThresholds = (input: {
   }
 
   if (actionable && (input.thesis.riskReward ?? 0) < input.config.qualityThresholds.minRiskReward) {
-    const reason = `Risk/reward ${(input.thesis.riskReward ?? 0).toFixed(2)} is below the minimum threshold ${input.config.qualityThresholds.minRiskReward.toFixed(2)}.`;
-    blockingReasons.push(reason);
-    terminalReasons.push(reason);
+    const riskReward = input.thesis.riskReward ?? 0;
+    const reason = `Risk/reward ${riskReward.toFixed(2)} is below the preferred threshold ${input.config.qualityThresholds.minRiskReward.toFixed(2)}.`;
+
+    if (riskReward >= relaxedRiskRewardFloor) {
+      warnings.push(`${reason} Allowing because it remains above the relaxed execution floor ${relaxedRiskRewardFloor.toFixed(2)}.`);
+    } else {
+      blockingReasons.push(reason);
+      terminalReasons.push(reason);
+    }
   }
 
   if (actionable) {
@@ -129,8 +137,14 @@ export const evaluateThesisAgainstThresholds = (input: {
 
   if (input.thesis.confluences.length < input.config.qualityThresholds.minConfluences) {
     const reason = `Confluence count ${input.thesis.confluences.length.toString()} is below the minimum threshold ${input.config.qualityThresholds.minConfluences.toString()}.`;
-    blockingReasons.push(reason);
-    terminalReasons.push(reason);
+    const hasEnoughContext = actionable && input.evidence.length >= 2 && input.thesis.confluences.length > 0;
+
+    if (hasEnoughContext) {
+      warnings.push(`${reason} Allowing because prior agents supplied enough evidence context.`);
+    } else {
+      blockingReasons.push(reason);
+      terminalReasons.push(reason);
+    }
   }
 
   if (input.evidence.length === 0) {
@@ -149,12 +163,6 @@ export const evaluateThesisAgainstThresholds = (input: {
     const reason = "Thesis direction resolved to NONE, so there is no actionable outcome to approve.";
     blockingReasons.push(reason);
     terminalReasons.push(reason);
-  }
-
-  if (/no additional missing-data flags/i.test(input.thesis.missingDataNotes)) {
-    warnings.push(
-      "Missing-data notes are minimal; reviewer should confirm that data coverage is truly complete.",
-    );
   }
 
   return {
