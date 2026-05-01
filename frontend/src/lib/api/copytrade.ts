@@ -41,6 +41,8 @@ export type CopytradeTrade = {
   stopLossOrderId: string | null;
   entryPrice: number | null;
   exitPrice: number | null;
+  plannedTakeProfitPrice: number | null;
+  plannedStopLossPrice: number | null;
   quantity: number | null;
   leverage: number | null;
   notionalUsd: number | null;

@@ -357,6 +357,8 @@ const presentTrade = (trade: CopytradeTrade) => ({
   stopLossOrderId: trade.stopLossOrderId,
   entryPrice: trade.entryPrice,
   exitPrice: trade.exitPrice,
+  plannedTakeProfitPrice: parseNumber(trade.executionMetadata?.targetPrice),
+  plannedStopLossPrice: parseNumber(trade.executionMetadata?.stopLoss),
   quantity: trade.quantity,
   leverage: trade.leverage,
   notionalUsd: trade.notionalUsd,

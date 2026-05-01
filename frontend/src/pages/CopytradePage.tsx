@@ -196,6 +196,23 @@ const tradeLifecycleLabel = (trade: CopytradeTrade) => {
   return status.replace(/_/g, ' ');
 };
 
+const formatTradePrice = (value: number | null | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) ? value.toString() : '-';
+
+const tradeDetailsLabel = (trade: CopytradeTrade) => {
+  if (trade.lastError) {
+    return trade.lastError;
+  }
+
+  const orderParts = [
+    trade.orderId ? `Entry ${trade.orderId}` : null,
+    trade.takeProfitOrderId ? `TP ${trade.takeProfitOrderId}` : null,
+    trade.stopLossOrderId ? `SL ${trade.stopLossOrderId}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return orderParts.length > 0 ? orderParts.join(' | ') : '-';
+};
+
 function RiskInput({
   label,
   value,
@@ -497,15 +514,28 @@ function CopytradeDashboardView({
                           </div>
                         </td>
                         <td className="px-3 py-3 text-right font-mono">{formatCurrency(trade.notionalUsd)}</td>
-                        <td className="px-3 py-3 text-right font-mono">{trade.entryPrice?.toString() ?? '-'}</td>
-                        <td className="px-3 py-3 text-right font-mono">{trade.exitPrice?.toString() ?? '-'}</td>
+                        <td className="px-3 py-3 text-right font-mono">{formatTradePrice(trade.entryPrice)}</td>
+                        <td className="px-3 py-3 text-right font-mono">
+                          {trade.exitPrice ? (
+                            formatTradePrice(trade.exitPrice)
+                          ) : (
+                            <div className="flex flex-col items-end gap-1">
+                              <span>-</span>
+                              {(trade.plannedTakeProfitPrice || trade.plannedStopLossPrice) ? (
+                                <span className="whitespace-nowrap text-[10px] text-gray-500">
+                                  TP {formatTradePrice(trade.plannedTakeProfitPrice)} / SL {formatTradePrice(trade.plannedStopLossPrice)}
+                                </span>
+                              ) : null}
+                            </div>
+                          )}
+                        </td>
                         <td className={`px-3 py-3 text-right font-mono ${(trade.pnlUsd ?? 0) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
                           {formatCurrency(trade.pnlUsd)}
                         </td>
                         <td className="px-3 py-3 text-gray-400">{formatDate(trade.openedAt ?? trade.createdAt)}</td>
                         <td className="px-3 py-3 text-gray-400">{trade.closedAt ? formatDate(trade.closedAt) : 'Still open'}</td>
-                        <td className="max-w-[220px] truncate px-3 py-3 text-gray-500" title={trade.lastError ?? trade.orderId ?? undefined}>
-                          {trade.lastError ?? (trade.orderId ? `Entry ${trade.orderId}` : '-')}
+                        <td className="max-w-[260px] truncate px-3 py-3 text-gray-500" title={tradeDetailsLabel(trade)}>
+                          {tradeDetailsLabel(trade)}
                         </td>
                       </tr>
                     );
