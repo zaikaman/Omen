@@ -11,6 +11,8 @@ import {
   Boxes,
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Database,
   ExternalLink,
   FileJson,
@@ -39,6 +41,8 @@ import { useTopology } from '../hooks/useTopology';
 import { cn } from '../lib/utils';
 
 const REFRESH_INTERVAL_MS = 30_000;
+const RUNS_PER_PAGE = 10;
+const PROOF_FEED_LIMIT = 50;
 
 const consoleSectionIds = [
   'storage',
@@ -136,7 +140,7 @@ export function EvidencePage() {
   const queryRunId = searchParams.get('runId');
   const querySection = searchParams.get('section');
   const proofFeed = useProofFeed({
-    limit: 10,
+    limit: PROOF_FEED_LIMIT,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
   const topology = useTopology({
@@ -146,6 +150,7 @@ export function EvidencePage() {
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [runPage, setRunPage] = useState(1);
   const [activeSection, setActiveSection] = useState<ConsoleSectionId>('storage');
   const activeRunId = selectedRunId ?? queryRunId ?? proofFeed.proofs[0]?.runId ?? null;
   const proofDetail = useProofDetail(activeRunId, {
@@ -164,6 +169,16 @@ export function EvidencePage() {
       setActiveSection(querySection);
     }
   }, [querySection]);
+
+  const runPageCount = Math.max(1, Math.ceil(proofFeed.proofs.length / RUNS_PER_PAGE));
+  const paginatedProofs = useMemo(
+    () => proofFeed.proofs.slice((runPage - 1) * RUNS_PER_PAGE, runPage * RUNS_PER_PAGE),
+    [proofFeed.proofs, runPage],
+  );
+
+  useEffect(() => {
+    setRunPage((currentPage) => Math.min(currentPage, runPageCount));
+  }, [runPageCount]);
 
   const chainArtifact = useMemo(
     () => getArtifact(proofDetail.artifacts, ['chain_proof']),
@@ -401,7 +416,7 @@ export function EvidencePage() {
                   No 0G activity recorded yet.
                 </div>
               ) : (
-                proofFeed.proofs.map((proof) => {
+                paginatedProofs.map((proof) => {
                   const isActive = activeRunId === proof.runId;
 
                   return (
@@ -441,6 +456,33 @@ export function EvidencePage() {
                     </button>
                   );
                 })
+              )}
+              {proofFeed.proofs.length > RUNS_PER_PAGE && (
+                <div className="flex items-center justify-between border-t border-gray-800 pt-3">
+                  <div className="font-mono text-[10px] uppercase tracking-wider text-gray-500">
+                    Page {runPage} of {runPageCount}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRunPage((page) => Math.max(1, page - 1))}
+                      disabled={runPage === 1}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-800 bg-gray-950/60 text-gray-400 transition-colors hover:border-gray-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Previous runs page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRunPage((page) => Math.min(runPageCount, page + 1))}
+                      disabled={runPage === runPageCount}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-800 bg-gray-950/60 text-gray-400 transition-colors hover:border-gray-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Next runs page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

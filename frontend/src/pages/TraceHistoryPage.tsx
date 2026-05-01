@@ -9,6 +9,8 @@ import {
   ArrowUpRight,
   BookOpenText,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Database,
   FileText,
   GitBranch,
@@ -28,7 +30,8 @@ import { useRuns } from '../hooks/useRuns';
 import { cn } from '../lib/utils';
 
 const REFRESH_INTERVAL_MS = 30_000;
-const RUN_LIMIT = 40;
+const RUNS_PER_PAGE = 10;
+const RUN_LIMIT = 100;
 
 type TraceItem = {
   label: string;
@@ -228,6 +231,7 @@ export function TraceHistoryPage() {
   const queryRunId = searchParams.get('runId');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(queryRunId);
   const [query, setQuery] = useState('');
+  const [runPage, setRunPage] = useState(1);
   const runs = useRuns({
     limit: RUN_LIMIT,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
@@ -244,6 +248,11 @@ export function TraceHistoryPage() {
     [runs.runs],
   );
   const activeRunId = selectedRunId ?? queryRunId ?? outputRuns[0]?.id ?? null;
+  const runPageCount = Math.max(1, Math.ceil(outputRuns.length / RUNS_PER_PAGE));
+  const paginatedOutputRuns = useMemo(
+    () => outputRuns.slice((runPage - 1) * RUNS_PER_PAGE, runPage * RUNS_PER_PAGE),
+    [outputRuns, runPage],
+  );
   const logs = useLogs({
     enabled: Boolean(activeRunId),
     limit: 160,
@@ -262,6 +271,10 @@ export function TraceHistoryPage() {
       setSelectedRunId(outputRuns[0].id);
     }
   }, [outputRuns, selectedRunId]);
+
+  useEffect(() => {
+    setRunPage((currentPage) => Math.min(currentPage, runPageCount));
+  }, [runPageCount]);
 
   const activeRun = runs.runs.find((run) => run.id === activeRunId) ?? null;
   const events = useMemo(
@@ -351,7 +364,7 @@ export function TraceHistoryPage() {
                   No signal or intel producing swarm runs are available yet.
                 </div>
               ) : (
-                outputRuns.map((run) => {
+                paginatedOutputRuns.map((run) => {
                   const isActive = activeRunId === run.id;
                   const outputLabel = getRunOutputLabel(run);
 
@@ -402,6 +415,33 @@ export function TraceHistoryPage() {
                     </button>
                   );
                 })
+              )}
+              {outputRuns.length > RUNS_PER_PAGE && (
+                <div className="flex items-center justify-between border-t border-gray-800 pt-3">
+                  <div className="font-mono text-[10px] uppercase tracking-wider text-gray-500">
+                    Page {runPage} of {runPageCount}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRunPage((page) => Math.max(1, page - 1))}
+                      disabled={runPage === 1}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-800 bg-gray-950/60 text-gray-400 transition-colors hover:border-gray-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Previous runs page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRunPage((page) => Math.min(runPageCount, page + 1))}
+                      disabled={runPage === runPageCount}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-800 bg-gray-950/60 text-gray-400 transition-colors hover:border-gray-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Next runs page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
