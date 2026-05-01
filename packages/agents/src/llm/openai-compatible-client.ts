@@ -38,6 +38,13 @@ const geminiContentResponseSchema = z.object({
     .min(1),
 });
 
+const responsesApiResponseSchema = z
+  .object({
+    output_text: z.string().optional(),
+    output: z.array(z.unknown()).optional(),
+  })
+  .passthrough();
+
 export const openAiCompatibleClientConfigSchema = z.object({
   apiKey: z.string().min(1),
   baseUrl: z.string().url(),
@@ -46,9 +53,7 @@ export const openAiCompatibleClientConfigSchema = z.object({
   disableTimeout: z.boolean().optional().default(false),
 });
 
-export type OpenAiCompatibleClientConfig = z.infer<
-  typeof openAiCompatibleClientConfigSchema
->;
+export type OpenAiCompatibleClientConfig = z.infer<typeof openAiCompatibleClientConfigSchema>;
 
 const ensureTrailingSlashRemoved = (value: string) => value.replace(/\/+$/, "");
 
@@ -58,13 +63,9 @@ const parseTimeoutMs = (value: string | undefined, defaultValue: number) => {
   return Number.isFinite(parsed) && parsed >= 1000 ? parsed : defaultValue;
 };
 
-const parseModelFallbackEnabled = (value: string | undefined) =>
-  value !== "0" && value !== "false";
+const parseModelFallbackEnabled = (value: string | undefined) => value !== "0" && value !== "false";
 
-export const buildTemperaturePayload = (
-  model: string,
-  temperature: number | undefined,
-) => {
+export const buildTemperaturePayload = (model: string, temperature: number | undefined) => {
   if (model.toLowerCase().startsWith("gpt-5")) {
     return {};
   }
@@ -129,6 +130,9 @@ const MAX_JSON_COMPLETION_ATTEMPTS =
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
+const isSomethingWrongProviderFailure = (error: unknown) =>
+  /something wrong/i.test(getErrorMessage(error));
+
 class GeminiProviderError extends Error {
   constructor(message: string) {
     super(message);
@@ -141,6 +145,41 @@ const isGeminiProviderFailure = (error: unknown) =>
 
 const isSchemaLikeError = (message: string) =>
   /schema|validation|parse|zod|invalid_type|too_small|too_big|required|expected/i.test(message);
+
+const getRecordValue = (value: unknown, key: string) =>
+  typeof value === "object" && value !== null && key in value
+    ? (value as Record<string, unknown>)[key]
+    : undefined;
+
+const extractResponsesApiText = (payload: z.infer<typeof responsesApiResponseSchema>) => {
+  if (typeof payload.output_text === "string" && payload.output_text.trim().length > 0) {
+    return payload.output_text;
+  }
+
+  const parts: string[] = [];
+
+  for (const outputItem of payload.output ?? []) {
+    const content = getRecordValue(outputItem, "content");
+
+    if (!Array.isArray(content)) {
+      continue;
+    }
+
+    for (const contentItem of content) {
+      const text = getRecordValue(contentItem, "text");
+
+      if (typeof text === "string" && text.trim().length > 0) {
+        parts.push(text.trim());
+      }
+    }
+  }
+
+  if (parts.length > 0) {
+    return parts.join("\n");
+  }
+
+  throw new Error("The Responses API response did not contain text output.");
+};
 
 const buildRetryUserPrompt = (input: {
   originalPrompt: string;
@@ -189,22 +228,14 @@ export class OpenAiCompatibleJsonClient {
     this.config = openAiCompatibleClientConfigSchema.parse(config);
   }
 
-  static fromEnv(
-    role: "reasoning" | "scanner",
-    env: NodeJS.ProcessEnv = process.env,
-  ) {
+  static fromEnv(role: "reasoning" | "scanner", env: NodeJS.ProcessEnv = process.env) {
     const apiKey =
-      role === "scanner"
-        ? env.SCANNER_API_KEY ?? env.OPENAI_API_KEY
-        : env.OPENAI_API_KEY;
+      role === "scanner" ? (env.SCANNER_API_KEY ?? env.OPENAI_API_KEY) : env.OPENAI_API_KEY;
     const baseUrl =
       role === "scanner"
-        ? env.SCANNER_BASE_URL ?? env.OPENAI_BASE_URL ?? "https://api.openai.com/v1"
-        : env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
-    const model =
-      role === "scanner"
-        ? env.SCANNER_MODEL ?? env.OPENAI_MODEL
-        : env.OPENAI_MODEL;
+        ? (env.SCANNER_BASE_URL ?? env.OPENAI_BASE_URL ?? "https://api.openai.com/v1")
+        : (env.OPENAI_BASE_URL ?? "https://api.openai.com/v1");
+    const model = role === "scanner" ? (env.SCANNER_MODEL ?? env.OPENAI_MODEL) : env.OPENAI_MODEL;
 
     if (!apiKey || !model) {
       return null;
@@ -219,6 +250,21 @@ export class OpenAiCompatibleJsonClient {
           ? parseTimeoutMs(env.SCANNER_TIMEOUT_MS ?? env.OPENAI_TIMEOUT_MS, 300_000)
           : parseTimeoutMs(env.OPENAI_TIMEOUT_MS, 300_000),
     });
+
+    if (role === "scanner" && model === "grok-4-fast") {
+      return new ScannerSomethingWrongFallbackJsonClient({
+        primary: fallback,
+        fallback: new ResponsesApiJsonClient({
+          apiKey,
+          baseUrl,
+          model: env.SCANNER_FALLBACK_MODEL ?? "grok-4.1",
+          timeoutMs: parseTimeoutMs(
+            env.SCANNER_FALLBACK_TIMEOUT_MS ?? env.SCANNER_TIMEOUT_MS ?? env.OPENAI_TIMEOUT_MS,
+            300_000,
+          ),
+        }),
+      });
+    }
 
     if (
       role === "reasoning" &&
@@ -260,6 +306,10 @@ export class OpenAiCompatibleJsonClient {
         });
       } catch (error) {
         lastError = error;
+
+        if (isSomethingWrongProviderFailure(error)) {
+          throw error;
+        }
 
         if (attempt >= MAX_JSON_COMPLETION_ATTEMPTS) {
           throw error;
@@ -355,9 +405,7 @@ export class GeminiContentJsonClient {
   async completeJson<T>(input: JsonCompletionInput<T>) {
     const controller = this.config.disableTimeout ? null : new AbortController();
     const timeout =
-      controller === null
-        ? null
-        : setTimeout(() => controller.abort(), this.config.timeoutMs);
+      controller === null ? null : setTimeout(() => controller.abort(), this.config.timeoutMs);
 
     try {
       logRawLlmPayload("gemini-request", {
@@ -430,6 +478,104 @@ export class GeminiContentJsonClient {
       if (timeout !== null) {
         clearTimeout(timeout);
       }
+    }
+  }
+}
+
+export class ResponsesApiJsonClient {
+  readonly config: OpenAiCompatibleClientConfig;
+
+  constructor(config: z.input<typeof openAiCompatibleClientConfigSchema>) {
+    this.config = openAiCompatibleClientConfigSchema.parse(config);
+  }
+
+  async completeJson<T>(input: JsonCompletionInput<T>) {
+    const controller = this.config.disableTimeout ? null : new AbortController();
+    const timeout =
+      controller === null ? null : setTimeout(() => controller.abort(), this.config.timeoutMs);
+
+    try {
+      logRawLlmPayload("responses-request", {
+        model: this.config.model,
+        baseUrl: this.config.baseUrl,
+        systemPrompt: input.systemPrompt,
+        userPrompt: input.userPrompt,
+      });
+
+      const response = await fetch(`${ensureTrailingSlashRemoved(this.config.baseUrl)}/responses`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.config.model,
+          ...buildTemperaturePayload(this.config.model, input.temperature),
+          instructions: `${input.systemPrompt}\nReturn valid JSON only.`,
+          input: [
+            {
+              role: "user",
+              content: input.userPrompt,
+            },
+          ],
+        }),
+        signal: controller?.signal,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `Responses API request failed with ${response.status.toString()}: ${errorBody}`,
+        );
+      }
+
+      const payload = responsesApiResponseSchema.parse(await response.json());
+      const rawMessage = extractResponsesApiText(payload);
+      logRawLlmPayload("responses-raw-response", {
+        model: this.config.model,
+        rawMessage,
+      });
+      const json = JSON.parse(extractJsonString(rawMessage));
+
+      logRawLlmPayload("responses-response", {
+        model: this.config.model,
+        rawMessage,
+        parsedJson: json,
+      });
+
+      return input.schema.parse(json);
+    } finally {
+      if (timeout !== null) {
+        clearTimeout(timeout);
+      }
+    }
+  }
+}
+
+export class ScannerSomethingWrongFallbackJsonClient extends OpenAiCompatibleJsonClient {
+  constructor(
+    private readonly input: {
+      primary: OpenAiCompatibleJsonClient;
+      fallback: ResponsesApiJsonClient;
+    },
+  ) {
+    super(input.primary.config);
+  }
+
+  override async completeJson<T>(input: JsonCompletionInput<T>) {
+    try {
+      return await this.input.primary.completeJson(input);
+    } catch (error) {
+      if (!isSomethingWrongProviderFailure(error)) {
+        throw error;
+      }
+
+      console.warn("[omen-llm] Scanner model failed; falling back to Responses API model.", {
+        scannerModel: this.input.primary.config.model,
+        fallbackModel: this.input.fallback.config.model,
+        error: getErrorMessage(error),
+      });
+      return this.input.fallback.completeJson(input);
     }
   }
 }
