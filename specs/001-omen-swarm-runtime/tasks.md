@@ -86,7 +86,7 @@
 - [x] T034 [P] [US1] Implement the research node for catalysts, narrative context, and source normalization in `packages/agents/src/definitions/research-agent.ts` and `packages/agents/src/prompts/research/system.ts`
 - [x] T035 [P] [US1] Implement the analyst node for structured thesis generation in `packages/agents/src/definitions/analyst-agent.ts` and `packages/agents/src/prompts/analyst/system.ts`
 - [x] T036 [P] [US1] Implement the critic node and hard quality-gate enforcement in `packages/agents/src/definitions/critic-agent.ts`, `packages/agents/src/quality-gates/quality-gates.ts`, and `packages/agents/src/quality-gates/critic-gate.ts`
-- [x] T037 [P] [US1] Implement the memory node for checkpoint updates, evidence refs, and final report snapshots in `packages/agents/src/definitions/memory-agent.ts` and `packages/agents/src/prompts/memory/system.ts`
+- [x] T037 [P] [US1] Implement the memory node for checkpoint updates, evidence refs, and final report snapshots in `packages/agents/src/definitions/checkpoint-node.ts` and `packages/agents/src/prompts/memory/system.ts`
 - [x] T038 [P] [US1] Implement the publisher-prep node that formats public signal alerts, intel summaries, and dashboard-friendly copy in `packages/agents/src/definitions/publisher-agent.ts` and `packages/agents/src/prompts/publisher/system.ts`
 - [x] T039 [US1] Assemble the LangGraph supervisor workflow and checkpoint integration in `packages/agents/src/framework/omen-swarm-graph.ts` and `packages/agents/src/framework/graph-factory.ts`
 - [x] T040 [US1] Implement the backend run coordinator and scheduler-driven demo pipeline in `backend/src/coordinator/run-coordinator.ts`, `backend/src/pipelines/demo-run-pipeline.ts`, and `backend/src/scheduler/scheduler-tick.ts`

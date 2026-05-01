@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialSwarmState, createMemoryAgent } from "../src/index.js";
+import { createInitialSwarmState, createCheckpointNode } from "../src/index.js";
 
-describe("memory agent", () => {
+describe("checkpoint node", () => {
   const run = {
     id: "run-1",
     mode: "live" as const,
@@ -51,9 +51,9 @@ describe("memory agent", () => {
 
   it("builds a stable checkpoint ref and appended proof list", async () => {
     const state = createInitialSwarmState({ run, config });
-    const agent = createMemoryAgent();
+    const node = createCheckpointNode();
 
-    const result = await agent.invoke(
+    const result = await node.invoke(
       {
         context: {
           runId: run.id,

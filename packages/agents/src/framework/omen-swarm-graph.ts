@@ -9,7 +9,7 @@ import {
   createGeneratorAgent,
   createIntelAgent,
   createMarketBiasAgent,
-  createMemoryAgent,
+  createCheckpointNode,
   createPublisherAgent,
   createResearchAgent,
   createScannerAgent,
@@ -35,7 +35,7 @@ export const omenSwarmNodeKeySchema = z.enum([
   "intel-agent",
   "generator-agent",
   "writer-agent",
-  "memory-agent",
+  "checkpoint-node",
   "publisher-agent",
 ]);
 
@@ -53,7 +53,7 @@ const nodeKeyOrder = [
   "intel-agent",
   "generator-agent",
   "writer-agent",
-  "memory-agent",
+  "checkpoint-node",
   "publisher-agent",
 ] as const satisfies readonly OmenSwarmNodeKey[];
 
@@ -281,7 +281,7 @@ export const createDefaultOmenSwarmNodes = (): readonly RuntimeNodeDefinition<
   createIntelAgent(),
   createGeneratorAgent(),
   createWriterAgent(),
-  createMemoryAgent(),
+  createCheckpointNode(),
   createPublisherAgent(),
 ];
 
@@ -326,7 +326,7 @@ export const resolveNextOmenNodeKey = (
     const review = state.criticReviews.at(-1);
 
     if (review?.decision === "approved") {
-      return "memory-agent";
+      return "checkpoint-node";
     }
 
     if (review?.repairable === true && state.signalRepairAttempts < 1) {
@@ -337,7 +337,7 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "intel-agent") {
-    return state.intelReports.length > 0 ? "generator-agent" : "memory-agent";
+    return state.intelReports.length > 0 ? "generator-agent" : "checkpoint-node";
   }
 
   if (current === "generator-agent") {
@@ -345,10 +345,10 @@ export const resolveNextOmenNodeKey = (
   }
 
   if (current === "writer-agent") {
-    return "memory-agent";
+    return "checkpoint-node";
   }
 
-  if (current === "memory-agent") {
+  if (current === "checkpoint-node") {
     return "publisher-agent";
   }
 
@@ -475,7 +475,7 @@ export const buildOmenNodeInput = (input: {
     };
   }
 
-  if (input.nodeKey === "memory-agent") {
+  if (input.nodeKey === "checkpoint-node") {
     const review = input.state.criticReviews.at(-1) ?? null;
     const intelReport = input.state.intelReports.at(-1) ?? null;
 
@@ -761,8 +761,8 @@ export const applyOmenNodeOutput = (input: {
     };
   }
 
-  if (input.nodeKey === "memory-agent") {
-    const output = createMemoryAgent().outputSchema.parse(input.output);
+  if (input.nodeKey === "checkpoint-node") {
+    const output = createCheckpointNode().outputSchema.parse(input.output);
     const appendedProofRefs = output.appendedProofRefs ?? [];
     const nextRun = {
       ...input.state.run,

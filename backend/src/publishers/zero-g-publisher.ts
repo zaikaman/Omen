@@ -40,7 +40,7 @@ export class ZeroGPublisher {
     reportPrompt?: string | null;
     reportModel?: string;
   }): Promise<ZeroGPublisherResult> {
-    const checkpointArtifact = await this.requireArtifact(
+    const checkpointArtifactPromise = this.requireArtifact(
       this.stateStore.writeRunCheckpoint({
         environment: input.environment,
         runId: input.state.run.id,
@@ -53,27 +53,29 @@ export class ZeroGPublisher {
         },
       }),
     );
+    const logArtifactPromise = input.logUploadsEnabled
+      ? this.logStore.appendRunLog({
+          environment: input.environment,
+          runId: input.state.run.id,
+          stream: input.logStream ?? "runtime-trace",
+          content: input.state.notes.length > 0 ? input.state.notes : ["run-completed"],
+          signalId: input.state.run.finalSignalId,
+          intelId: input.state.run.finalIntelId,
+          metadata: {
+            noteCount: input.state.notes.length,
+            errorCount: input.state.errors.length,
+          },
+        })
+      : null;
+    const [checkpointArtifact, appendedLog] = await Promise.all([
+      checkpointArtifactPromise,
+      logArtifactPromise,
+    ]);
     const artifacts = [checkpointArtifact];
-    let logArtifact: ProofArtifact | null = null;
+    const logArtifact = appendedLog?.ok ? appendedLog.value : null;
 
-    if (input.logUploadsEnabled) {
-      const appendedLog = await this.logStore.appendRunLog({
-        environment: input.environment,
-        runId: input.state.run.id,
-        stream: input.logStream ?? "runtime-trace",
-        content: input.state.notes.length > 0 ? input.state.notes : ["run-completed"],
-        signalId: input.state.run.finalSignalId,
-        intelId: input.state.run.finalIntelId,
-        metadata: {
-          noteCount: input.state.notes.length,
-          errorCount: input.state.errors.length,
-        },
-      });
-
-      if (appendedLog.ok) {
-        logArtifact = appendedLog.value;
-        artifacts.push(appendedLog.value);
-      }
+    if (logArtifact) {
+      artifacts.push(logArtifact);
     }
 
     if (!input.reportPrompt) {

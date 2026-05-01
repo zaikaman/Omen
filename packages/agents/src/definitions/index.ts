@@ -4,7 +4,7 @@ export * from "./critic-agent.js";
 export * from "./generator-agent.js";
 export * from "./intel-agent.js";
 export * from "./market-bias-agent.js";
-export * from "./memory-agent.js";
+export * from "./checkpoint-node.js";
 export * from "./publisher-agent.js";
 export * from "./research-agent.js";
 export * from "./scanner-agent.js";

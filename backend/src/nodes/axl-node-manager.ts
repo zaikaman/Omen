@@ -33,7 +33,7 @@ const defaultAgentIdByRole: Record<ManagedRole, string> = {
   generator: "agent-generator-agent",
   writer: "agent-writer-agent",
   publisher: "agent-publisher",
-  memory: "agent-memory-agent",
+  memory: "agent-checkpoint-node",
 };
 
 const isValidAxlPeerId = (value: string | undefined) =>

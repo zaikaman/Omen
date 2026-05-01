@@ -95,7 +95,7 @@ describe("omen graph factory", () => {
       "intel-agent",
       "generator-agent",
       "writer-agent",
-      "memory-agent",
+      "checkpoint-node",
       "publisher-agent",
     ]);
   });
@@ -323,7 +323,7 @@ describe("omen graph factory", () => {
     expect(finalState.run.currentCheckpointRefId).not.toBeNull();
     expect(finalState.run.outcome).not.toBeNull();
     expect(finalState.publisherDrafts.length).toBeGreaterThan(0);
-    expect(checkpoints.map((checkpoint) => checkpoint.step)).toContain("memory-agent");
+    expect(checkpoints.map((checkpoint) => checkpoint.step)).toContain("checkpoint-node");
     expect(checkpoints.at(-1)?.step).toBe("publisher-agent");
   });
 

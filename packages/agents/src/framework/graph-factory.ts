@@ -174,7 +174,7 @@ const summarizeRuntimeOutput = (nodeKey: OmenSwarmNodeKey, output: unknown) => {
         blockingReasonCount: blockingReasons.length,
       };
     }
-    case "memory-agent": {
+    case "checkpoint-node": {
       const appendedProofRefs = Array.isArray(parsed.appendedProofRefs)
         ? parsed.appendedProofRefs
         : [];

@@ -9,7 +9,6 @@ import {
   generatorInputSchema,
   intelInputSchema,
   marketBiasAgentInputSchema,
-  memoryInputSchema,
   publisherInputSchema,
   researchInputSchema,
   scannerInputSchema,
@@ -79,7 +78,7 @@ import type { SchedulerTaskContext } from "../scheduler/hourly-scheduler.js";
 
 const DEFAULT_MARKET_UNIVERSE = TRADEABLE_SYMBOLS;
 const DEFAULT_SCAN_INTERVAL_MINUTES = 60;
-const ZERO_G_MILESTONE_CHECKPOINT_STEPS = new Set(["memory-agent", "publisher-agent"]);
+const ZERO_G_MILESTONE_CHECKPOINT_STEPS = new Set(["checkpoint-node", "publisher-agent"]);
 
 const managedStepRoleMap = {
   "market-bias-agent": "market_bias",
@@ -91,7 +90,7 @@ const managedStepRoleMap = {
   "intel-agent": "intel",
   "generator-agent": "generator",
   "writer-agent": "writer",
-  "memory-agent": "memory",
+  "checkpoint-node": "memory",
   "publisher-agent": "publisher",
 } as const satisfies Record<string, AgentRole>;
 
@@ -105,7 +104,7 @@ const stepEventTypeMap = {
   "intel-agent": "intel_ready",
   "generator-agent": "intel_ready",
   "writer-agent": "intel_ready",
-  "memory-agent": "zero_g_kv_write",
+  "checkpoint-node": "zero_g_kv_write",
   "publisher-agent": "report_published",
 } as const satisfies Record<string, AgentEventType>;
 
@@ -256,6 +255,43 @@ const replaceImagePromptSymbolMentions = (value: string, symbols: readonly strin
       ),
     value,
   );
+
+const buildCompactCheckpointState = (state: SwarmState) => ({
+  run: state.run,
+  marketBiasReasoning: state.marketBiasReasoning,
+  latestCheckpointRefId: state.latestCheckpointRefId,
+  activeCandidates: state.activeCandidates.map((candidate) => ({
+    id: candidate.id,
+    symbol: candidate.symbol,
+    directionHint: candidate.directionHint,
+    status: candidate.status,
+    dedupeKey: candidate.dedupeKey,
+  })),
+  latestThesis: state.thesisDrafts.at(-1) ?? null,
+  latestCriticReview: state.criticReviews.at(-1) ?? null,
+  latestIntelReport: state.intelReports.at(-1) ?? null,
+  latestPublisherDraft: state.publisherDrafts.at(-1) ?? null,
+  proofArtifactRefs: state.proofArtifacts.map((artifact) => ({
+    id: artifact.id,
+    refType: artifact.refType,
+    key: artifact.key,
+    locator: artifact.locator,
+  })),
+  counts: {
+    activeCandidates: state.activeCandidates.length,
+    evidenceItems: state.evidenceItems.length,
+    chartVisionSummaries: state.chartVisionSummaries.length,
+    thesisDrafts: state.thesisDrafts.length,
+    criticReviews: state.criticReviews.length,
+    intelReports: state.intelReports.length,
+    publisherDrafts: state.publisherDrafts.length,
+    proofArtifacts: state.proofArtifacts.length,
+    notes: state.notes.length,
+    errors: state.errors.length,
+  },
+  recentNotes: state.notes.slice(-8),
+  recentErrors: state.errors.slice(-5),
+});
 
 const summarizeThesisForCompute = (thesis: SwarmState["thesisDrafts"][number]) =>
   [
@@ -475,7 +511,7 @@ const summarizeCheckpoint = (checkpoint: SwarmCheckpoint) => {
         ? `Intel report ready: ${intelReport.title}.`
         : "Intel stage completed without a publishable report.";
     }
-    case "memory-agent":
+    case "checkpoint-node":
       return `Checkpoint persisted as ${checkpoint.state.latestCheckpointRefId ?? "unbound"}.`;
     case "publisher-agent":
       return `Publisher completed with outcome ${checkpoint.state.run.outcome?.outcomeType ?? "no_conviction"}.`;
@@ -1108,21 +1144,25 @@ class LivePipelineExecutionContext {
       ZERO_G_MILESTONE_CHECKPOINT_STEPS.has(checkpoint.step);
 
     if (this.zeroGStateStore && shouldPublishZeroGCheckpoint) {
-      const checkpointArtifact = await this.tryPublishCheckpointState(persisted);
+      if (checkpoint.step === "checkpoint-node") {
+        this.publishCheckpointStateInBackground(persisted, stepSummary);
+      } else {
+        const checkpointArtifact = await this.tryPublishCheckpointState(persisted);
 
-      if (checkpointArtifact) {
-        persisted.durableRef = checkpointArtifact;
-        persisted.state = {
-          ...persisted.state,
-          run: {
-            ...persisted.state.run,
-            currentCheckpointRefId: checkpointArtifact.id,
-          },
-          latestCheckpointRefId: checkpointArtifact.id,
-        };
+        if (checkpointArtifact) {
+          persisted.durableRef = checkpointArtifact;
+          persisted.state = {
+            ...persisted.state,
+            run: {
+              ...persisted.state.run,
+              currentCheckpointRefId: checkpointArtifact.id,
+            },
+            latestCheckpointRefId: checkpointArtifact.id,
+          };
 
-        if (this.zeroGLogStore) {
-          await this.tryAppendCheckpointLog(persisted, stepSummary);
+          if (this.zeroGLogStore) {
+            await this.tryAppendCheckpointLog(persisted, stepSummary);
+          }
         }
       }
     }
@@ -1854,32 +1894,8 @@ class LivePipelineExecutionContext {
           });
         }
 
-        if (nodeKey === "memory-agent") {
-          const payload = memoryInputSchema.parse(nodeInput);
-          const delegated = await delegator.delegateMemory({
-            context,
-            payload,
-            preferredPeerId: resolvePreferredPeerId("memory"),
-          });
-          await this.safeCaptureAxlSnapshot({
-            source: "live-swarm-a2a",
-            metadata: {
-              runId: state.run.id,
-              nodeKey,
-              role: "memory",
-              status: delegated.ok ? "received" : "failed",
-            },
-          });
-
-          if (delegated.ok) {
-            return delegated.value.output;
-          }
-
-          return failAxlDelegation({
-            nodeKey,
-            role: "memory",
-            error: delegated.error,
-          });
+        if (nodeKey === "checkpoint-node") {
+          return null;
         }
 
         if (nodeKey === "publisher-agent") {
@@ -2347,9 +2363,9 @@ class LivePipelineExecutionContext {
       const finalArtifacts = [...this.artifacts];
       const publishErrors: string[] = [];
       const appendRecordedArtifacts = async (artifacts: ProofArtifact[]) => {
-        for (const artifact of artifacts) {
-          await this.safeRecordArtifact(artifact);
+        await Promise.all(artifacts.map((artifact) => this.safeRecordArtifact(artifact)));
 
+        for (const artifact of artifacts) {
           if (!finalArtifacts.some((entry) => entry.id === artifact.id)) {
             finalArtifacts.push(artifact);
           }
@@ -2566,16 +2582,18 @@ class LivePipelineExecutionContext {
       throw new Error("0G checkpoint storage is not configured.");
     }
 
+    const checkpointState = buildCompactCheckpointState(checkpoint.state);
     const artifact = await this.zeroGStateStore.writeRunCheckpoint({
       environment: this.environment,
       runId: checkpoint.runId,
       checkpointLabel: checkpoint.step,
-      state: checkpoint.state,
+      state: checkpointState,
       signalId: null,
       intelId: null,
       metadata: {
         checkpointId: checkpoint.checkpointId,
         threadId: checkpoint.threadId,
+        compact: true,
       },
     });
 
@@ -2587,6 +2605,35 @@ class LivePipelineExecutionContext {
 
     await this.safeRecordArtifact(artifact.value);
     return artifact.value;
+  }
+
+  private publishCheckpointStateInBackground(checkpoint: SwarmCheckpoint, summary: string) {
+    void (async () => {
+      const checkpointArtifact = await this.tryPublishCheckpointState(checkpoint);
+
+      if (checkpointArtifact && this.zeroGLogStore) {
+        await this.tryAppendCheckpointLog(
+          {
+            ...checkpoint,
+            durableRef: checkpointArtifact,
+            state: {
+              ...checkpoint.state,
+              run: {
+                ...checkpoint.state.run,
+                currentCheckpointRefId: checkpointArtifact.id,
+              },
+              latestCheckpointRefId: checkpointArtifact.id,
+            },
+          },
+          summary,
+        );
+      }
+    })().catch((error) => {
+      this.logger.warn(
+        `Background 0G checkpoint publish failed for ${checkpoint.step}; continuing run execution.`,
+        error,
+      );
+    });
   }
 
   private async tryPublishCheckpointState(checkpoint: SwarmCheckpoint) {

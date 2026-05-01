@@ -13,7 +13,7 @@ const sanitizeLabel = (value: string) =>
 
 const unique = <T>(values: T[]) => Array.from(new Set(values));
 
-export const deriveMemoryCheckpoint = (input: z.input<typeof memoryInputSchema>) => {
+export const deriveCheckpointUpdate = (input: z.input<typeof memoryInputSchema>) => {
   const parsed = memoryInputSchema.parse(input);
   const sanitizedLabel = sanitizeLabel(parsed.checkpointLabel);
   const checkpointRefId =
@@ -31,16 +31,16 @@ export const deriveMemoryCheckpoint = (input: z.input<typeof memoryInputSchema>)
   });
 };
 
-export const createMemoryAgent = (): RuntimeNodeDefinition<
+export const createCheckpointNode = (): RuntimeNodeDefinition<
   z.input<typeof memoryInputSchema>,
   z.input<typeof memoryOutputSchema>
 > => ({
-  key: "memory-agent",
+  key: "checkpoint-node",
   role: "memory",
   inputSchema: memoryInputSchema,
   outputSchema: memoryOutputSchema,
   async invoke(input: z.input<typeof memoryInputSchema>, state: SwarmState) {
     void state;
-    return deriveMemoryCheckpoint(input);
+    return deriveCheckpointUpdate(input);
   },
 });

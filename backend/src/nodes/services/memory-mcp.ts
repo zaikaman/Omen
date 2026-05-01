@@ -1,5 +1,5 @@
 import {
-  createMemoryAgent,
+  createCheckpointNode,
   memoryInputSchema,
   memoryOutputSchema,
   memoryRecallInputSchema,
@@ -32,7 +32,7 @@ export const memoryMcpContract = defineAxlMcpServiceContract({
     },
     {
       name: "memory.recall",
-      description: "Return prior run context relevant to another agent's current task.",
+      description: "Return prior run context relevant to another node's current task.",
       inputSchema: {
         input: "MemoryRecallInput",
       },
@@ -42,7 +42,7 @@ export const memoryMcpContract = defineAxlMcpServiceContract({
 });
 
 export class MemoryMcpService {
-  private readonly agent = createMemoryAgent();
+  private readonly checkpointNode = createCheckpointNode();
 
   readonly contract = memoryMcpContract;
 
@@ -92,7 +92,7 @@ export class MemoryMcpService {
       }
 
       const input = memoryInputSchema.parse(parsed.params.input ?? {});
-      const output = await this.agent.invoke(
+      const output = await this.checkpointNode.invoke(
         input,
         createServiceSwarmState({
           runId: input.context.runId,
