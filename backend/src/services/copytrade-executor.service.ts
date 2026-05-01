@@ -116,6 +116,9 @@ const normalizeFillTime = (value: unknown) => {
   return new Date().toISOString();
 };
 
+const isUsablePrice = (value: number | null): value is number =>
+  value !== null && Number.isFinite(value) && value > 0;
+
 export class CopytradeExecutorService {
   private interval: NodeJS.Timeout | null = null;
 
@@ -557,6 +560,7 @@ export class CopytradeExecutorService {
 
       if (trade.status === "queued") {
         const syncedQueuedLimit = await this.syncQueuedLimitTrade({
+          enrollment,
           service,
           trade,
           fills,
@@ -614,6 +618,7 @@ export class CopytradeExecutorService {
   }
 
   private async syncQueuedLimitTrade(input: {
+    enrollment: CopytradeEnrollment;
     service: HyperliquidCopytradeService;
     trade: CopytradeTrade;
     fills: HyperliquidFill[];
@@ -622,7 +627,7 @@ export class CopytradeExecutorService {
       return 0;
     }
 
-    const { service, trade, fills } = input;
+    const { enrollment, service, trade, fills } = input;
     const metadata = trade.executionMetadata ?? {};
 
     if (metadata.orderType !== "limit" || !trade.orderId) {
@@ -641,8 +646,7 @@ export class CopytradeExecutorService {
       return 0;
     }
 
-    const targetPrice = parseMetadataNumber(metadata, "targetPrice");
-    const stopLoss = parseMetadataNumber(metadata, "stopLoss");
+    const { targetPrice, stopLoss } = await this.resolveTradeBracketPrices(trade);
     const quantity = Math.abs(Number(entryFill.sz));
     const entryPrice = Number(entryFill.px);
     let takeProfitOrderId = trade.takeProfitOrderId;
@@ -650,8 +654,8 @@ export class CopytradeExecutorService {
     let bracketError: string | null = null;
 
     if (
-      targetPrice !== null &&
-      stopLoss !== null &&
+      isUsablePrice(targetPrice) &&
+      isUsablePrice(stopLoss) &&
       Number.isFinite(quantity) &&
       quantity > 0
     ) {
@@ -664,7 +668,7 @@ export class CopytradeExecutorService {
       }).catch((error: unknown) => {
         bracketError = error instanceof Error ? error.message : "Failed to attach bracket orders.";
         this.input.logger.error(
-          `Failed to attach limit-fill brackets for ${trade.walletAddress} ${trade.asset}.`,
+          `Failed to attach limit-fill brackets for ${enrollment.walletAddress} ${trade.asset}.`,
           error,
         );
         return null;
@@ -673,7 +677,7 @@ export class CopytradeExecutorService {
       takeProfitOrderId = bracket?.takeProfitOrderId ?? takeProfitOrderId;
       stopLossOrderId = bracket?.stopLossOrderId ?? stopLossOrderId;
     } else {
-      bracketError = "Limit entry filled but TP/SL metadata or fill quantity was invalid.";
+      bracketError = "Limit entry filled but TP/SL prices or fill quantity were invalid.";
     }
 
     const openedAt = normalizeFillTime(entryFill.time);
@@ -722,15 +726,13 @@ export class CopytradeExecutorService {
     const { enrollment, service, trade, position } = input;
     let takeProfitOrderId = trade.takeProfitOrderId;
     let stopLossOrderId = trade.stopLossOrderId;
-    const metadata = trade.executionMetadata ?? {};
 
     let bracketError: string | null = null;
 
     if (!takeProfitOrderId || !stopLossOrderId) {
-      const targetPrice = Number(metadata.targetPrice);
-      const stopLoss = Number(metadata.stopLoss);
+      const { targetPrice, stopLoss } = await this.resolveTradeBracketPrices(trade);
 
-      if (Number.isFinite(targetPrice) && Number.isFinite(stopLoss)) {
+      if (isUsablePrice(targetPrice) && isUsablePrice(stopLoss)) {
         const bracket = await service.placePositionTriggers({
           symbol: trade.asset,
           side: trade.direction,
@@ -748,6 +750,8 @@ export class CopytradeExecutorService {
 
         takeProfitOrderId = bracket?.takeProfitOrderId ?? takeProfitOrderId;
         stopLossOrderId = bracket?.stopLossOrderId ?? stopLossOrderId;
+      } else {
+        bracketError = "Position is open but TP/SL prices could not be resolved from metadata or signal.";
       }
     }
 
@@ -772,6 +776,43 @@ export class CopytradeExecutorService {
     }
 
     return 1;
+  }
+
+  private async resolveTradeBracketPrices(trade: CopytradeTrade) {
+    if (!this.repositories) {
+      return { targetPrice: null, stopLoss: null };
+    }
+
+    const metadata = trade.executionMetadata ?? {};
+    const metadataTargetPrice = parseMetadataNumber(metadata, "targetPrice");
+    const metadataStopLoss = parseMetadataNumber(metadata, "stopLoss");
+
+    if (isUsablePrice(metadataTargetPrice) && isUsablePrice(metadataStopLoss)) {
+      return { targetPrice: metadataTargetPrice, stopLoss: metadataStopLoss };
+    }
+
+    if (!trade.signalId) {
+      return { targetPrice: metadataTargetPrice, stopLoss: metadataStopLoss };
+    }
+
+    const signal = await this.repositories.signals.findSignalById(trade.signalId);
+
+    if (!signal.ok) {
+      this.input.logger.error(
+        `Failed to load signal ${trade.signalId} for copytrade bracket repair.`,
+        signal.error.message,
+      );
+      return { targetPrice: metadataTargetPrice, stopLoss: metadataStopLoss };
+    }
+
+    return {
+      targetPrice: isUsablePrice(signal.value?.targetPrice ?? null)
+        ? signal.value?.targetPrice ?? null
+        : metadataTargetPrice,
+      stopLoss: isUsablePrice(signal.value?.stopLoss ?? null)
+        ? signal.value?.stopLoss ?? null
+        : metadataStopLoss,
+    };
   }
 
   private async recordSkipped(
