@@ -5,6 +5,7 @@ import {
   CopytradeEnrollmentsRepository,
   CopytradeTradesRepository,
   createSupabaseServiceRoleClient,
+  type CreateCopytradeTradeInput,
   type CopytradeTrade,
   type CopytradeRiskSettings,
 } from "@omen/db";
@@ -28,6 +29,47 @@ const TRADE_STATS_HISTORY_LIMIT = 1_000;
 
 type HyperliquidChain = "Mainnet" | "Testnet";
 type PresentedTradeStatus = "queued" | "open" | "closed" | "failed" | "skipped";
+type CopytradeRepositories = NonNullable<ReturnType<typeof createRepositories>>;
+type HyperliquidPositionState = {
+  coin?: string;
+  szi?: string;
+  entryPx?: string;
+  positionValue?: string;
+  unrealizedPnl?: string;
+  leverage?: {
+    value?: number;
+  };
+};
+type HyperliquidClearinghouseState = {
+  time?: number;
+  marginSummary?: {
+    accountValue?: string;
+    totalMarginUsed?: string;
+    totalNtlPos?: string;
+    totalRawUsd?: string;
+  };
+  withdrawable?: string;
+  assetPositions?: Array<{
+    position?: HyperliquidPositionState;
+  }>;
+};
+type HyperliquidFill = {
+  closedPnl?: string;
+  coin?: string;
+  dir?: string;
+  oid?: number;
+  px?: string;
+  time?: number;
+};
+type LiveHyperliquidPosition = {
+  asset: string;
+  direction: "LONG" | "SHORT";
+  entryPrice: number | null;
+  leverage: number | null;
+  pnlUsd: number | null;
+  positionValue: number | null;
+  quantity: number;
+};
 
 const isAddress = (value: unknown): value is `0x${string}` =>
   typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
@@ -47,6 +89,35 @@ const parsePositiveInteger = (
   }
 
   return Math.min(Math.floor(parsed), max);
+};
+
+const normalizeAsset = (asset: string) =>
+  asset.toUpperCase().replace(/USDT$/, "").replace(/-PERP$/, "").trim();
+
+const parseNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const calculatePnlPercent = (pnlUsd: number | null, notionalUsd: number | null) =>
+  pnlUsd !== null && notionalUsd && notionalUsd > 0 ? (pnlUsd / notionalUsd) * 100 : null;
+
+const fetchHyperliquidInfo = async <T>(
+  hyperliquidChain: HyperliquidChain,
+  body: Record<string, unknown>,
+) => {
+  const response = await fetch(HYPERLIQUID_INFO_URLS[hyperliquidChain], {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => null) as T | null;
+
+  if (!response.ok || !payload) {
+    throw new Error(`Hyperliquid ${String(body.type)} lookup failed with status ${response.status.toString()}.`);
+  }
+
+  return payload;
 };
 
 const createRepositories = (env: BackendEnv) => {
@@ -141,6 +212,135 @@ const resolveTradeLifecycleStatus = (trade: CopytradeTrade): PresentedTradeStatu
   return trade.status;
 };
 
+const parseLivePositions = (state: HyperliquidClearinghouseState): LiveHyperliquidPosition[] =>
+  (state.assetPositions ?? [])
+    .map(({ position }) => {
+      if (!position) {
+        return null;
+      }
+
+      const signedQuantity = parseNumber(position.szi);
+
+      if (signedQuantity === null || signedQuantity === 0) {
+        return null;
+      }
+
+      return {
+        asset: normalizeAsset(position.coin ?? ""),
+        direction: signedQuantity > 0 ? "LONG" : "SHORT",
+        entryPrice: parseNumber(position.entryPx),
+        leverage: parseNumber(position.leverage?.value),
+        pnlUsd: parseNumber(position.unrealizedPnl),
+        positionValue: parseNumber(position.positionValue),
+        quantity: Math.abs(signedQuantity),
+      } satisfies LiveHyperliquidPosition;
+    })
+    .filter((position): position is LiveHyperliquidPosition => position !== null);
+
+const findClosingFill = (trade: CopytradeTrade, fills: HyperliquidFill[]) => {
+  const openedAt = trade.openedAt ? new Date(trade.openedAt).getTime() : null;
+  const asset = normalizeAsset(trade.asset);
+  const closingOrderIds = new Set(
+    [trade.takeProfitOrderId, trade.stopLossOrderId].filter((value): value is string => Boolean(value)),
+  );
+
+  return fills.find((fill) => {
+    const fillOrderId = typeof fill.oid === "number" ? fill.oid.toString() : "";
+    const fillTime = typeof fill.time === "number" ? fill.time : null;
+    const isAfterOpen = !openedAt || !fillTime || fillTime >= openedAt;
+    const isSameAsset = normalizeAsset(fill.coin ?? "") === asset;
+    const isClosingDirection = typeof fill.dir === "string" && fill.dir.toLowerCase().includes("close");
+    const isKnownClosingOrder = closingOrderIds.size > 0 && closingOrderIds.has(fillOrderId);
+
+    return isSameAsset && isAfterOpen && (isKnownClosingOrder || isClosingDirection);
+  });
+};
+
+const reconcileDashboardTradesWithHyperliquid = async (
+  repositories: CopytradeRepositories,
+  input: {
+    enrollment: { hyperliquidChain: HyperliquidChain };
+    trades: CopytradeTrade[];
+    walletAddress: `0x${string}`;
+  },
+) => {
+  const activeTrades = input.trades.filter((trade) => {
+    const status = resolveTradeLifecycleStatus(trade);
+    return status === "open" || status === "queued";
+  });
+
+  if (activeTrades.length === 0) {
+    return input.trades;
+  }
+
+  const [state, fills] = await Promise.all([
+    fetchHyperliquidInfo<HyperliquidClearinghouseState>(input.enrollment.hyperliquidChain, {
+      type: "clearinghouseState",
+      user: input.walletAddress,
+    }),
+    fetchHyperliquidInfo<HyperliquidFill[]>(input.enrollment.hyperliquidChain, {
+      type: "userFills",
+      user: input.walletAddress,
+      aggregateByTime: true,
+    }),
+  ]);
+  const livePositions = parseLivePositions(state);
+  const stateTimestamp = typeof state.time === "number" ? new Date(state.time).toISOString() : new Date().toISOString();
+  const updatedTrades = new Map<string, CopytradeTrade>();
+
+  for (const trade of activeTrades) {
+    const position = livePositions.find((candidate) =>
+      candidate.asset === normalizeAsset(trade.asset) &&
+      candidate.direction === trade.direction
+    );
+    let patch: Partial<CreateCopytradeTradeInput> | null = null;
+
+    if (position) {
+      patch = {
+        status: "open",
+        entryPrice: position.entryPrice ?? trade.entryPrice,
+        quantity: position.quantity,
+        leverage: position.leverage ?? trade.leverage,
+        notionalUsd: position.positionValue ?? trade.notionalUsd,
+        pnlUsd: position.pnlUsd ?? trade.pnlUsd,
+        pnlPercent: calculatePnlPercent(position.pnlUsd, position.positionValue ?? trade.notionalUsd),
+        openedAt: trade.openedAt ?? stateTimestamp,
+        lastError: null,
+      };
+    } else if (trade.status === "open" || trade.openedAt) {
+      const closingFill = findClosingFill(trade, fills);
+      const pnlUsd = parseNumber(closingFill?.closedPnl);
+      const exitPrice = parseNumber(closingFill?.px);
+      const closedAt = typeof closingFill?.time === "number"
+        ? new Date(closingFill.time).toISOString()
+        : stateTimestamp;
+
+      patch = {
+        status: "closed",
+        exitPrice: exitPrice ?? trade.exitPrice,
+        pnlUsd: pnlUsd ?? trade.pnlUsd,
+        pnlPercent: calculatePnlPercent(pnlUsd ?? trade.pnlUsd, trade.notionalUsd),
+        closedAt,
+        lastError: null,
+      };
+    }
+
+    if (!patch) {
+      continue;
+    }
+
+    const updated = await repositories.trades.updateTrade(trade.id, patch);
+
+    if (!updated.ok) {
+      throw new Error(updated.error.message);
+    }
+
+    updatedTrades.set(trade.id, updated.value);
+  }
+
+  return input.trades.map((trade) => updatedTrades.get(trade.id) ?? trade);
+};
+
 const presentTrade = (trade: CopytradeTrade) => ({
   id: trade.id,
   enrollmentId: trade.enrollmentId,
@@ -197,27 +397,13 @@ const fetchHyperliquidAccount = async (
   walletAddress: `0x${string}`,
   hyperliquidChain: HyperliquidChain,
 ) => {
-  const response = await fetch(HYPERLIQUID_INFO_URLS[hyperliquidChain], {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const payload = await fetchHyperliquidInfo<HyperliquidClearinghouseState>(
+    hyperliquidChain,
+    {
       type: "clearinghouseState",
       user: walletAddress,
-    }),
-  });
-  const payload = await response.json().catch(() => null) as {
-    marginSummary?: {
-      accountValue?: string;
-      totalMarginUsed?: string;
-      totalNtlPos?: string;
-      totalRawUsd?: string;
-    };
-    withdrawable?: string;
-  } | null;
-
-  if (!response.ok || !payload) {
-    throw new Error(`Hyperliquid account lookup failed with status ${response.status.toString()}.`);
-  }
+    },
+  );
 
   const accountValue = Number(payload.marginSummary?.accountValue ?? 0);
   const withdrawable = Number(payload.withdrawable ?? 0);
@@ -338,20 +524,46 @@ export const createCopytradeDashboardController =
       return;
     }
 
+    const enrollment = enrollmentResult.value;
+    let statsTrades = statsTradesResult.value;
+    let trades = tradesResult.value;
+
+    if (enrollment) {
+      try {
+        const uniqueTrades = Array.from(
+          new Map([...statsTrades, ...trades].map((trade) => [trade.id, trade])).values(),
+        );
+        const reconciled = await reconcileDashboardTradesWithHyperliquid(repositories, {
+          enrollment,
+          trades: uniqueTrades,
+          walletAddress,
+        });
+        const reconciledById = new Map(reconciled.map((trade) => [trade.id, trade]));
+        statsTrades = statsTrades.map((trade) => reconciledById.get(trade.id) ?? trade);
+        trades = trades.map((trade) => reconciledById.get(trade.id) ?? trade);
+      } catch (caught) {
+        res.status(502).json({
+          success: false,
+          error: caught instanceof Error ? caught.message : "Hyperliquid trade reconciliation failed.",
+        });
+        return;
+      }
+    }
+
     const totalPages = Math.max(1, Math.ceil(totalTradesResult.value / pageSize));
 
     res.json({
       success: true,
       data: {
-        enrollment: enrollmentResult.value ? presentEnrollment(enrollmentResult.value) : null,
-        stats: buildTradeStats(statsTradesResult.value),
+        enrollment: enrollment ? presentEnrollment(enrollment) : null,
+        stats: buildTradeStats(statsTrades),
         tradePagination: {
           page,
           pageSize,
           total: totalTradesResult.value,
           totalPages,
         },
-        trades: tradesResult.value.map((trade) => presentTrade(trade)),
+        trades: trades.map((trade) => presentTrade(trade)),
       },
     });
   };
