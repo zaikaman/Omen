@@ -82,12 +82,15 @@ const formatDateTime = (value: string | null | undefined) => {
 };
 
 const formatDuration = (run: RunListItem) => {
-  if (!run.startedAt) {
+  const startAt = run.traceStartedAt ?? run.startedAt;
+  const endAt = run.traceCompletedAt ?? run.completedAt;
+
+  if (!startAt) {
     return 'not started';
   }
 
-  const end = run.completedAt ? new Date(run.completedAt).getTime() : Date.now();
-  const seconds = Math.max(0, Math.round((end - new Date(run.startedAt).getTime()) / 1000));
+  const end = endAt ? new Date(endAt).getTime() : Date.now();
+  const seconds = Math.max(0, Math.round((end - new Date(startAt).getTime()) / 1000));
 
   if (seconds < 60) {
     return `${seconds}s`;
@@ -395,7 +398,9 @@ export function TraceHistoryPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="truncate font-mono text-sm text-white">{shorten(run.id, 30)}</div>
-                          <div className="mt-1 text-xs text-gray-500">{formatDateTime(run.startedAt)}</div>
+                          <div className="mt-1 text-xs text-gray-500">
+                            {formatDateTime(run.traceStartedAt ?? run.startedAt)}
+                          </div>
                         </div>
                         <Badge
                           className={cn(
@@ -476,8 +481,13 @@ export function TraceHistoryPage() {
                     </div>
                     <div className="mt-2 truncate font-mono text-lg text-white">{shorten(activeRunId, 56)}</div>
                     <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
-                      <span>Started {formatDateTime(activeRun?.startedAt)}</span>
-                      <span>Completed {formatDateTime(activeRun?.completedAt)}</span>
+                      <span>
+                        Started {formatDateTime(activeRun?.traceStartedAt ?? activeRun?.startedAt)}
+                      </span>
+                      <span>
+                        Completed{' '}
+                        {formatDateTime(activeRun?.traceCompletedAt ?? activeRun?.completedAt)}
+                      </span>
                       <span>Market bias {formatLabel(activeRun?.marketBias)}</span>
                     </div>
                   </div>

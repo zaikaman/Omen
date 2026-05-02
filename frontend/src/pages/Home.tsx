@@ -310,7 +310,7 @@ export default function Home() {
                             transition={{ duration: 0.6, delay: 0.2 }}
                             className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed"
                         >
-                            Autonomous crypto market intelligence from a verifiable agent swarm. Omen scans markets, produces signals and reports, and can route approved trades to Hyperliquid, with every run traceable through AXL and 0G.
+                            Autonomous crypto market intelligence from a verifiable agent swarm. Omen scans markets, produces signals and reports, with every run traceable through AXL and 0G.
                         </motion.p>
 
                         <motion.div

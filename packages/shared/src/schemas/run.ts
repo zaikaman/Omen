@@ -95,6 +95,9 @@ export const runListItemSchema = runBaseSchema.pick({
   finalIntelId: true,
   failureReason: true,
   outcome: true,
+}).extend({
+  traceStartedAt: z.string().datetime().nullable(),
+  traceCompletedAt: z.string().datetime().nullable(),
 });
 
 export type RuntimeMode = z.infer<typeof runtimeModeSchema>;

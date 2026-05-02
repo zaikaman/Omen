@@ -49,10 +49,21 @@ export const createRunsController =
       return;
     }
 
+    const traceTimings = await repository.listTraceTimingsByRunIds(
+      listed.value.map((run) => run.id),
+    );
+
+    if (!traceTimings.ok) {
+      res.status(500).json({ success: false, error: traceTimings.error.message });
+      return;
+    }
+
     res.json({
       success: true,
       data: {
-        runs: listed.value.map((run) => presentRunListItem(run)),
+        runs: listed.value.map((run) =>
+          presentRunListItem(run, traceTimings.value.get(run.id) ?? null),
+        ),
         nextCursor: null,
         total: listed.value.length,
       },

@@ -56,6 +56,16 @@ type RunUpdate = Partial<RunInsert> & {
   updated_at?: string;
 };
 
+export type RunTraceTimingRow = {
+  run_id: string;
+  timestamp: string;
+};
+
+export type RunTraceTiming = {
+  traceStartedAt: string | null;
+  traceCompletedAt: string | null;
+};
+
 const toRun = (row: RunRow): Run =>
   runSchema.parse({
     id: row.id,
@@ -172,6 +182,44 @@ export class RunsRepository extends BaseRepository<RunRow, RunInsert, RunUpdate>
     }
 
     return ok(listed.value.map((row) => toRun(row)));
+  }
+
+  async listTraceTimingsByRunIds(
+    runIds: string[],
+  ): Promise<Result<Map<string, RunTraceTiming>, RepositoryError>> {
+    if (runIds.length === 0) {
+      return ok(new Map());
+    }
+
+    const { data, error } = await this.client
+      .from("agent_events")
+      .select("run_id,timestamp")
+      .in("run_id", runIds)
+      .order("timestamp", { ascending: true })
+      .returns<RunTraceTimingRow[]>();
+
+    if (error) {
+      return err(toRepositoryError(error));
+    }
+
+    const timings = new Map<string, RunTraceTiming>();
+
+    for (const row of data ?? []) {
+      const normalizedTimestamp = normalizeDatabaseTimestamp(row.timestamp);
+      const current = timings.get(row.run_id);
+
+      if (!current) {
+        timings.set(row.run_id, {
+          traceStartedAt: normalizedTimestamp,
+          traceCompletedAt: normalizedTimestamp,
+        });
+        continue;
+      }
+
+      current.traceCompletedAt = normalizedTimestamp;
+    }
+
+    return ok(timings);
   }
 
   async listScheduledRuns(limit = 20): Promise<Result<Run[], RepositoryError>> {
