@@ -424,7 +424,7 @@ Omen includes automated copy-trading on Hyperliquid.
 
 Risk settings are fully configurable: position size (USD), leverage, take-profit percentage, stop-loss percentage, and maximum concurrent positions.
 
-The system runs on real Hyperliquid infrastructure. There is no paper trading mode in copytrade.
+The system runs on real Hyperliquid infrastructure and supports both **mainnet** and **testnet** environments. While there is no paper trading mode built into the app, you can use Hyperliquid testnet for safe simulation.
 
 ---
 
@@ -978,7 +978,7 @@ The copytrade system has three main components:
 4. Records the trade in `copytrade_trades` with the signal reference
 5. Monitors for position closure and records final PnL
 
-The executor handles Hyperliquid's order format requirements, including L1 signature generation, price tick rounding, and minimum size constraints.
+The executor handles Hyperliquid's order format requirements, including L1 signature generation, price tick rounding, minimum size constraints, and routing to either the mainnet or testnet API based on the application configuration.
 
 ---
 
