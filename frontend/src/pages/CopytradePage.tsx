@@ -184,20 +184,6 @@ const resolveTradeStatus = (trade: CopytradeTrade): CopytradeTrade['status'] => 
   return trade.status;
 };
 
-const tradeLifecycleLabel = (trade: CopytradeTrade) => {
-  const status = resolveTradeStatus(trade);
-
-  if (status === 'closed') {
-    return trade.closedAt ? `Closed ${formatDate(trade.closedAt)}` : 'Closed';
-  }
-
-  if (status === 'open') {
-    return 'Position open';
-  }
-
-  return status.replace(/_/g, ' ');
-};
-
 const formatTradePrice = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value.toString() : '-';
 
@@ -493,12 +479,9 @@ function CopytradeDashboardView({
                         <td className="px-3 py-3 font-mono font-bold text-white">{trade.asset}</td>
                         <td className="px-3 py-3">{trade.direction}</td>
                         <td className="px-3 py-3">
-                          <div className="flex flex-col items-start gap-1">
-                            <span className={`rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-wider ${tradeStatusClass(status)}`}>
-                              {status}
-                            </span>
-                            <span className="text-[10px] text-gray-500">{tradeLifecycleLabel(trade)}</span>
-                          </div>
+                          <span className={`rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-wider ${tradeStatusClass(status)}`}>
+                            {status}
+                          </span>
                         </td>
                         <td className="px-3 py-3 text-right font-mono">{formatCurrency(trade.notionalUsd)}</td>
                         <td className="px-3 py-3 text-right font-mono">{formatTradePrice(trade.entryPrice)}</td>

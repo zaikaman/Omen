@@ -234,6 +234,34 @@ export class CopytradeTradesRepository extends BaseRepository<
     return ok((data ?? []).map((row) => toTrade(row)));
   }
 
+  async listVisibleHistoryByEnrollment(
+    enrollmentId: string,
+    limit = 50,
+    offset = 0,
+  ): Promise<Result<CopytradeTrade[], RepositoryError>> {
+    const normalizedLimit = Math.max(1, Math.floor(limit));
+    const normalizedOffset = Math.max(0, Math.floor(offset));
+    const { data, error } = await this.table()
+      .select("*")
+      .eq("enrollment_id", enrollmentId)
+      .neq("status", "skipped")
+      .not("signal_id", "is", null)
+      .order("created_at", { ascending: false })
+      .range(normalizedOffset, normalizedOffset + normalizedLimit - 1)
+      .returns<CopytradeTradeRow[]>();
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok((data ?? []).map((row) => toTrade(row)));
+  }
+
   async countByWallet(
     walletAddress: string,
   ): Promise<Result<number, RepositoryError>> {
@@ -259,6 +287,27 @@ export class CopytradeTradesRepository extends BaseRepository<
     const { count, error } = await this.table()
       .select("id", { count: "exact", head: true })
       .eq("enrollment_id", enrollmentId);
+
+    if (error) {
+      return err({
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message,
+      });
+    }
+
+    return ok(count ?? 0);
+  }
+
+  async countVisibleHistoryByEnrollment(
+    enrollmentId: string,
+  ): Promise<Result<number, RepositoryError>> {
+    const { count, error } = await this.table()
+      .select("id", { count: "exact", head: true })
+      .eq("enrollment_id", enrollmentId)
+      .neq("status", "skipped")
+      .not("signal_id", "is", null);
 
     if (error) {
       return err({

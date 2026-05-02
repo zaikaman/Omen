@@ -517,9 +517,9 @@ export const createCopytradeDashboardController =
     const enrollment = enrollmentResult.value;
     const [statsTradesResult, tradesResult, totalTradesResult] = enrollment
       ? await Promise.all([
-          repositories.trades.listByEnrollment(enrollment.id, TRADE_STATS_HISTORY_LIMIT),
-          repositories.trades.listByEnrollment(enrollment.id, pageSize, offset),
-          repositories.trades.countByEnrollment(enrollment.id),
+          repositories.trades.listVisibleHistoryByEnrollment(enrollment.id, TRADE_STATS_HISTORY_LIMIT),
+          repositories.trades.listVisibleHistoryByEnrollment(enrollment.id, pageSize, offset),
+          repositories.trades.countVisibleHistoryByEnrollment(enrollment.id),
         ])
       : [
           { ok: true as const, value: [] },
