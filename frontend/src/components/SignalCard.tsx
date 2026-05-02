@@ -10,6 +10,8 @@ import {
   Maximize2,
   TrendingUp,
   TrendingDown,
+  Crosshair,
+  Clock3,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -20,8 +22,17 @@ import { XLogo } from './ui/XLogo';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Calendar01Icon } from '@hugeicons/core-free-icons';
 import type { SignalCardItem } from '../types/ui-models';
+import { SignalTradeChart } from './SignalTradeChart';
 
 const AGENT_AVATAR = '/generated/omen-logo-v2.png';
+
+const formatPriceValue = (value: number | undefined) => {
+  if (typeof value !== 'number') {
+    return 'TBD';
+  }
+
+  return `$${value < 1 ? value.toFixed(6) : value.toFixed(2)}`;
+};
 
 interface SignalCardProps {
   signal: SignalCardItem | null | undefined;
@@ -242,56 +253,115 @@ export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardPro
                 <Maximize2 className="w-4 h-4 mr-2" /> View Full Analysis
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-2xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-                  <span className="text-3xl">{token?.symbol}</span>
-                  {getDirectionBadge()}
-                  {getStatusBadge()}
-                </DialogTitle>
-                <div className="text-gray-400">{token?.name}</div>
-              </DialogHeader>
-
-              <div className="space-y-6 mt-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="flex flex-col p-3 bg-gray-950/50 rounded-lg border border-gray-800">
-                    <span className="text-xs text-gray-500 uppercase mb-1">Entry</span>
-                    <span className="font-mono text-lg text-gray-300">{entry_price ? `$${entry_price}` : 'TBD'}</span>
+            <DialogContent className="bg-gray-900 border-gray-800 text-white w-[calc(100vw-2rem)] max-w-6xl max-h-[88vh] overflow-y-auto p-0">
+              <DialogHeader className="border-b border-gray-800 px-5 py-4 sm:px-6">
+                <div className="flex flex-col gap-3 pr-8 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <DialogTitle className="flex flex-wrap items-center gap-3 text-2xl font-bold">
+                      <span className="text-3xl">{token?.symbol}</span>
+                      {getDirectionBadge()}
+                      {getStatusBadge()}
+                    </DialogTitle>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-400">
+                      <span>{token?.name}</span>
+                      <span className="text-gray-700">/</span>
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-cyan-300">
+                        <Clock3 className="h-3.5 w-3.5" />
+                        15m execution chart
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col p-3 bg-gray-950/50 rounded-lg border border-gray-800">
-                    <span className="text-xs text-gray-500 uppercase mb-1">Target</span>
-                    <span className="font-mono text-lg text-cyan-400">{target_price ? `$${target_price}` : 'TBD'}</span>
-                  </div>
-                  <div className="flex flex-col p-3 bg-gray-950/50 rounded-lg border border-gray-800">
-                    <span className="text-xs text-gray-500 uppercase mb-1">Stop Loss</span>
-                    <span className="font-mono text-lg text-red-400">{stop_loss ? `$${stop_loss}` : 'TBD'}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Confidence</span>
+                    <span className="font-mono text-sm text-cyan-300">{confidenceScore}/100</span>
                   </div>
                 </div>
+              </DialogHeader>
 
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-cyan-400" />
-                    Signal Analysis
-                  </h3>
-                  <div className="p-4 bg-gray-950 rounded-lg border border-gray-800">
-                    <p className="text-gray-300 leading-relaxed whitespace-pre-wrap text-base">
+              <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.45fr)_360px]">
+                <div className="space-y-4">
+                  <SignalTradeChart
+                    signalId={signal.id}
+                    symbol={token?.symbol}
+                    direction={isLong ? 'LONG' : 'SHORT'}
+                    entry={entry_price}
+                    target={target_price}
+                    stopLoss={stop_loss}
+                  />
+
+                  <div className="rounded-xl border border-gray-800 bg-gray-950/80 p-4">
+                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                      <Activity className="w-4 h-4 text-cyan-400" />
+                      Signal Analysis
+                    </h3>
+                    <p className="max-w-[72ch] whitespace-pre-wrap text-sm leading-7 text-gray-300">
                       {analysis || 'Signal report is pending final analysis.'}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-4 border-t border-gray-800">
-                  <div className="text-sm text-gray-500">
-                    Confidence Score
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+                    <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
+                      <Crosshair className="h-4 w-4 text-cyan-400" />
+                      Execution Levels
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
+                        <span className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          <ArrowUpRight className="h-3 w-3" /> Entry
+                        </span>
+                        <span className="font-mono text-lg text-gray-100">{formatPriceValue(entry_price)}</span>
+                      </div>
+                      <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/10 p-3">
+                        <span className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wider text-cyan-200/80">
+                          <Target className="h-3 w-3" /> Take Profit
+                        </span>
+                        <span className="font-mono text-lg text-cyan-300">{formatPriceValue(target_price)}</span>
+                      </div>
+                      <div className="rounded-lg border border-red-500/25 bg-red-500/10 p-3">
+                        <span className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wider text-red-200/80">
+                          <ShieldAlert className="h-3 w-3" /> Stop Loss
+                        </span>
+                        <span className="font-mono text-lg text-red-300">{formatPriceValue(stop_loss)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-32 bg-gray-800 rounded-full overflow-hidden">
+
+                  <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Confidence Score</span>
+                      <span className="font-mono text-sm text-cyan-300">{confidenceScore}/100</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-800">
                       <div
                         className="h-full bg-gradient-to-r from-cyan-500 to-purple-500"
                         style={{ width: `${confidenceScore}%` }}
                       />
                     </div>
-                    <span className="font-mono text-cyan-400">{confidenceScore}/100</span>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider text-gray-500">Current</div>
+                        <div className="mt-1 font-mono text-gray-200">{formatPriceValue(current_price)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider text-gray-500">P&L</div>
+                        <div className={`mt-1 font-mono ${pnlColor}`}>
+                          {pnl_percent !== undefined ? `${pnl_percent > 0 ? '+' : ''}${pnl_percent.toFixed(2)}R` : 'TBD'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider text-gray-500">Direction</div>
+                        <div className="mt-1 font-mono text-gray-200">{tradeDirection}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider text-gray-500">Published</div>
+                        <div className="mt-1 font-mono text-gray-200">{date}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

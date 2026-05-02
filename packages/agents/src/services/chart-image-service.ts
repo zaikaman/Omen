@@ -12,6 +12,15 @@ const chartImageServiceInputSchema = z.object({
   candles: z.array(marketCandleSchema).min(20),
   width: z.number().int().min(400).default(960),
   height: z.number().int().min(300).default(540),
+  showIndicators: z.boolean().default(true),
+  tradeLevels: z
+    .object({
+      direction: z.enum(["LONG", "SHORT"]),
+      entry: z.number().finite().nullable().optional(),
+      target: z.number().finite().nullable().optional(),
+      stopLoss: z.number().finite().nullable().optional(),
+    })
+    .optional(),
 });
 
 export const chartImageResultSchema = z.object({
@@ -38,6 +47,11 @@ const COLORS = {
   sma50: "#ff6d00",
   bbLine: "#1f8eed",
   bbFill: "rgba(31,142,237,0.10)",
+  entry: "#e5e7eb",
+  target: "#00d4ff",
+  stopLoss: "#ef4444",
+  rewardFill: "rgba(0,212,255,0.18)",
+  riskFill: "rgba(239,68,68,0.16)",
   text: "#d1d4dc",
   textMuted: "#787b86",
   textBright: "#ffffff",
@@ -290,6 +304,7 @@ const buildChartDescription = (
   symbol: string,
   timeframe: "15m" | "1h" | "4h",
   candles: MarketCandle[],
+  showIndicators: boolean,
 ) => {
   const closes = candles.map((candle) => candle.close);
   const first = closes[0] ?? 0;
@@ -334,7 +349,9 @@ const buildChartDescription = (
   const patterns = detectChartPatterns(candles, trend);
 
   return [
-    `${symbol.toUpperCase()} ${timeframe} chart with candlestick structure, SMA 20, SMA 50, Bollinger Bands, and volume.`,
+    showIndicators
+      ? `${symbol.toUpperCase()} ${timeframe} chart with candlestick structure, SMA 20, SMA 50, Bollinger Bands, and volume.`
+      : `${symbol.toUpperCase()} ${timeframe} chart with candlestick structure and volume.`,
     `Price moved from ${formatPrice(first)} to ${formatPrice(last)} (${changePercent.toFixed(2)}%), which reads as ${trend.toLowerCase()}.`,
     `Momentum is ${momentum.toLowerCase()} with ${green.toString()} green candles versus ${red.toString()} red candles across the recent window.`,
     `Swing range spans ${formatPrice(swingLow)} to ${formatPrice(swingHigh)} (${rangePercent.toFixed(2)}%), leaving price ${pricePosition}.`,
@@ -368,7 +385,16 @@ export class ChartImageService {
     const chartHeight =
       height - padding.top - padding.bottom - volumeHeight - 20;
 
-    const prices = candles.flatMap((candle) => [candle.high, candle.low]);
+    const tradeLevels = parsed.tradeLevels;
+    const annotatedPrices = [
+      tradeLevels?.entry,
+      tradeLevels?.target,
+      tradeLevels?.stopLoss,
+    ].filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    const prices = [
+      ...candles.flatMap((candle) => [candle.high, candle.low]),
+      ...annotatedPrices,
+    ];
     let minPrice = Math.min(...prices);
     let maxPrice = Math.max(...prices);
     const priceRange = maxPrice - minPrice;
@@ -483,6 +509,75 @@ export class ChartImageService {
       close: formatPriceCompact(currentCandle.close),
     };
 
+    const lastCandleX = indexToX(candles.length - 1);
+    const tradeProjectionStartX = Math.min(
+      width - padding.right - chartWidth * 0.25,
+      lastCandleX + candleSpacing * 2,
+    );
+    const tradeProjectionEndX = width - padding.right;
+    const formatLevelLine = (input: {
+      label: string;
+      price: number;
+      color: string;
+      dash?: string;
+    }) => {
+      const y = priceToY(input.price);
+      const labelText = `${input.label} ${formatPrice(input.price)}`;
+      const labelWidth = Math.max(72, labelText.length * 7 + 16);
+
+      return [
+        `<line x1="${padding.left}" y1="${formatNumber(y, 2)}" x2="${width - padding.right}" y2="${formatNumber(y, 2)}" stroke="${input.color}" stroke-width="1.5" ${input.dash ? `stroke-dasharray="${input.dash}"` : ""} />`,
+        `<rect x="${formatNumber(width - padding.right + 5, 2)}" y="${formatNumber(y - 11, 2)}" width="${formatNumber(labelWidth, 2)}" height="22" rx="3" fill="${input.color}" />`,
+        `<text x="${formatNumber(width - padding.right + 5 + labelWidth / 2, 2)}" y="${formatNumber(y + 4, 2)}" fill="${COLORS.priceLabelText}" font-family="Arial, sans-serif" font-size="11" font-weight="700" text-anchor="middle">${escapeXml(labelText)}</text>`,
+      ].join("");
+    };
+    const tradeLevelLines = tradeLevels
+      ? [
+          typeof tradeLevels.target === "number"
+            ? formatLevelLine({
+                label: "TP",
+                price: tradeLevels.target,
+                color: COLORS.target,
+              })
+            : "",
+          typeof tradeLevels.entry === "number"
+            ? formatLevelLine({
+                label: "Entry",
+                price: tradeLevels.entry,
+                color: COLORS.entry,
+                dash: "6 5",
+              })
+            : "",
+          typeof tradeLevels.stopLoss === "number"
+            ? formatLevelLine({
+                label: "SL",
+                price: tradeLevels.stopLoss,
+                color: COLORS.stopLoss,
+              })
+            : "",
+        ].join("")
+      : "";
+    const tradeProjection =
+      tradeLevels &&
+      typeof tradeLevels.entry === "number" &&
+      typeof tradeLevels.target === "number" &&
+      typeof tradeLevels.stopLoss === "number"
+        ? (() => {
+            const entryY = priceToY(tradeLevels.entry!);
+            const targetY = priceToY(tradeLevels.target!);
+            const stopY = priceToY(tradeLevels.stopLoss!);
+            const rewardTop = Math.min(entryY, targetY);
+            const rewardHeight = Math.abs(entryY - targetY);
+            const riskTop = Math.min(entryY, stopY);
+            const riskHeight = Math.abs(entryY - stopY);
+
+            return [
+              `<rect x="${formatNumber(tradeProjectionStartX, 2)}" y="${formatNumber(rewardTop, 2)}" width="${formatNumber(tradeProjectionEndX - tradeProjectionStartX, 2)}" height="${formatNumber(rewardHeight, 2)}" fill="${COLORS.rewardFill}" stroke="${COLORS.target}" stroke-width="1" opacity="0.95" />`,
+              `<rect x="${formatNumber(tradeProjectionStartX, 2)}" y="${formatNumber(riskTop, 2)}" width="${formatNumber(tradeProjectionEndX - tradeProjectionStartX, 2)}" height="${formatNumber(riskHeight, 2)}" fill="${COLORS.riskFill}" stroke="${COLORS.stopLoss}" stroke-width="1" opacity="0.9" />`,
+            ].join("");
+          })()
+        : "";
+
     const xLabels: string[] = [];
     const labelStep = Math.max(1, Math.floor(candles.length / 12));
 
@@ -500,35 +595,45 @@ export class ChartImageService {
   ${yGridLines.join("")}
   ${verticalGridLines.join("")}
   ${
-    bbPath.length > 0
+    parsed.showIndicators && bbPath.length > 0
       ? `<path d="${bbPath}" fill="${COLORS.bbFill}" stroke="none" />`
       : ""
   }
   <line x1="${padding.left}" y1="${height - padding.bottom - volumeHeight - 10}" x2="${width - padding.right}" y2="${height - padding.bottom - volumeHeight - 10}" stroke="${COLORS.separator}" stroke-width="1" />
   ${volumeBars}
   ${candlesSvg}
-  <path d="${buildLinePath(
-    xValues,
-    sma20.map((value) => (value === null ? null : priceToY(value))),
-  )}" fill="none" stroke="${COLORS.sma20}" stroke-width="2" />
+  ${tradeProjection}
+  ${
+    parsed.showIndicators
+      ? `<path d="${buildLinePath(
+          xValues,
+          sma20.map((value) => (value === null ? null : priceToY(value))),
+        )}" fill="none" stroke="${COLORS.sma20}" stroke-width="2" />
   <path d="${buildLinePath(
     xValues,
     sma50.map((value) => (value === null ? null : priceToY(value))),
   )}" fill="none" stroke="${COLORS.sma50}" stroke-width="2" />
   <path d="${buildLinePath(xValues, bbUpper)}" fill="none" stroke="${COLORS.bbLine}" stroke-width="1" />
   <path d="${buildLinePath(xValues, bbMiddle)}" fill="none" stroke="${COLORS.bbLine}" stroke-width="1" opacity="0.8" />
-  <path d="${buildLinePath(xValues, bbLower)}" fill="none" stroke="${COLORS.bbLine}" stroke-width="1" />
+  <path d="${buildLinePath(xValues, bbLower)}" fill="none" stroke="${COLORS.bbLine}" stroke-width="1" />`
+      : ""
+  }
+  ${tradeLevelLines}
   <line x1="${padding.left}" y1="${formatNumber(currentY, 2)}" x2="${width - padding.right}" y2="${formatNumber(currentY, 2)}" stroke="${currentColor}" stroke-width="1" stroke-dasharray="3 3" />
   <rect x="${formatNumber(priceLabelX, 2)}" y="${formatNumber(priceLabelY, 2)}" width="${formatNumber(priceLabelWidth, 2)}" height="22" fill="${currentColor}" />
   <text x="${formatNumber(priceLabelX + priceLabelWidth / 2, 2)}" y="${formatNumber(currentY + 4, 2)}" fill="${COLORS.priceLabelText}" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">${escapeXml(priceText)}</text>
   <text x="30" y="34" fill="${COLORS.textBright}" font-family="Arial, sans-serif" font-size="20" font-weight="700">${escapeXml(`${parsed.symbol.toUpperCase()}/USDT - ${parsed.timeframe.toUpperCase()}`)}</text>
   <text x="30" y="58" fill="${priceChangePercent >= 0 ? COLORS.bullish : COLORS.bearish}" font-family="Arial, sans-serif" font-size="16" font-weight="700">${escapeXml(priceChangeText)}</text>
-  <line x1="270" y1="22" x2="290" y2="22" stroke="${COLORS.sma20}" stroke-width="3" />
+  ${
+    parsed.showIndicators
+      ? `<line x1="270" y1="22" x2="290" y2="22" stroke="${COLORS.sma20}" stroke-width="3" />
   <text x="296" y="26" fill="${COLORS.text}" font-family="Arial, sans-serif" font-size="12">SMA 20</text>
   <line x1="350" y1="22" x2="370" y2="22" stroke="${COLORS.sma50}" stroke-width="3" />
   <text x="376" y="26" fill="${COLORS.text}" font-family="Arial, sans-serif" font-size="12">SMA 50</text>
   <rect x="430" y="16" width="20" height="12" fill="${COLORS.bbLine}" opacity="0.6" />
-  <text x="456" y="26" fill="${COLORS.text}" font-family="Arial, sans-serif" font-size="12">BB(20,2)</text>
+  <text x="456" y="26" fill="${COLORS.text}" font-family="Arial, sans-serif" font-size="12">BB(20,2)</text>`
+      : `<text x="270" y="26" fill="${COLORS.textMuted}" font-family="Arial, sans-serif" font-size="12">15m execution view, indicators removed</text>`
+  }
   <text x="${width - 155}" y="34" fill="${COLORS.textMuted}" font-family="Arial, sans-serif" font-size="12">O</text>
   <text x="${width - 138}" y="34" fill="${COLORS.text}" font-family="Arial, sans-serif" font-size="12">${escapeXml(ohlcInfo.open)}</text>
   <text x="${width - 95}" y="34" fill="${COLORS.textMuted}" font-family="Arial, sans-serif" font-size="12">H</text>
@@ -552,6 +657,7 @@ export class ChartImageService {
         parsed.symbol,
         parsed.timeframe,
         parsed.candles,
+        parsed.showIndicators,
       ),
     });
   }

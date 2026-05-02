@@ -36,6 +36,8 @@ import {
 } from "./posts.controller.js";
 import { createRunsController } from "./runs.controller.js";
 import {
+  createSignalCandlesController,
+  createSignalChartController,
   createSignalDetailController,
   createSignalFeedController,
 } from "./signals.controller.js";
@@ -67,6 +69,8 @@ export const createApiRouter = (context: {
   router.get("/analytics", createAnalyticsFeedController(context.env));
   router.get("/analytics/latest", createLatestAnalyticsController(context.env));
   router.get("/signals", createSignalFeedController(context.env));
+  router.get("/signals/:id/chart", createSignalChartController(context.env));
+  router.get("/signals/:id/candles", createSignalCandlesController(context.env));
   router.get("/signals/:id", createSignalDetailController(context.env));
   router.get("/copytrade/account", createCopytradeAccountController);
   router.get("/copytrade/status", createCopytradeStatusController(context.env));
