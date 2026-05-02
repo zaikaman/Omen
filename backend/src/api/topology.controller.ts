@@ -6,10 +6,7 @@ import {
   createSupabaseServiceRoleClient,
 } from "@omen/db";
 import { agentNodeSchema } from "@omen/shared";
-import {
-  createTopologySnapshot,
-  type AxlServiceRegistrySnapshot,
-} from "@omen/axl";
+import { createTopologySnapshot, type AxlServiceRegistrySnapshot } from "@omen/axl";
 
 import type { BackendEnv } from "../bootstrap/env.js";
 
@@ -30,9 +27,7 @@ const createRepositories = (env: Pick<BackendEnv, "supabase">) => {
   };
 };
 
-const markVerifiedSnapshot = (
-  snapshot: AxlServiceRegistrySnapshot,
-): AxlServiceRegistrySnapshot =>
+const markVerifiedSnapshot = (snapshot: AxlServiceRegistrySnapshot): AxlServiceRegistrySnapshot =>
   createTopologySnapshot({
     capturedAt: snapshot.capturedAt,
     source: snapshot.source,
@@ -64,7 +59,7 @@ const buildUnavailableTopologySnapshot = (
   });
 
 export const createTopologyController =
-  (env: Pick<BackendEnv, "supabase">) => async (_req: Request, res: Response) => {
+  (env: Pick<BackendEnv, "supabase">) => async (req: Request, res: Response) => {
     if (!isPersistenceConfigured(env)) {
       res.status(503).json({
         success: false,
@@ -74,9 +69,10 @@ export const createTopologyController =
     }
 
     const repositories = createRepositories(env);
+    const runId = typeof req.query.runId === "string" ? req.query.runId : null;
     const [nodes, snapshot] = await Promise.all([
       repositories.nodes.listNodes(100),
-      repositories.serviceRegistrySnapshots.latestSnapshot(),
+      repositories.serviceRegistrySnapshots.latestSnapshot({ runId }),
     ]);
 
     if (!nodes.ok) {

@@ -8,13 +8,14 @@ import {
 export type UseTopologyOptions = {
   enabled?: boolean;
   refreshIntervalMs?: number;
+  runId?: string | null;
 };
 
 const toError = (error: unknown) =>
   error instanceof Error ? error : new Error('Failed to load topology.');
 
 export const useTopology = (options: UseTopologyOptions = {}) => {
-  const { enabled = true, refreshIntervalMs } = options;
+  const { enabled = true, refreshIntervalMs, runId = null } = options;
   const [response, setResponse] = useState<TopologyResponse | null>(null);
   const hasDataRef = useRef(false);
   const [isLoading, setIsLoading] = useState(enabled);
@@ -31,7 +32,7 @@ export const useTopology = (options: UseTopologyOptions = {}) => {
     setError(null);
 
     try {
-      setResponse(await getTopology());
+      setResponse(await getTopology({ runId }));
       hasDataRef.current = true;
     } catch (caughtError) {
       setError(toError(caughtError));
@@ -39,7 +40,7 @@ export const useTopology = (options: UseTopologyOptions = {}) => {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [enabled]);
+  }, [enabled, runId]);
 
   useEffect(() => {
     if (!enabled) {

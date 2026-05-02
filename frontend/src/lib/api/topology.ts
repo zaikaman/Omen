@@ -10,6 +10,10 @@ import {
 
 import { apiRequest } from './client';
 
+export type TopologyRequestOptions = {
+  runId?: string | null;
+};
+
 export type RegisteredServiceStatus = 'online' | 'degraded' | 'offline';
 
 export type RegisteredAxlService = {
@@ -228,7 +232,21 @@ const topologyResponseSchema = {
   },
 };
 
-export const getLiveTopology = (): Promise<TopologyResponse> =>
-  apiRequest('/topology', topologyResponseSchema);
+export const getLiveTopology = (
+  options: TopologyRequestOptions = {},
+): Promise<TopologyResponse> => {
+  const searchParams = new URLSearchParams();
+
+  if (options.runId) {
+    searchParams.set('runId', options.runId);
+  }
+
+  const query = searchParams.toString();
+
+  return apiRequest(
+    query ? `/topology?${query}` : '/topology',
+    topologyResponseSchema,
+  );
+};
 
 export const getTopology = getLiveTopology;

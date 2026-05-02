@@ -263,7 +263,7 @@ Each agent registers its MCP tools with the local AXL router on startup. Other n
 
 The backend continuously polls the network topology through the `TopologyPoller`, tracking peer status, heartbeat timestamps, and service availability. The `PeerFailover` module routes around degraded nodes. Service registry snapshots are persisted for historical review.
 
-You can inspect the live topology at `/api/topology`.
+You can inspect the latest persisted AXL evidence snapshot at `/api/topology`, or a run-specific snapshot with `/api/topology?runId=<run_id>`.
 
 ---
 
@@ -371,7 +371,7 @@ The web dashboard at `omen-agents.vercel.app` provides real-time visibility into
 - Market: token frequency analysis, mindshare distribution
 - Signals: confidence distribution, direction breakdown, status tracking
 
-**Evidence** -- Proof visualization for each run. Manifest panels, chain anchor cards, compute proof cards, iNFT references, and clickable 0G Storage links.
+**Evidence** -- Proof visualization for each run. Manifest panels, chain anchor cards, compute proof cards, iNFT references, run-specific AXL topology/route snapshots, and clickable 0G Storage links.
 
 **Traces** -- AXL communication trace viewer. Step-by-step execution timeline, peer topology, service registry state, and message-level inspection.
 
@@ -394,7 +394,7 @@ The web dashboard at `omen-agents.vercel.app` provides real-time visibility into
 | GET | `/api/intel/:id` | Intel detail |
 | GET | `/api/analytics` | Analytics snapshots |
 | GET | `/api/analytics/latest` | Latest analytics |
-| GET | `/api/topology` | Live AXL network topology |
+| GET | `/api/topology` | Latest persisted AXL evidence snapshot; accepts `runId` for run-specific topology, services, and routes |
 | GET | `/api/proofs` | Proof artifact feed |
 | GET | `/api/proofs/:runId` | Proofs for a specific run |
 | GET | `/api/posts` | Outbound post feed |
@@ -440,7 +440,7 @@ The swarm pulls live data from five providers:
 | **Birdeye** | On-chain analytics, holder distribution, liquidity, security | Research |
 | **DeFiLlama** | Protocol TVL, TVL changes, chain distribution | Research |
 
-All data clients support API key rotation (multiple keys per provider), request timeouts, and graceful degradation when a provider is down.
+All data clients support API key rotation (multiple keys per provider), request timeouts, and graceful degradation when a provider is down. Hugging Face image-generation token rotation persists its cursor in `hf_token_rotation_state`.
 
 Technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands) are computed locally from Binance candle data.
 
@@ -464,6 +464,7 @@ PostgreSQL on Supabase. Core tables:
 | `copytrade_enrollments` | User enrollments with encrypted agent keys |
 | `copytrade_trades` | Trade positions and PnL records |
 | `service_registry_snapshots` | AXL service registry captures |
+| `hf_token_rotation_state` | Hugging Face token rotation cursor state |
 | `app_config` | Runtime configuration |
 
 ---

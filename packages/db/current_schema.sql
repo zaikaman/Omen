@@ -128,7 +128,15 @@ CREATE TABLE public.copytrade_trades (
   execution_metadata jsonb,
   CONSTRAINT copytrade_trades_pkey PRIMARY KEY (id),
   CONSTRAINT copytrade_trades_enrollment_id_fkey FOREIGN KEY (enrollment_id) REFERENCES public.copytrade_enrollments(id),
-  CONSTRAINT copytrade_trades_signal_id_fkey FOREIGN KEY (signal_id) REFERENCES public.signals(id) ON DELETE SET NULL
+  CONSTRAINT copytrade_trades_signal_id_fkey FOREIGN KEY (signal_id) REFERENCES public.signals(id)
+);
+CREATE TABLE public.hf_token_rotation_state (
+  id text NOT NULL DEFAULT 'default'::text,
+  next_token_index integer NOT NULL DEFAULT 0 CHECK (next_token_index >= 0),
+  token_count integer NOT NULL DEFAULT 0 CHECK (token_count >= 0),
+  reserved_start_index integer NOT NULL DEFAULT 0 CHECK (reserved_start_index >= 0),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT hf_token_rotation_state_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.intels (
   id text NOT NULL DEFAULT (gen_random_uuid())::text,

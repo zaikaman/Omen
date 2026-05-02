@@ -258,6 +258,7 @@ export function SwarmRunModal({
   });
   const topology = useTopology({
     enabled: isOpen,
+    runId,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
 

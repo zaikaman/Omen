@@ -5,10 +5,7 @@ import type {
 } from "@omen/axl";
 import { axlServiceRegistrySnapshotSchema } from "@omen/axl";
 
-import {
-  BaseRepository,
-  type RepositoryError,
-} from "./base-repository.js";
+import { BaseRepository, type RepositoryError } from "./base-repository.js";
 import type { OmenSupabaseClient } from "../client/supabase.js";
 import { err, ok, type Result } from "@omen/shared";
 import { normalizeDatabaseTimestamp } from "./timestamp.js";
@@ -25,6 +22,12 @@ type ServiceRegistrySnapshotRow = {
 
 type ServiceRegistrySnapshotInsert = Omit<ServiceRegistrySnapshotRow, "id">;
 
+const axlEvidenceSnapshotSources = [
+  "live-swarm-prepare",
+  "live-swarm-a2a",
+  "live-swarm-final-output",
+] as const;
+
 const toSnapshot = (row: ServiceRegistrySnapshotRow): AxlServiceRegistrySnapshot =>
   axlServiceRegistrySnapshotSchema.parse({
     capturedAt: normalizeDatabaseTimestamp(row.captured_at),
@@ -35,9 +38,7 @@ const toSnapshot = (row: ServiceRegistrySnapshotRow): AxlServiceRegistrySnapshot
     metadata: row.metadata,
   });
 
-const toRow = (
-  snapshot: AxlServiceRegistrySnapshot,
-): ServiceRegistrySnapshotInsert => ({
+const toRow = (snapshot: AxlServiceRegistrySnapshot): ServiceRegistrySnapshotInsert => ({
   captured_at: snapshot.capturedAt,
   source: snapshot.source,
   peers: snapshot.peers,
@@ -66,14 +67,20 @@ export class ServiceRegistrySnapshotsRepository extends BaseRepository<
     return ok(toSnapshot(inserted.value));
   }
 
-  async latestSnapshot(): Promise<
-    Result<AxlServiceRegistrySnapshot | null, RepositoryError>
-  > {
-    const { data, error } = await this.table()
+  async latestSnapshot(
+    options: { runId?: string | null } = {},
+  ): Promise<Result<AxlServiceRegistrySnapshot | null, RepositoryError>> {
+    const query = this.table()
       .select("*")
+      .in("source", [...axlEvidenceSnapshotSources])
       .order("captured_at", { ascending: false })
-      .limit(1)
-      .maybeSingle<ServiceRegistrySnapshotRow>();
+      .limit(1);
+
+    if (options.runId) {
+      query.contains("metadata", { runId: options.runId });
+    }
+
+    const { data, error } = await query.maybeSingle<ServiceRegistrySnapshotRow>();
 
     if (error) {
       return err({

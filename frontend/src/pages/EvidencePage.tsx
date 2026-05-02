@@ -143,9 +143,6 @@ export function EvidencePage() {
     limit: PROOF_FEED_LIMIT,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
-  const topology = useTopology({
-    refreshIntervalMs: REFRESH_INTERVAL_MS,
-  });
   const inftProof = useInftProof({
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
@@ -153,6 +150,10 @@ export function EvidencePage() {
   const [runPage, setRunPage] = useState(1);
   const [activeSection, setActiveSection] = useState<ConsoleSectionId>('storage');
   const activeRunId = selectedRunId ?? queryRunId ?? proofFeed.proofs[0]?.runId ?? null;
+  const topology = useTopology({
+    runId: activeRunId,
+    refreshIntervalMs: REFRESH_INTERVAL_MS,
+  });
   const proofDetail = useProofDetail(activeRunId, {
     enabled: Boolean(activeRunId),
     refreshIntervalMs: REFRESH_INTERVAL_MS,

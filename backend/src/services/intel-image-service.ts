@@ -25,11 +25,10 @@ const DEFAULT_SPACE = "Tongyi-MAI/Z-Image-Turbo";
 const DEFAULT_RESOLUTION = "2048x1152 ( 16:9 )";
 const TARGET_IMAGE_WIDTH = 2048;
 const TARGET_IMAGE_HEIGHT = 1152;
-const HF_TOKEN_ROTATION_SOURCE = "hf_token_rotation";
 const NO_TEXT_IMAGE_CONSTRAINT = "no visible or readable text";
 
-type HfTokenRotationSnapshotRow = {
-  metadata: Record<string, unknown> | null;
+type HfTokenRotationStateRow = {
+  next_token_index: number;
 };
 
 class HfTokenRotationCursorStore {
@@ -58,18 +57,16 @@ class HfTokenRotationCursorStore {
 
   private async readNextTokenIndex(tokenCount: number) {
     const { data, error } = await this.input.client
-      .from("service_registry_snapshots")
-      .select("metadata")
-      .eq("source", HF_TOKEN_ROTATION_SOURCE)
-      .order("captured_at", { ascending: false })
-      .limit(1)
-      .maybeSingle<HfTokenRotationSnapshotRow>();
+      .from("hf_token_rotation_state")
+      .select("next_token_index")
+      .eq("id", "default")
+      .maybeSingle<HfTokenRotationStateRow>();
 
     if (error) {
       throw new Error(`Failed to read HuggingFace token cursor: ${error.message}`);
     }
 
-    const rawIndex = data?.metadata?.nextTokenIndex;
+    const rawIndex = data?.next_token_index;
 
     if (typeof rawIndex !== "number" || !Number.isInteger(rawIndex) || rawIndex < 0) {
       return 0;
@@ -83,22 +80,17 @@ class HfTokenRotationCursorStore {
     tokenCount: number;
     reservedStartIndex: number;
   }) {
-    const insertRow = {
-      source: HF_TOKEN_ROTATION_SOURCE,
-      peers: [],
-      services: [],
-      routes: [],
-      metadata: {
-        nextTokenIndex: input.nextTokenIndex,
-        reservedStartIndex: input.reservedStartIndex,
-        tokenCount: input.tokenCount,
-        updatedAt: new Date().toISOString(),
-      },
+    const row = {
+      id: "default",
+      next_token_index: input.nextTokenIndex,
+      reserved_start_index: input.reservedStartIndex,
+      token_count: input.tokenCount,
+      updated_at: new Date().toISOString(),
     };
 
     const { error } = await this.input.client
-      .from("service_registry_snapshots")
-      .insert(insertRow as never);
+      .from("hf_token_rotation_state")
+      .upsert(row as never, { onConflict: "id" });
 
     if (error) {
       throw new Error(`Failed to persist HuggingFace token cursor: ${error.message}`);
