@@ -1801,10 +1801,11 @@ class LivePipelineExecutionContext {
 
         if (nodeKey === "chart-vision-agent") {
           const payload = chartVisionInputSchema.parse(nodeInput);
+          const chartVisionCorrelationKey = `${payload.candidate.symbol.toLowerCase()}-${payload.candidate.id}`;
           const delegated = await delegator.delegateChartVision({
             context: {
               ...context,
-              correlationId: `${state.run.id}:chart-vision-agent`,
+              correlationId: `${state.run.id}:chart-vision-agent:${chartVisionCorrelationKey}`,
             },
             payload,
             preferredPeerId: resolvePreferredPeerId("chart_vision"),

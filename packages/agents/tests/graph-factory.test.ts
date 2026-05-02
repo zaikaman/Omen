@@ -343,6 +343,220 @@ describe("omen graph factory", () => {
     expect(checkpoints.at(-1)?.step).toBe("publisher-agent");
   });
 
+  it("fans chart vision out across up to three scanner candidates", async () => {
+    const checkpointStore = new InMemoryCheckpointStore();
+    const factory = createOmenGraphFactory();
+    const chartVisionSymbols: string[] = [];
+    const analystChartSymbols: string[] = [];
+    const runtime = factory.createRuntime({
+      checkpointStore,
+      runtimeName: "test-runtime",
+      nodeInvoker: async ({ nodeKey, nodeInput, state }) => {
+        if (nodeKey === "market-bias-agent") {
+          return {
+            marketBias: "LONG",
+            reasoning: "Fixture market bias from model-backed path.",
+            confidence: 88,
+          };
+        }
+
+        if (nodeKey === "scanner-agent") {
+          return {
+            marketBias: "LONG",
+            candidates: ["BTC", "ETH", "SOL"].map((symbol) => ({
+              id: `candidate-${symbol.toLowerCase()}-1`,
+              symbol,
+              reason: `${symbol} fixture scanner candidate.`,
+              directionHint: "LONG",
+              status: "pending",
+              sourceUniverse: "BTC,ETH,SOL",
+              dedupeKey: symbol,
+              missingDataNotes: [],
+            })),
+            rejectedSymbols: [],
+          };
+        }
+
+        if (nodeKey === "research-agent") {
+          const candidate = state.activeCandidates[0];
+
+          if (!candidate) {
+            return null;
+          }
+
+          return {
+            candidate: {
+              ...candidate,
+              status: "researched",
+            },
+            evidence: [
+              {
+                category: "market",
+                summary: `${candidate.symbol} fixture evidence stayed constructive.`,
+                sourceLabel: "Fixture Market",
+                sourceUrl: null,
+                structuredData: { symbol: candidate.symbol },
+              },
+            ],
+            narrativeSummary: `${candidate.symbol} fixture research stayed constructive.`,
+            chartVisionSummary: null,
+            missingDataNotes: [],
+          };
+        }
+
+        if (nodeKey === "chart-vision-agent") {
+          const candidate = (
+            nodeInput as {
+              candidate?: { id: string; symbol: string; directionHint: "LONG" };
+            }
+          ).candidate;
+
+          if (!candidate) {
+            return null;
+          }
+
+          chartVisionSymbols.push(candidate.symbol);
+
+          return {
+            candidate: {
+              ...candidate,
+              reason: `${candidate.symbol} fixture scanner candidate.`,
+              status: "pending",
+              sourceUniverse: "BTC,ETH,SOL",
+              dedupeKey: candidate.symbol,
+              missingDataNotes: [],
+            },
+            frames: [
+              {
+                timeframe: "15m",
+                analysis: `${candidate.symbol} fixture 15m chart structure remains constructive.`,
+                chartDescription: "Fixture 15m chart image.",
+                imageMimeType: "image/png",
+                imageWidth: 1,
+                imageHeight: 1,
+              },
+              {
+                timeframe: "1h",
+                analysis: `${candidate.symbol} fixture 1h chart structure remains constructive.`,
+                chartDescription: "Fixture 1h chart image.",
+                imageMimeType: "image/png",
+                imageWidth: 1,
+                imageHeight: 1,
+              },
+              {
+                timeframe: "4h",
+                analysis: `${candidate.symbol} fixture 4h chart structure remains constructive.`,
+                chartDescription: "Fixture 4h chart image.",
+                imageMimeType: "image/png",
+                imageWidth: 1,
+                imageHeight: 1,
+              },
+            ],
+            chartSummary: `${candidate.symbol} fixture chart vision confirms the candidate.`,
+            evidence: ["15m", "1h", "4h"].map((timeframe) => ({
+              category: "chart",
+              summary: `${candidate.symbol} ${timeframe} fixture chart evidence stayed constructive.`,
+              sourceLabel: "Fixture Chart",
+              sourceUrl: null,
+              structuredData: { symbol: candidate.symbol, timeframe },
+            })),
+            missingDataNotes: [],
+          };
+        }
+
+        if (nodeKey === "analyst-agent") {
+          analystChartSymbols.push(
+            ...state.evidenceItems
+              .filter((item) => item.category === "chart")
+              .map((item) => String(item.structuredData.symbol ?? "")),
+          );
+          const candidate = state.activeCandidates[0];
+
+          if (!candidate) {
+            return null;
+          }
+
+          return {
+            thesis: {
+              candidateId: candidate.id,
+              asset: candidate.symbol,
+              direction: "LONG",
+              confidence: 90,
+              orderType: "limit",
+              tradingStyle: "swing_trade",
+              expectedDuration: "1-3 days",
+              currentPrice: 100,
+              entryPrice: 99,
+              targetPrice: 112,
+              stopLoss: 95,
+              riskReward: 3,
+              whyNow: "Test thesis clears the critic quality gate.",
+              confluences: ["Momentum aligns", "Risk/reward clears threshold"],
+              uncertaintyNotes: "Fixture-only thesis.",
+              missingDataNotes: "No missing fixture data.",
+            },
+            evidence: [],
+            analystNotes: ["fixture-analyst-output"],
+          };
+        }
+
+        if (nodeKey === "critic-agent") {
+          const thesis = state.thesisDrafts.at(-1);
+
+          if (!thesis) {
+            return null;
+          }
+
+          return {
+            review: {
+              candidateId: thesis.candidateId,
+              decision: "approved",
+              objections: [],
+              forcedOutcomeReason: null,
+            },
+            blockingReasons: [],
+          };
+        }
+
+        if (nodeKey === "publisher-agent") {
+          return {
+            outcome: "approved",
+            packet: {
+              drafts: [
+                {
+                  kind: "signal_alert",
+                  headline: "BTC fixture signal",
+                  summary: "BTC fixture signal approved.",
+                  text: "BTC fixture signal approved.",
+                },
+              ],
+              approvedReview: state.criticReviews.at(-1) ?? null,
+            },
+            drafts: [
+              {
+                kind: "signal_alert",
+                headline: "BTC fixture signal",
+                summary: "BTC fixture signal approved.",
+                text: "BTC fixture signal approved.",
+              },
+            ],
+          };
+        }
+
+        return null;
+      },
+    });
+
+    const finalState = await runtime.invoke({
+      threadId: "thread-graph-chart-fanout",
+      initialState: createInitialSwarmState({ run, config }),
+    });
+
+    expect(chartVisionSymbols.sort()).toEqual(["BTC", "ETH", "SOL"]);
+    expect(finalState.evidenceItems.filter((item) => item.category === "chart")).toHaveLength(9);
+    expect(new Set(analystChartSymbols)).toEqual(new Set(["BTC", "ETH", "SOL"]));
+  });
+
   it("skips scanner and routes directly to intel when market bias is not directional", () => {
     const baseState = createInitialSwarmState({ run, config });
 

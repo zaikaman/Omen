@@ -432,6 +432,15 @@ export const buildOmenNodeInput = (input: {
     const researchSummary =
       input.state.notes.findLast((note) => note.startsWith("research-summary:")) ??
       "research-summary:Research remained market-led with limited external context.";
+    const chartEvidenceForCandidate = input.state.evidenceItems.filter(
+      (item) =>
+        item.category === "chart" &&
+        String(item.structuredData.symbol ?? "").toUpperCase() === candidate.symbol.toUpperCase(),
+    );
+    const candidateChartSummary =
+      chartEvidenceForCandidate.length > 0
+        ? chartEvidenceForCandidate.map((item) => item.summary).join(" ")
+        : (input.state.chartVisionSummaries.at(-1) ?? null);
 
     return {
       context,
@@ -439,9 +448,8 @@ export const buildOmenNodeInput = (input: {
         candidate,
         evidence: input.state.evidenceItems,
         narrativeSummary: researchSummary.replace("research-summary:", "").trim(),
-        chartVisionSummary: input.state.chartVisionSummaries.at(-1) ?? null,
-        chartVisionTimeframes: input.state.evidenceItems
-          .filter((item) => item.category === "chart")
+        chartVisionSummary: candidateChartSummary,
+        chartVisionTimeframes: chartEvidenceForCandidate
           .map((item) => String(item.structuredData.timeframe ?? ""))
           .filter((value) => value.length > 0),
         missingDataNotes: candidate?.missingDataNotes ?? [],
@@ -702,11 +710,17 @@ export const applyOmenNodeOutput = (input: {
     const stateDelta = {
       activeCandidates: nextCandidates,
       evidenceItems: mergedEvidence,
-      chartVisionSummaries: [...input.state.chartVisionSummaries, output.chartSummary],
+      chartVisionSummaries: [
+        ...input.state.chartVisionSummaries,
+        `${output.candidate.symbol.toUpperCase()}: ${output.chartSummary}`,
+      ],
       notes: [
         ...input.state.notes,
-        `chart-vision-summary:${output.chartSummary}`,
-        ...output.frames.map((frame) => `chart-vision-${frame.timeframe}:${frame.analysis}`),
+        `chart-vision-summary:${output.candidate.symbol.toUpperCase()}:${output.chartSummary}`,
+        ...output.frames.map(
+          (frame) =>
+            `chart-vision-${output.candidate.symbol.toUpperCase()}-${frame.timeframe}:${frame.analysis}`,
+        ),
       ],
     };
 

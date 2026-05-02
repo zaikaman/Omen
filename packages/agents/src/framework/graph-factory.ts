@@ -369,12 +369,29 @@ class DefaultAgentRuntime implements AgentRuntime {
           state,
           threadId: input.threadId,
         });
-        const chartVisionInput = buildOmenNodeInput({
-          nodeKey: "chart-vision-agent",
-          state,
-          threadId: input.threadId,
+        const chartVisionTasks = state.activeCandidates.slice(0, 3).map((candidate) => {
+          const candidateState = {
+            ...state,
+            activeCandidates: [
+              candidate,
+              ...state.activeCandidates.filter((entry) => entry.id !== candidate.id),
+            ],
+          };
+          const chartVisionInput = buildOmenNodeInput({
+            nodeKey: "chart-vision-agent",
+            state: candidateState,
+            threadId: input.threadId,
+          });
+
+          return this.invokeNodeWithOverride({
+            node: chartVisionNode,
+            nodeKey: "chart-vision-agent",
+            nodeInput: chartVisionInput,
+            state: candidateState,
+            threadId: input.threadId,
+          });
         });
-        const [researchOutput, chartVisionOutput] = await Promise.all([
+        const [researchOutput, ...chartVisionOutputs] = await Promise.all([
           this.invokeNodeWithOverride({
             node: researchNode,
             nodeKey: "research-agent",
@@ -382,32 +399,29 @@ class DefaultAgentRuntime implements AgentRuntime {
             state,
             threadId: input.threadId,
           }),
-          this.invokeNodeWithOverride({
-            node: chartVisionNode,
-            nodeKey: "chart-vision-agent",
-            nodeInput: chartVisionInput,
-            state,
-            threadId: input.threadId,
-          }),
+          ...chartVisionTasks,
         ]);
 
-        const researchCheckpoint = await this.applyOutputAndCheckpoint({
+        let checkpoint = await this.applyOutputAndCheckpoint({
           threadId: input.threadId,
           state,
           nodeKey: "research-agent",
           sequence,
           output: researchOutput,
         });
-        const chartVisionCheckpoint = await this.applyOutputAndCheckpoint({
-          threadId: input.threadId,
-          state: researchCheckpoint.state,
-          nodeKey: "chart-vision-agent",
-          sequence: researchCheckpoint.sequence,
-          output: chartVisionOutput,
-        });
 
-        state = chartVisionCheckpoint.state;
-        sequence = chartVisionCheckpoint.sequence;
+        for (const chartVisionOutput of chartVisionOutputs) {
+          checkpoint = await this.applyOutputAndCheckpoint({
+            threadId: input.threadId,
+            state: checkpoint.state,
+            nodeKey: "chart-vision-agent",
+            sequence: checkpoint.sequence,
+            output: chartVisionOutput,
+          });
+        }
+
+        state = checkpoint.state;
+        sequence = checkpoint.sequence;
         currentNodeKey = resolveNextOmenNodeKey("chart-vision-agent", state);
         continue;
       }

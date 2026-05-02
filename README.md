@@ -51,9 +51,9 @@ Omen is a multi-agent system that scans the crypto market, researches opportunit
 Every hour, Omen wakes up and does the following:
 
 1. **Reads the market** -- Determines the macro directional bias (bullish, bearish, or neutral) from current conditions
-2. **Finds opportunities** -- Scans a curated universe of crypto assets for candidates that match the bias
+2. **Finds opportunities** -- Scans a curated universe of crypto assets for up to three candidates that match the bias
 3. **Researches deeply** -- Gathers focused narrative, catalyst, fundamental, and sentiment context for the selected candidate
-4. **Analyzes charts** -- Generates multi-timeframe technical analysis using vision-capable models
+4. **Analyzes charts** -- Generates real candlestick chart images for up to three candidates across 15m, 1h, and 4h, then sends each candidate's chart stack to a vision-capable model for multi-timeframe technical analysis
 5. **Builds a thesis** -- Enriches the evidence with live Binance, CoinGecko, and CoinMarketCap data, then synthesizes a structured trade thesis with entry, targets, stop loss, and risk/reward
 6. **Challenges itself** -- An adversarial critic agent reviews the thesis against quality thresholds and rejects weak signals
 7. **Writes intelligence** -- Produces a narrative report explaining the market context, regardless of whether a signal was approved
@@ -73,9 +73,9 @@ Omen is not a single AI model. It is a coordinated swarm: one orchestrator, ten 
 | Agent | What It Does |
 |---|---|
 | **Market Bias** | Reads macro conditions and sets the directional bias (LONG / SHORT / NEUTRAL) |
-| **Scanner** | Scans the asset universe for candidates aligned with the bias |
+| **Scanner** | Scans the asset universe for up to three candidates aligned with the bias |
 | **Research** | Gathers narrative, catalyst, fundamental, and sentiment evidence without calling local market-data providers |
-| **Chart Vision** | Renders candlestick charts and analyzes them through a vision model |
+| **Chart Vision** | Renders PNG candlestick charts for up to three candidates across 15m, 1h, and 4h, then analyzes each candidate's images through a vision model |
 | **Analyst** | Enriches candidate evidence with live Binance, CoinGecko, and CoinMarketCap data, then synthesizes a structured trading thesis |
 | **Critic** | Adversarial review -- rejects weak theses, requests repairs, or approves |
 | **Intel** | Synthesizes a narrative intelligence report from all available context |
@@ -769,6 +769,14 @@ Each agent node and service node exposes capabilities as MCP (Model Context Prot
 | Publisher | `publisher.finalize` | Output routing |
 
 The writer's call to `memory.recall` is the clearest example of peer-to-peer service communication -- it reaches the memory service by peer ID, retrieves historical context, and incorporates it into the article, all without the orchestrator knowing or mediating.
+
+---
+
+## Deep Dive: Chart Vision
+
+After the scanner returns a directional shortlist, Omen takes up to three candidates and renders real PNG candlestick charts for each candidate on the 15m, 1h, and 4h timeframes. That produces up to nine chart images per signal-generation run.
+
+Each candidate's three-image chart stack is sent to the Chart Vision agent as image input, not just indicator text. The vision model returns a per-timeframe read plus a cross-timeframe summary, and those chart evidence items are added to the evidence bundle before the analyst selects and structures the final trade thesis.
 
 ---
 
