@@ -1,654 +1,473 @@
 # Omen
 
-**Autonomous Market-Intelligence Swarm with Decentralized Agent Communication and On-Chain Proof Infrastructure**
+**Autonomous market intelligence, delivered hourly. Every signal traceable. Every report provable.**
 
-Built for the [Open Agents Hackathon](https://ethglobal.com/) by ETHGlobal.
+Omen is a multi-agent system that scans the crypto market, researches opportunities, generates trading signals and long-form intelligence reports, and publishes them -- all without human intervention. Ten specialized role agents coordinate through a decentralized peer-to-peer network with an orchestrator and a dedicated memory service. Every piece of analysis they produce is backed by verifiable proof stored on decentralized infrastructure.
+
+[Live Dashboard](https://omen.vercel.app) -- [X/Twitter](https://x.com/omenswarm) -- [Telegram Channel](https://t.me/omenswarm)
 
 ---
 
 ## Table of Contents
 
-- [Project Overview](#project-overview)
-- [Problem Statement](#problem-statement)
+- [What Omen Does](#what-omen-does)
+- [How It Works](#how-it-works)
+  - [The Swarm](#the-swarm)
+  - [Execution Flow](#execution-flow)
+  - [Quality Control](#quality-control)
 - [Architecture](#architecture)
-  - [System Design](#system-design)
-  - [Monorepo Structure](#monorepo-structure)
-  - [Technology Stack](#technology-stack)
-- [Agent Swarm](#agent-swarm)
-  - [Swarm Roles](#swarm-roles)
-  - [Swarm Execution Graph](#swarm-execution-graph)
-  - [Quality Gates and Repair Loops](#quality-gates-and-repair-loops)
-- [AXL Integration (Gensyn)](#axl-integration-gensyn)
-  - [Deployed AXL Network](#deployed-axl-network)
-  - [A2A Delegation Protocol](#a2a-delegation-protocol)
-  - [MCP Service Layer](#mcp-service-layer)
-  - [Writer-to-Memory Peer Communication](#writer-to-memory-peer-communication)
-  - [Topology and Service Registry](#topology-and-service-registry)
-  - [Verification](#verification)
-- [0G Integration](#0g-integration)
-  - [0G Storage](#0g-storage)
-  - [0G Compute](#0g-compute)
-  - [0G Chain](#0g-chain)
-  - [iNFT (ERC-7857)](#inft-erc-7857)
-  - [Run Manifest and Proof Pipeline](#run-manifest-and-proof-pipeline)
+  - [System Overview](#system-overview)
+  - [Monorepo Layout](#monorepo-layout)
+  - [Tech Stack](#tech-stack)
+- [Agent Network (AXL)](#agent-network-axl)
+  - [Peer-to-Peer Agents](#peer-to-peer-agents)
+  - [How Agents Communicate](#how-agents-communicate)
+  - [Service Discovery](#service-discovery)
+  - [Network Health](#network-health)
+- [Proof Infrastructure (0G)](#proof-infrastructure-0g)
+  - [Storage](#storage)
+  - [Compute Verification](#compute-verification)
+  - [On-Chain Anchoring](#on-chain-anchoring)
+  - [Proof Pipeline](#proof-pipeline)
+- [Intelligent NFT (iNFT)](#intelligent-nft-inft)
 - [Smart Contracts](#smart-contracts)
-  - [OmenAgentINFT](#omenagentinft)
-  - [OmenAgentVerifier](#omenagentverifier)
-  - [OmenRunRegistry](#omenrunregistry)
-- [Frontend Dashboard](#frontend-dashboard)
-  - [Pages and Features](#pages-and-features)
-  - [Evidence and Proof Visualization](#evidence-and-proof-visualization)
-  - [Analytics Suite](#analytics-suite)
-- [Backend API](#backend-api)
-  - [API Endpoints](#api-endpoints)
-  - [Scheduler and Run Coordination](#scheduler-and-run-coordination)
-  - [Publishing Pipeline](#publishing-pipeline)
-- [Copytrade System](#copytrade-system)
-- [Data Sources and Market Intelligence](#data-sources-and-market-intelligence)
-- [Database Schema](#database-schema)
+- [Dashboard](#dashboard)
+- [API Reference](#api-reference)
+- [Copytrade](#copytrade)
+- [Data Sources](#data-sources)
+- [Database](#database)
+- [Publishing](#publishing)
 - [Deployment](#deployment)
 - [Local Development](#local-development)
-- [Environment Variables](#environment-variables)
-- [Use of AI Tools](#use-of-ai-tools)
-- [Team](#team)
+- [Configuration](#configuration)
+- [Security](#security)
+- [AI Tool Attribution](#ai-tool-attribution)
 - [License](#license)
 
 ---
 
-## Project Overview
+## What Omen Does
 
-Omen is an autonomous market-intelligence swarm that coordinates specialized AI agents across a decentralized peer-to-peer network to produce verifiable trading signals and long-form market intelligence reports. The system operates without human intervention on a configurable hourly schedule, scanning the cryptocurrency market, conducting multi-source research, generating technical and fundamental analysis, applying adversarial quality review, synthesizing narrative intelligence, and publishing approved outputs to social platforms.
+Every hour, Omen wakes up and does the following:
 
-What distinguishes Omen from conventional trading bots or market dashboards is the intersection of three properties: genuine agent autonomy through a LangGraph-based execution graph with conditional branching and repair loops, decentralized inter-agent communication through Gensyn AXL with no centralized message broker, and cryptographic proof provenance through 0G protocol infrastructure covering storage, compute verification, on-chain anchoring, and intelligent NFT minting.
+1. **Reads the market** -- Determines the macro directional bias (bullish, bearish, or neutral) from current conditions
+2. **Finds opportunities** -- Scans a curated universe of crypto assets for candidates that match the bias
+3. **Researches deeply** -- Pulls live data from Binance, CoinGecko, CoinMarketCap, Birdeye, and DeFiLlama
+4. **Analyzes charts** -- Generates multi-timeframe technical analysis using vision-capable models
+5. **Builds a thesis** -- Synthesizes all evidence into a structured trade thesis with entry, targets, stop loss, and risk/reward
+6. **Challenges itself** -- An adversarial critic agent reviews the thesis against quality thresholds and rejects weak signals
+7. **Writes intelligence** -- Produces a narrative report explaining the market context, regardless of whether a signal was approved
+8. **Publishes everywhere** -- Posts approved signals and reports to X/Twitter, Telegram, and the Omen dashboard
+9. **Proves everything** -- Stores all evidence, reasoning, and outputs on decentralized storage and anchors proof hashes on-chain
 
-Every swarm run produces a chain of inspectable evidence: AXL message envelopes with peer IDs and delivery receipts, 0G Storage artifacts with durable locators, 0G Compute adjudication results with verifiable inference, on-chain manifest anchors on 0G Chain through the OmenRunRegistry contract, and optionally an ERC-7857 iNFT that embeds the encrypted swarm intelligence as transferable on-chain property.
-
-The system is designed for hackathon judges who need to verify, within a short live review, that the swarm is real, technically deep, and produces useful output rather than a scripted demonstration.
+The result is a continuous stream of market intelligence where every output can be traced back to the specific evidence and reasoning that produced it.
 
 ---
 
-## Problem Statement
+## How It Works
 
-The crypto market intelligence space suffers from three structural problems.
+### The Swarm
 
-First, most market analysis is produced by single-agent systems or monolithic pipelines that lack internal adversarial review. A scanner finds a candidate, an analyst generates a thesis, and the output is published without independent critique. This produces overconfident signals with no mechanism for self-correction.
+Omen is not a single AI model. It is a coordinated swarm: one orchestrator, ten specialized role agents, and a dedicated memory service. The agents are responsible for the intelligence pipeline:
 
-Second, existing autonomous agent systems typically run in-process with shared memory, making it impossible to verify that agents are genuinely independent rather than reading from the same state. Without separate runtime identities and auditable communication channels, claims of multi-agent coordination are unfalsifiable.
+| Agent | What It Does |
+|---|---|
+| **Market Bias** | Reads macro conditions and sets the directional bias (LONG / SHORT / NEUTRAL) |
+| **Scanner** | Scans the asset universe for candidates aligned with the bias |
+| **Research** | Pulls live market data from five providers and assembles structured evidence |
+| **Chart Vision** | Renders candlestick charts and analyzes them through a vision model |
+| **Analyst** | Synthesizes all evidence into a structured trading thesis |
+| **Critic** | Adversarial review -- rejects weak theses, requests repairs, or approves |
+| **Intel** | Synthesizes a narrative intelligence report from all available context |
+| **Generator** | Transforms the intel report into publishable content formats |
+| **Writer** | Produces long-form article content with historical context from memory |
+| **Publisher** | Routes the final output -- signal, intel report, or no-conviction -- for publication |
 
-Third, market intelligence outputs are ephemeral. Once a signal or report is published, there is no durable proof trail linking the output back to the specific research evidence, model reasoning, and infrastructure decisions that produced it. Users and auditors cannot trace a published signal to its origin.
+Each agent runs as a separate process with its own network identity. The memory service is also a separate peer process, but it is infrastructure: it exposes recall and persistence tools rather than making autonomous analytical decisions. Agents do not share memory directly; they communicate through encrypted peer-to-peer messages.
 
-Omen addresses all three problems. The swarm includes an adversarial critic agent with repair loops, agents communicate through AXL with separate peer identities across distinct Fly.io deployments, and every run produces a manifest of proof artifacts anchored on 0G Chain.
+### Execution Flow
+
+The swarm graph is not a fixed linear pipeline. It branches based on what the agents discover:
+
+```
+Market Bias
+    |
+    +-- [Bullish/Bearish] --> Scanner --> Research --> Chart Vision --> Analyst --> Critic
+    |                                                                              |
+    +-- [Neutral] -------+                                                   [Approved?]
+                         |                                                    /       \
+                         |                                                 Yes         No
+                         |                                                  |           |
+                         |                                            Checkpoint    [Fixable?]
+                         |                                                |          /      \
+                         |                                           Publisher    Yes        No
+                         |                                                      |           |
+                         |                                               Analyst (retry)  Intel
+                         |                                                                  |
+                         +--------------------------------------------------------> Intel --> Generator --> Writer --> Checkpoint --> Publisher
+```
+
+If the market is neutral, the swarm skips signal generation entirely and produces a narrative intel report instead. If the critic rejects a thesis but marks it as fixable, the analyst gets one chance to revise. If the critic rejects definitively, the swarm falls back to the intel path.
+
+### Quality Control
+
+Signals do not get published unless they pass multiple gates:
+
+- **Schema validation** on every agent output -- malformed responses are rejected immediately
+- **Configurable quality thresholds** -- minimum confidence, minimum risk/reward ratio, minimum number of confluence factors
+- **Adversarial critic review** -- the critic agent is specifically prompted to find weaknesses
+- **Repair loop** -- one structured revision attempt when the thesis is close but flawed
+- **Independent compute verification** -- an entirely separate model on 0G Compute reviews the thesis as a second opinion
+- **Daily signal limit** -- prevents overproduction; when the limit is reached, the swarm produces intel reports only
 
 ---
 
 ## Architecture
 
-### System Design
-
-Omen is structured as a pnpm monorepo with a clear separation between the agent intelligence layer, the protocol integration layer, the persistence layer, and the presentation layer.
+### System Overview
 
 ```
-                                    +------------------+
-                                    |   Frontend       |
-                                    |   (Vite + React) |
-                                    +--------+---------+
-                                             |
-                                             | REST API
-                                             |
-                                    +--------+---------+
-                                    |   Backend        |
-                                    |   (Express)      |
-                                    +--------+---------+
-                                             |
-                          +------------------+------------------+
-                          |                  |                  |
-                 +--------+-------+ +--------+-------+ +-------+--------+
-                 |  Agent Swarm   | |  AXL Transport | |  0G Protocol   |
-                 |  (LangGraph)   | |  (A2A + MCP)   | |  (Storage/     |
-                 |                | |                | |   Compute/     |
-                 |  11 Roles      | |  12 Fly Apps   | |   Chain/iNFT)  |
-                 +--------+-------+ +--------+-------+ +-------+--------+
-                          |                  |                  |
-                          +------------------+------------------+
-                                             |
-                                    +--------+---------+
-                                    |   Supabase       |
-                                    |   (PostgreSQL)   |
-                                    +------------------+
+                                +------------------+
+                                |    Dashboard     |
+                                |  (React + Vite)  |
+                                +--------+---------+
+                                         |
+                                       REST API
+                                         |
+                                +--------+---------+
+                                |     Backend      |
+                                |    (Express)     |
+                                +--------+---------+
+                                         |
+                      +------------------+------------------+
+                      |                  |                  |
+             +--------+-------+ +--------+-------+ +-------+--------+
+             |  Agent Swarm   | |  Agent Network | |  Proof Layer   |
+             |  (LangGraph)   | |  (Gensyn AXL)  | |  (0G Protocol) |
+             |                | |                | |                |
+             |  10 Agents +   | |  12 Peer Nodes | |  Storage +     |
+             |  Orch + Memory | |                | |  Compute +     |
+             |                | |                | |  Chain         |
+             +--------+-------+ +--------+-------+ +-------+--------+
+                      |                  |                  |
+                      +------------------+------------------+
+                                         |
+                                +--------+---------+
+                                |    PostgreSQL    |
+                                |   (Supabase)    |
+                                +------------------+
 ```
 
-The backend orchestrates the swarm execution pipeline, delegates agent work through AXL to remote peer nodes, persists state and events to Supabase, publishes proof artifacts to 0G Storage, anchors manifests on 0G Chain, and serves the REST API consumed by the frontend dashboard.
-
-### Monorepo Structure
+### Monorepo Layout
 
 ```
 omen/
-  backend/               Express API server, swarm pipeline, scheduler, publishers
-  frontend/              Vite + React dashboard with evidence visualization
-  contracts/             Solidity smart contracts (iNFT, Verifier, RunRegistry)
+  backend/                 API server, pipeline orchestration, scheduler, publishers
+  frontend/                Dashboard UI
+  contracts/               Solidity contracts (iNFT, Verifier, Run Registry)
   packages/
-    agents/              Agent definitions, prompts, LLM clients, quality gates
-    axl/                 AXL adapter, A2A client, MCP service contracts, topology
-    zero-g/              0G Storage, Compute, Chain, iNFT, proof registry
-    db/                  Supabase client, repositories, realtime events
-    market-data/         Binance, CoinGecko, CoinMarketCap, Birdeye, DeFiLlama
-    indicators/          Technical indicators, chart analysis
-    shared/              Shared types, schemas, constants
-    execution/           Execution engine interfaces
-  scripts/               AXL node launchers, Solidity compiler
-  deploy/                Fly.io configuration for AXL bridge nodes
-  specs/                 Specification documents
-  langgraphjs/           LangGraph.js framework (vendored)
+    agents/                Agent definitions, prompts, state machine, graph
+    axl/                   AXL adapter, A2A client, MCP services, topology
+    zero-g/                0G Storage, Compute, Chain, iNFT, proofs
+    db/                    Database client and repositories
+    market-data/           Binance, CoinGecko, CMC, Birdeye, DeFiLlama
+    indicators/            Technical indicators and chart analysis
+    shared/                Shared types and schemas
+    execution/             Execution engine interfaces
+  scripts/                 AXL node launchers, contract compiler
+  deploy/                  Fly.io node configuration
 ```
 
-### Technology Stack
+### Tech Stack
 
-| Layer                 | Technology                                                               |
-| --------------------- | ------------------------------------------------------------------------ |
-| Runtime               | Node.js 24, TypeScript 5.8                                               |
-| Agent Framework       | LangGraph.js (directed graph with conditional edges)                     |
-| LLM Providers         | OpenAI (GPT-5-nano default), Grok-4 (scanner), 0G Compute (adjudication) |
-| Agent Communication   | Gensyn AXL (A2A protocol, MCP services, peer-to-peer encryption)         |
-| Decentralized Storage | 0G Storage (KV state, Log entries, File artifacts)                       |
-| Verifiable Compute    | 0G Compute (independent adjudication inference)                          |
-| On-Chain Proofs       | 0G Chain (OmenRunRegistry, OmenAgentINFT, OmenAgentVerifier)             |
-| Database              | Supabase (PostgreSQL with Row Level Security)                            |
-| Frontend              | React 19, Vite 5, TailwindCSS 3, Recharts, Lightweight Charts            |
-| Backend               | Express 5, Helmet, CORS, Morgan                                          |
-| Image Generation      | Hugging Face Inference (intel report cover images)                       |
-| Social Publishing     | TwitterAPI.io (X/Twitter posts), Telegram Bot API                        |
-| Deployment            | Vercel (frontend), Heroku (backend), Fly.io (AXL nodes)                  |
-| Package Manager       | pnpm 10 with Turborepo                                                   |
-| Smart Contracts       | Solidity 0.8.24                                                          |
-| Trading               | Hyperliquid SDK (copytrade execution)                                    |
+| Layer | Technology |
+|---|---|
+| Runtime | Node.js 24, TypeScript 5.8 |
+| Agent Framework | LangGraph.js (directed graph with conditional edges) |
+| LLM Providers | OpenAI GPT-5-nano, Grok-4 (scanner), 0G Compute (adjudication) |
+| Agent Network | Gensyn AXL (peer-to-peer encrypted communication) |
+| Proof Storage | 0G Storage (KV, Log, File) |
+| Proof Compute | 0G Compute (independent model verification) |
+| Proof Anchoring | 0G Chain (on-chain manifest registry) |
+| Database | Supabase PostgreSQL |
+| Frontend | React 19, Vite 5, TailwindCSS, Recharts, Lightweight Charts |
+| Backend | Express 5, Helmet, CORS |
+| Image Generation | Hugging Face Inference |
+| Social Publishing | TwitterAPI.io, Telegram Bot API |
+| Trading | Hyperliquid SDK |
+| Deployment | Vercel, Heroku, Fly.io |
+| Contracts | Solidity 0.8.24 |
 
 ---
 
-## Agent Swarm
+## Agent Network (AXL)
 
-Omen's intelligence layer is built on a LangGraph-based directed execution graph. Each swarm run traverses a sequence of specialized agent nodes, where each node receives structured input from the accumulated swarm state, invokes an LLM with a role-specific prompt, validates the output against a Zod schema, and returns a typed result that updates the shared state for downstream nodes.
+### Peer-to-Peer Agents
 
-The graph supports conditional branching. If the market bias is neutral, the scanner is skipped and the run proceeds directly to the intel synthesis path. If the critic rejects a thesis but marks it as repairable, the graph loops back to the analyst for a second attempt. If the critic rejects definitively, the graph routes to the intel path to produce a market narrative report instead of a trading signal.
+The AXL network runs twelve peer deployments on Fly.io: one orchestrator, ten agent role nodes including publisher, and one memory service node. Each has its own cryptographic identity:
 
-### Swarm Roles
+| Component | Deployment | What It Runs |
+|---|---|---|
+| Orchestrator | `omen-axl-node` | Coordinates the swarm, delegates work to role nodes |
+| Market Bias | `omen-axl-market-bias` | Macro bias assessment |
+| Scanner | `omen-axl-scanner` | Asset scanning and candidate selection |
+| Research | `omen-axl-research` | Multi-source data gathering |
+| Chart Vision | `omen-axl-chart-vision` | Technical chart analysis |
+| Analyst | `omen-axl-analyst` | Thesis generation |
+| Critic | `omen-axl-critic` | Adversarial review |
+| Intel | `omen-axl-intel` | Narrative intelligence synthesis |
+| Generator | `omen-axl-generator` | Content formatting |
+| Writer | `omen-axl-writer` | Long-form article drafting |
+| Memory Service | `omen-axl-memory` | State persistence and historical recall tools |
+| Publisher | `omen-axl-publisher` | Output routing and finalization |
 
-The swarm consists of eleven specialized agent roles, each with its own prompt template, input/output schema, and LLM configuration:
+Each node runs five processes: the AXL peer binary, an HTTP proxy, an MCP router for service discovery, an MCP service host exposing the agent's capabilities, and an A2A callback server for receiving delegated work.
 
-**Market Bias Agent** -- Establishes the macro directional bias (LONG, SHORT, or NEUTRAL) by analyzing market snapshots and prevailing narratives. This bias frames every downstream decision: which candidates to scan, how to weight evidence, and what risk posture to adopt. The reasoning output is persisted and visible in the dashboard.
+### How Agents Communicate
 
-**Scanner Agent** -- Scans the configured market universe (a curated list of tradeable symbols) for candidates that align with the established bias. The scanner applies initial filtering based on volume, momentum, and narrative attention. It returns up to three active candidates, each tagged with a direction hint, a reason for selection, and a dedupe key to prevent re-scanning the same opportunity across consecutive runs.
+The orchestrator delegates work to agents using the Agent-to-Agent (A2A) protocol:
 
-**Research Agent** -- Conducts multi-source research on the top candidate. The research agent queries Binance for OHLCV candle data, CoinGecko for fundamental metrics, CoinMarketCap for market cap and supply data, Birdeye for on-chain token analytics, and DeFiLlama for TVL and protocol flow data. It assembles structured evidence items across categories: market, technical, liquidity, funding, fundamental, catalyst, sentiment, and chart. Each evidence item includes a source label, source URL, summary, and optional structured data payload.
+1. The orchestrator reaches a step in the graph (e.g., "research")
+2. It constructs a delegation request with the step input and the research node's peer ID
+3. The request is encrypted and routed through the AXL mesh network
+4. The research node receives the request, runs the research agent, and sends the result back
+5. The orchestrator matches the response to the pending delegation and continues the graph
 
-**Chart Vision Agent** -- Generates multi-timeframe technical chart analysis using vision-capable LLMs. The chart vision agent renders candlestick charts through Lightweight Charts, captures them as images, and submits them to a vision model for pattern recognition. It produces frame-level analysis for each timeframe and a consolidated chart summary that feeds into the analyst's thesis construction.
+Agents can also call peer services directly. The writer node, for example, makes a peer-to-peer call to the memory service to retrieve historical context before drafting an article. This happens without the orchestrator's involvement.
 
-**Analyst Agent** -- Synthesizes all available evidence (research, chart vision, market bias reasoning) into a structured trading thesis. The thesis includes asset, direction, confidence score (0-100), risk/reward ratio, entry zone, target prices, stop loss, order type (market or limit), trading style (day trade or swing), expected duration, confluence factors, uncertainty notes, and missing data acknowledgments. When operating in repair mode after a critic rejection, the analyst receives the previous thesis and the critic's specific objections to address.
+Every message is recorded in the database with sender/receiver identities, delivery status, and optional links to 0G storage references.
 
-**Critic Agent** -- Performs adversarial review of the analyst's thesis against the evidence base and configurable quality thresholds. The critic evaluates minimum confidence, minimum risk/reward ratio, minimum confluence count, and internal consistency. It returns a decision (approved, rejected, or watchlist_only), a list of objections, blocking reasons, and a repairable flag indicating whether the thesis could be improved with targeted revisions. If repairable and no repair attempt has been made, the graph loops back to the analyst.
+### Service Discovery
 
-**Intel Agent** -- Synthesizes a narrative market intelligence report from the available context: bias reasoning, candidate analysis, evidence items, chart summaries, thesis drafts, and critic reviews. The intel agent produces reports across five categories: market_update, narrative_shift, token_watch, macro, and opportunity. Each report includes a title, summary, body, confidence score, importance score, and associated symbols. The intel agent also receives recent intel history and recent post context to avoid repetition.
+Each agent registers its MCP tools with the local AXL router on startup. Other nodes can discover available services through the mesh network, enabling dynamic routing and service-level health checks.
 
-**Generator Agent** -- Transforms the intel report into publishable content formats. The generator produces a refined topic, a tweet-length summary, a full blog post with markdown formatting, and an image generation prompt for the cover illustration. The image prompt is carefully constructed to avoid any text, ticker symbols, logos, or identifiable brand marks.
+### Network Health
 
-**Writer Agent** -- Produces long-form article content from the intel report and generated content. The writer node performs a direct peer-to-peer AXL MCP call to the memory node to retrieve historical context before drafting, demonstrating role-to-role communication that bypasses the orchestrator.
+The backend continuously polls the network topology through the `TopologyPoller`, tracking peer status, heartbeat timestamps, and service availability. The `PeerFailover` module routes around degraded nodes. Service registry snapshots are persisted for historical review.
 
-**Memory (Checkpoint) Node** -- Persists the current swarm state as a durable checkpoint on 0G Storage. The checkpoint includes the full state delta, proof artifact references, and a checkpoint label. The checkpoint node uses 0G KV Store for real-time state snapshots and 0G Log Store for append-only history. It returns a checkpoint reference ID that links the run to its durable storage location.
-
-**Publisher Agent** -- Makes the final routing decision. If the critic approved the thesis, the publisher formats a trading signal with all required fields. If the run produced intel without a signal, the publisher packages the intel report for publication. If neither path produced output, it records a no_conviction outcome. The publisher also prepares social media drafts (signal alerts, intel summaries, and intel threads) for downstream posting to X/Twitter and Telegram.
-
-### Swarm Execution Graph
-
-```
-market-bias-agent
-      |
-      +--[LONG/SHORT]--> scanner-agent --> research-agent --> chart-vision-agent
-      |                                                              |
-      +--[NEUTRAL]--+                                         analyst-agent
-                    |                                               |
-                    |                                         critic-agent
-                    |                                          /         \
-                    |                              [approved] /           \ [rejected]
-                    |                                        /             \
-                    |                               checkpoint       [repairable?]
-                    |                                   |              /        \
-                    |                            publisher-agent    [yes]      [no]
-                    |                                              /            \
-                    |                                     analyst-agent    intel-agent
-                    |                                          |               |
-                    +-----------------------------> intel-agent          generator-agent
-                                                        |                     |
-                                                  generator-agent       writer-agent
-                                                        |                     |
-                                                  writer-agent          checkpoint
-                                                        |                     |
-                                                  checkpoint           publisher-agent
-                                                        |
-                                                  publisher-agent
-```
-
-### Quality Gates and Repair Loops
-
-The swarm implements a multi-layer quality assurance system:
-
-1. **Schema Validation** -- Every agent output is validated against a Zod schema before it updates the swarm state. Malformed outputs cause the step to fail rather than corrupt downstream processing.
-
-2. **Critic Gate** -- The critic agent enforces configurable quality thresholds (minimum confidence, minimum risk/reward, minimum confluences). Theses that fail these thresholds are rejected with specific objections.
-
-3. **Repair Loop** -- If the critic marks a rejection as repairable and no repair attempt has been made, the graph routes back to the analyst with the previous thesis and critic objections. The analyst must address each objection specifically. Only one repair attempt is permitted per run to prevent infinite loops.
-
-4. **0G Compute Adjudication** -- When 0G Compute is configured, an independent adjudication step runs the thesis and evidence through a separate model (Qwen 2.5 7B Instruct) on 0G's verifiable compute infrastructure. The adjudicator returns an independent verdict, confidence score, and rationale. This provides a second-opinion check from infrastructure that is independent of the primary LLM provider.
-
-5. **Daily Signal Limit** -- The pipeline enforces a rolling 24-hour signal limit to prevent overproduction. When the limit is reached, signal generation is disabled and the run routes to the intel-only path with an explicit reason recorded in the swarm state.
+You can inspect the live topology at `/api/topology`.
 
 ---
 
-## AXL Integration (Gensyn)
+## Proof Infrastructure (0G)
 
-Omen uses Gensyn AXL as the sole communication layer for inter-agent coordination. The integration is not a wrapper around a centralized message broker. Each swarm role runs as an independently deployed application with its own AXL node binary, unique cryptographic peer identity, local MCP router, role-specific MCP service host, and A2A callback server.
+Every swarm run generates a chain of evidence that anyone can inspect and verify. This is not a log file. It is a set of cryptographically anchored artifacts stored on decentralized infrastructure.
 
-### Deployed AXL Network
+### Storage
 
-The production swarm is deployed as twelve separate Fly.io applications:
+Omen uses three types of 0G Storage:
 
-| Role         | Fly App                 | AXL Peer ID                 |
-| ------------ | ----------------------- | --------------------------- |
-| orchestrator | `omen-axl-node`         | `5a0c250776116d3c...ddf239` |
-| market_bias  | `omen-axl-market-bias`  | `f49cc2cf8f293c41...b6bf1`  |
-| scanner      | `omen-axl-scanner`      | `75f01a9f5b3403b6...f1f9d8` |
-| research     | `omen-axl-research`     | `26525371a3622...a9a09ed`   |
-| chart_vision | `omen-axl-chart-vision` | `394005c77faf...c90d04`     |
-| analyst      | `omen-axl-analyst`      | `9926348dd39a...121d1c`     |
-| critic       | `omen-axl-critic`       | `62070e8c1099...cddebc`     |
-| intel        | `omen-axl-intel`        | `ea5590d48048...ba237b`     |
-| generator    | `omen-axl-generator`    | `17e9e6c75f85...255989`     |
-| writer       | `omen-axl-writer`       | `5d138fdd6e4b...d40a7ca6`   |
-| memory       | `omen-axl-memory`       | `b9c37993dbe7...e026e8`     |
-| publisher    | `omen-axl-publisher`    | `14d3925be85c...91b373`     |
+**KV State** -- Real-time swarm state snapshots written at milestone steps. Each checkpoint captures a compact view of what every agent has produced so far. Stored on 0G's KV node infrastructure with namespaced keys.
 
-Each deployed application runs five processes: the AXL node binary for peer-to-peer networking, a public HTTP proxy for external access, an MCP router for service discovery, an Omen MCP role host exposing the agent's capabilities as MCP tools, and an A2A callback server for receiving delegated work from the orchestrator.
+**Log Entries** -- Immutable, append-only records written at each checkpoint. Creates a tamper-evident history of the run that cannot be retroactively modified.
 
-### A2A Delegation Protocol
+**File Artifacts** -- Larger documents published as files: evidence bundles (all research data from a run), report bundles (the full signal or intel report), and manifests (the root document linking everything together).
 
-The orchestrator delegates work to role nodes using the Agent-to-Agent (A2A) protocol over AXL. When the swarm graph reaches a step that maps to a remote role, the `OrchestratorDelegator` constructs an A2A delegation request containing the step input, target peer ID, and correlation metadata. The request is sent through the AXL HTTP adapter to the orchestrator's local AXL node, which encrypts and routes it to the target peer.
+### Compute Verification
 
-The target role node receives the delegation through its A2A callback server, deserializes the input, invokes the role's MCP tool, and returns the result through AXL back to the orchestrator. The `ResponseCorrelator` matches incoming responses to pending delegations using correlation IDs.
+After the local critic reviews a thesis, Omen optionally submits the thesis and evidence to a completely separate model running on 0G Compute infrastructure (Qwen 2.5 7B Instruct). This independent adjudicator returns its own verdict, confidence score, and rationale.
 
-All AXL messages are recorded in the `axl_messages` database table with sender/receiver agent IDs, roles, transport kind (send, a2a, or mcp), delivery status, and optional durable storage references.
+This is not the same model that produced the thesis. It is a second opinion from different infrastructure, and the result is recorded as a verifiable proof artifact.
 
-### MCP Service Layer
+### On-Chain Anchoring
 
-Each role node exposes its agent capabilities as MCP (Model Context Protocol) tools. The MCP service definitions are implemented in `backend/src/nodes/services/`:
+After a run completes:
 
-- `market-bias-mcp.ts` -- Exposes `market_bias.generate` for macro bias assessment
-- `scanner-mcp.ts` -- Exposes `scan.candidates` for market scanning
-- `research-mcp.ts` -- Exposes `research.investigate` for multi-source research
-- `chart-vision-mcp.ts` -- Exposes `chart_vision.analyze` for technical chart analysis
-- `analyst-mcp.ts` -- Exposes `analyst.synthesize` for thesis generation
-- `critic-mcp.ts` -- Exposes `critic.review` for adversarial evaluation
-- `intel-mcp.ts` -- Exposes `intel.synthesize` for narrative intelligence
-- `generator-mcp.ts` -- Exposes `generator.produce` for content generation
-- `writer-mcp.ts` -- Exposes `writer.article` for long-form content
-- `memory-mcp.ts` -- Exposes `memory.recall` and `memory.store` for persistent context
-- `publisher-mcp.ts` -- Exposes `publisher.finalize` for output routing
+1. All proof artifacts are aggregated into a run manifest
+2. The manifest is published to 0G Storage
+3. The manifest's root hash (keccak256) is anchored on 0G Chain through the `OmenRunRegistry` contract
+4. The transaction hash is recorded as a chain proof artifact
 
-Each MCP service registers itself with the AXL MCP router on startup, making it discoverable by other nodes in the mesh network.
+Anyone can look up a run ID on-chain and verify that the manifest stored at the URI matches the recorded hash.
 
-### Writer-to-Memory Peer Communication
+### Proof Pipeline
 
-A distinguishing feature of Omen's AXL integration is direct role-to-role communication that bypasses the orchestrator. During the `writer.article` step, the writer node performs a peer-to-peer AXL MCP call to the memory node using the `memory.recall` method. The writer sends a recall request to the memory node's peer ID, receives historical context, and incorporates it into the article draft.
+Every run produces these proof layers:
 
-This is verified by the A2A verifier, which confirms:
-
-```json
-{
-  "hasArticle": true,
-  "peerContext": {
-    "sourcePeerId": "b9c37993dbe718883eb6904cbef54d1687c1f43160677bee55342eab71e026e8",
-    "service": "memory",
-    "method": "memory.recall"
-  }
-}
-```
-
-This proves that the writer node reached the separate memory node by peer ID and incorporated returned context into its result, without orchestrator mediation.
-
-### Topology and Service Registry
-
-The backend maintains a live view of the AXL network topology through the `TopologyPoller` and `ServiceRegistrySync` modules. The topology endpoint (`/api/topology`) returns the current peer graph, including peer IDs, online status, registered services, latency measurements, and last-seen timestamps.
-
-The `PeerFailover` module handles degraded peers by tracking heartbeat failures and routing around offline nodes. Service registry snapshots are persisted to the `service_registry_snapshots` table for historical inspection.
-
-### Verification
-
-The repository includes a comprehensive A2A verification suite (`pnpm run axl:verify:a2a`) that validates the deployed AXL network:
-
-1. Sends A2A delegation requests from the orchestrator node to each of the eleven role peer IDs
-2. Validates that each role response completes successfully
-3. Validates each response against the role's production output schema
-4. Confirms the writer's peer-to-peer memory recall context
-5. Reports the exact target peer ID used for each delegation
-
-The verifier supports profile-based execution: the `core` profile tests the critical path (market_bias, scanner, research, analyst, critic), while the default profile tests all eleven roles.
+| Layer | What It Contains | Where It Lives |
+|---|---|---|
+| Agent Events | Step-by-step execution trace | PostgreSQL |
+| AXL Messages | Inter-agent communication records | PostgreSQL |
+| Evidence Bundle | All research data and sources | 0G Storage |
+| Report Bundle | Final signal or intel report | 0G Storage |
+| State Checkpoints | Swarm state at milestone steps | 0G KV Store |
+| Compute Proofs | Independent adjudication results | 0G Storage |
+| Run Manifest | Root document linking all artifacts | 0G Storage |
+| Chain Anchor | Manifest hash anchored on-chain | 0G Chain |
+| iNFT Version | Encrypted swarm intelligence update for the completed run | 0G Storage + 0G Chain |
+| Post Proofs | Social media post payload and delivery result | 0G Storage |
 
 ---
 
-## 0G Integration
+## Intelligent NFT (iNFT)
 
-Omen integrates with the 0G protocol across four layers: decentralized storage for durable state and artifacts, verifiable compute for independent adjudication, on-chain anchoring for proof permanence, and iNFT minting for swarm intelligence ownership.
+Omen has an ERC-7857-compatible intelligent NFT that represents the entire autonomous swarm as transferable on-chain property. The current Galileo deployment is `0xAA2c6434C776ae504AB96045Ce867D2E50b779F8`, token ID `1`.
 
-### 0G Storage
-
-The `@omen/zero-g` package provides three storage adapters:
-
-**KV State Store** (`zero-g-state-store.ts`) -- Persists real-time swarm state snapshots as key-value pairs on 0G's KV node infrastructure. The checkpoint node writes a compact representation of the swarm state at milestone steps (after the checkpoint node and after the publisher agent). Keys are namespaced using a seed-based scheme (`omen-zero-g-kv-v1`) to prevent collisions. Each write returns a locator that is stored as a `zero_g_refs` record with ref_type `kv_state`.
-
-**Log Store** (`zero-g-log-store.ts`) -- Appends immutable log entries to 0G's append-only log infrastructure. The pipeline writes structured event records at each checkpoint, creating a tamper-evident history of the run. Each entry includes the step name, state delta summary, and timestamp. Log entries are referenced with ref_type `log_entry` or `log_bundle`.
-
-**File Store** (`zero-g-file-store.ts`) -- Publishes larger artifacts (evidence bundles, report bundles, manifests) as files to 0G Storage. The file store handles upload, receives a durable locator, and records the reference with ref_type `file_artifact`. Evidence bundles contain all structured evidence items from a run. Report bundles contain the full signal or intel report with metadata. Manifests aggregate all proof references from a run into a single root document.
-
-The storage adapter (`storage-adapter.ts`) wraps the 0G TypeScript SDK and handles connection configuration, request timeouts, expected replica counts, and error recovery.
-
-### 0G Compute
-
-When configured, the pipeline invokes 0G Compute for an independent adjudication step after the local critic review. The `ZeroGAdjudication` module constructs a structured prompt containing the thesis, evidence, and local critic decision, then submits it to a model hosted on 0G's compute infrastructure (default: Qwen 2.5 7B Instruct).
-
-The adjudication prompt requests a structured response with three fields: VERDICT (approved or rejected), CONFIDENCE (integer 0-100), and RATIONALE (one sentence). The response is parsed and recorded as a `compute_result` proof artifact with the model identifier and compute job metadata.
-
-The `ZeroGReportSynthesis` module provides a secondary compute capability for synthesizing analytical reports through 0G Compute when additional verification is needed.
-
-The `ComputeProofRecorder` publisher persists compute proof artifacts to the database with the 0G compute job ID, model used, input hash, and output preview.
-
-### 0G Chain
-
-The `ZeroGProofAnchor` module anchors run manifests on 0G Chain (Galileo testnet, chain ID 16602) through the `OmenRunRegistry` smart contract. After a run completes and all proof artifacts are assembled, the pipeline:
-
-1. Builds a run manifest aggregating all proof artifact references
-2. Publishes the manifest to 0G Storage as a file artifact
-3. Computes the manifest root hash (keccak256 of the manifest content)
-4. Calls `OmenRunRegistry.anchorRun(runId, manifestRoot, manifestUri)` on 0G Chain
-5. Records the chain transaction as a `chain_proof` artifact with the explorer URL
-
-The chain adapter (`chain-adapter.ts`) handles wallet configuration, transaction signing, gas estimation, and explorer URL construction for the 0G Chain testnet.
-
-### iNFT (ERC-7857)
-
-Omen can mint an ERC-7857-compatible intelligent NFT that represents the entire autonomous swarm. After minting, completed swarm runs can append versioned encrypted intelligence records to the same token. The iNFT references encrypted swarm intelligence on 0G Storage and stores verifiable data hashes on 0G Chain. The intelligence bundle contains:
-
-- The Omen swarm role graph definition
-- All checked-in agent prompt source files
+The iNFT references encrypted intelligence stored on 0G Storage and keeps verifiable hashes on-chain. The encrypted bundle contains:
+- The swarm role graph definition
+- All agent prompt source files
 - The 0G Compute model used for adjudication
-- A required 0G memory root or manifest root from a real swarm run
+- A memory root from a real completed swarm run
 
-The mint process requires a real `OMEN_INFT_MEMORY_ROOT` from a completed 0G-backed run. The script refuses to mint placeholder intelligence, ensuring every minted iNFT is backed by genuine swarm execution evidence. When `OMEN_INFT_CONTRACT_ADDRESS`, `OMEN_INFT_TOKEN_ID`, and the owner public key are configured in the backend, each completed live run uploads a fresh encrypted bundle and records a new on-chain intelligence version.
+The intelligence bundle is encrypted with AES-256-GCM. The symmetric key is sealed with the owner's RSA-4096 public key. Only the private key holder can decrypt and inspect the referenced intelligence.
 
-The intelligence bundle is encrypted with AES-256-GCM, and the symmetric key is sealed with the owner's RSA-4096 public key. This ensures that only the private key holder can decrypt and inspect the embedded intelligence.
+The mint script requires a real `OMEN_INFT_MEMORY_ROOT` from a completed 0G-backed run. It will not mint with placeholder data. After minting, the backend appends a new iNFT intelligence version after each completed run when `OMEN_INFT_CONTRACT_ADDRESS`, `OMEN_INFT_TOKEN_ID`, and the owner public key are configured.
 
-### Run Manifest and Proof Pipeline
-
-Every swarm run produces a structured proof pipeline:
-
-1. **Agent Events** -- Each checkpoint emits an agent event with the step name, status, summary, and trace payload. Events are persisted to the `agent_events` table.
-
-2. **AXL Message Records** -- Every inter-agent communication through AXL is recorded with sender/receiver identities, message type, transport kind, and delivery status.
-
-3. **0G Storage Artifacts** -- Evidence bundles, report bundles, and state checkpoints are published to 0G Storage with durable locators.
-
-4. **0G Compute Proofs** -- Adjudication results include the compute job ID, model identifier, and verifiable output.
-
-5. **Run Manifest** -- All proof artifacts are aggregated into a manifest document published to 0G Storage.
-
-6. **Chain Anchor** -- The manifest root hash is anchored on 0G Chain through the OmenRunRegistry contract.
-
-7. **Post Proofs** -- If the run produces a social media post, the post payload and result are recorded as separate proof artifacts.
-
-All proof references are stored in the `zero_g_refs` table with ref types: `kv_state`, `log_entry`, `log_bundle`, `file_artifact`, `compute_job`, `compute_result`, `post_payload`, `post_result`, `manifest`, and `chain_proof`.
+When the iNFT is transferred, the `OmenAgentVerifier` contract validates re-encryption proofs to ensure the intelligence data is properly handed off to the new owner. Plain `transferFrom` is disabled; transfers must use `iTransfer`. Nonces prevent proof replay.
 
 ---
 
 ## Smart Contracts
 
-Three Solidity contracts are deployed on 0G Chain (Galileo testnet):
+Three contracts deployed on 0G Chain (Galileo testnet):
 
 ### OmenAgentINFT
 
-`contracts/OmenAgentINFT.sol` -- The primary iNFT contract implementing the ERC-7857 standard for intelligent NFTs. Key capabilities:
-
-- **mint** -- Creates a new iNFT with encrypted intelligence data, sealed keys, an initial intelligence version, and verifiable data hashes. Requires non-empty intelligent data and encrypted URI.
-- **updateIntelligence** -- Appends a new run-specific intelligence version with encrypted 0G URI, memory root hash, proof manifest hash, timestamp, and block number.
-- **iTransfer** -- Transfers an iNFT with re-encryption proofs. The verifier validates transfer validity proofs before updating data hashes and ownership. Plain `transferFrom` is disabled so transfers cannot bypass the proof path.
-- **iClone** -- Creates a copy of an iNFT with new data hashes for the recipient, preserving the original.
-- **authorizeUsage** -- Grants usage rights to a specific address without transferring ownership.
-- **revokeAuthorization** -- Removes previously granted usage rights.
-- **delegateAccess** -- Designates an assistant address that can act on behalf of the user.
-- **intelligentDataOf** -- Returns the array of intelligent data entries (description and hash) for a token.
-
-The contract stores encrypted token URIs pointing to 0G Storage locations, and each token's intelligent data includes description strings and keccak256 data hashes that can be verified against the actual encrypted content.
+Implements an ERC-7857-compatible iNFT surface. Supports minting with encrypted intelligence data, versioned per-run intelligence updates (`updateIntelligence`), verified transfers with re-encryption proofs (`iTransfer`), cloning (`iClone`), usage authorization for specific addresses, and access delegation. Each token stores encrypted URIs pointing to 0G Storage and verifiable data hashes.
 
 ### OmenAgentVerifier
 
-`contracts/OmenAgentVerifier.sol` -- A production signer-based verifier for ERC-7857 transfer validity proofs. The verifier:
-
-- Validates that access proof and ownership proof reference the same data hashes and public keys
-- Requires a sealed key for data re-encryption
-- Recovers the access assistant address from the access proof signature
-- Recovers the attestor address from the ownership proof signature
-- Rejects replayed nonces to prevent proof reuse
-- Rejects signatures from untrusted attestors
-
-The verifier supports both TEE and ZKP oracle types for ownership proofs and uses EIP-191 signed message recovery for signature validation.
+Validates transfer proofs for the iNFT contract. Recovers signer addresses from EIP-191 signed access and ownership proofs, enforces nonce uniqueness to prevent replay, and maintains a trust registry of attestor addresses. Supports both TEE and ZKP oracle types.
 
 ### OmenRunRegistry
 
-`contracts/OmenRunRegistry.sol` -- An on-chain registry for anchoring swarm run manifests. Each anchored run stores:
-
-- The run ID as a string key
-- The manifest root hash (bytes32)
-- The manifest URI pointing to 0G Storage
-- The anchorer address
-- The anchor timestamp and block number
-
-The `anchorRun` function emits a `RunAnchored` event with indexed fields for efficient querying. The `getRunAnchor` function allows anyone to retrieve the proof record for a given run ID.
+On-chain registry for swarm run manifests. Stores the run ID, manifest root hash, manifest URI, anchorer address, timestamp, and block number. Emits indexed `RunAnchored` events for efficient querying.
 
 ---
 
-## Frontend Dashboard
+## Dashboard
 
-The frontend is a React 19 application built with Vite 5 and TailwindCSS, designed around an operational "Evidence Cockpit" aesthetic: carbon-black surfaces, forensic cyan accents, and structured information layers that make swarm execution evidence inspectable.
+The web dashboard at `omen.vercel.app` provides real-time visibility into everything the swarm does.
 
-### Pages and Features
+**Home** -- System status, latest signal, latest intel report, and a live terminal log of agent activity. Refreshes every 30 seconds.
 
-**Landing Page** (`/`) -- Public-facing introduction to the Omen system with live system status, feature explanations, and entry points to the dashboard.
+**Signals** -- Feed of all trading signals with confidence scores, direction, entry/target/stop prices, risk/reward, PnL tracking, and proof badges linking to the underlying evidence.
 
-**Dashboard Home** (`/app`) -- Operational overview displaying the latest signal, latest intelligence report, system status panel (run status, scheduler state, next run time, runtime mode, market bias), and a real-time terminal log of agent events. All data refreshes on a 30-second interval.
+**Intel** -- Feed of narrative intelligence reports with category badges, confidence scores, AI-generated cover images, and full article views with rich markdown content.
 
-**Signals Page** (`/app/signals`) -- Feed of all trading signals with confidence scores, direction indicators, entry/target/stop-loss prices, risk/reward ratios, PnL tracking, and proof badges. Each signal links to a detailed view with the full signal chart rendered through Lightweight Charts.
+**Copytrade** -- Automated copy-trading interface for Hyperliquid. Enroll a wallet, configure risk settings, and the system executes trades based on approved signals.
 
-**Copytrade Page** (`/app/copytrade`) -- Automated copy-trading interface powered by Hyperliquid. Users can enroll a wallet, configure risk settings (position size, leverage, take-profit, stop-loss), and the system automatically executes trades based on approved signals. The page displays account status, active positions, trade history, and PnL metrics.
+**Analytics** -- Multi-tab analytics suite:
+- Overview: signal count, win rate, activity over time
+- Performance: PnL tracking, per-asset metrics, confidence-outcome correlation
+- Market: token frequency analysis, mindshare distribution
+- Signals: confidence distribution, direction breakdown, status tracking
 
-**Intel Page** (`/app/intel`) -- Feed of market intelligence reports with category badges, confidence scores, and AI-generated cover images. Each report expands to a full blog-style view with rich markdown content. The page supports deep linking to individual reports.
+**Evidence** -- Proof visualization for each run. Manifest panels, chain anchor cards, compute proof cards, iNFT references, and clickable 0G Storage links.
 
-**Analytics Page** (`/app/analytics`) -- Multi-tab analytics suite with four sub-pages:
-
-- **Overview** -- High-level metrics dashboard with signal count, win rate, and activity charts
-- **Performance** -- PnL tracking, asset performance table, and confidence-outcome correlation
-- **Market** -- Token frequency analysis and mindshare distribution
-- **Signals** -- Signal confidence distribution, direction breakdown, and status tracking
-
-**Evidence Page** (`/app/evidence`) -- Comprehensive proof visualization for each swarm run. Displays:
-
-- Run manifest panels with artifact counts and storage locators
-- Chain anchor cards with transaction hashes and explorer links
-- Compute proof cards with model identifiers and adjudication results
-- iNFT proof cards with token IDs and encrypted storage references
-- Sponsor proof summaries grouped by 0G and AXL integration depth
-- Artifact lists with clickable 0G Storage locators
-
-**Trace History Page** (`/app/traces`) -- Detailed AXL communication trace viewer. Shows the full swarm run modal with step-by-step execution timeline, AXL route visualization, peer topology panel, service registry state, and message-level inspection.
-
-### Evidence and Proof Visualization
-
-The frontend implements a proof badge system that aggregates proof artifacts into compact, inspectable badges displayed on signal and intel cards:
-
-- **0G MANIFEST** -- Links to the run manifest on 0G Storage
-- **COMPUTE HASH** -- Shows the 0G Compute adjudication result
-- **AXL ROUTED** -- Indicates the signal was produced through AXL-routed agent communication
-- **POST PROOF** -- Links to the social media post proof artifact
-- **CHAIN ANCHOR** -- Links to the on-chain manifest anchor transaction
-
-The `SponsorProofSummary` component provides a high-level view of 0G and AXL integration depth for each run, designed for quick judge comprehension.
-
-### Analytics Suite
-
-The analytics dashboard provides eleven chart components:
-
-- `ActivityChart` -- Signal and intel production over time
-- `WinRateChart` -- Historical win rate tracking
-- `PnLChart` -- Cumulative profit and loss
-- `SignalConfidenceChart` -- Confidence score distribution
-- `ConfidenceOutcomeChart` -- Correlation between confidence and actual outcomes
-- `DirectionBreakdownChart` -- LONG vs SHORT signal distribution
-- `SignalStatusChart` -- Signal lifecycle status tracking
-- `TokenFrequencyChart` -- Most frequently analyzed tokens
-- `MindshareChart` -- Market narrative mindshare distribution
-- `AssetPerformanceTable` -- Per-asset performance metrics table
+**Traces** -- AXL communication trace viewer. Step-by-step execution timeline, peer topology, service registry state, and message-level inspection.
 
 ---
 
-## Backend API
+## API Reference
 
-The backend is an Express 5 server that serves the REST API, orchestrates the swarm pipeline, manages the hourly scheduler, and coordinates all publishing side effects.
-
-### API Endpoints
-
-| Method | Path                           | Description                                               |
-| ------ | ------------------------------ | --------------------------------------------------------- |
-| GET    | `/api/health`                  | Health check                                              |
-| GET    | `/api/status`                  | Runtime status with scheduler state                       |
-| GET    | `/api/runs`                    | List of swarm runs with status and outcome                |
-| GET    | `/api/dashboard/summary`       | Dashboard summary with latest signal, intel, and post IDs |
-| GET    | `/api/dashboard/scheduler`     | Scheduler status (enabled, running, next run, last run)   |
-| GET    | `/api/signals`                 | Signal feed with pagination                               |
-| GET    | `/api/signals/:id`             | Signal detail with full thesis and evidence               |
-| GET    | `/api/signals/:id/chart`       | Signal chart data for Lightweight Charts                  |
-| GET    | `/api/signals/:id/candles`     | OHLCV candle data for signal charting                     |
-| GET    | `/api/intel`                   | Intel feed with pagination                                |
-| GET    | `/api/intel/:id`               | Intel detail with full body and metadata                  |
-| GET    | `/api/analytics`               | Analytics snapshot feed                                   |
-| GET    | `/api/analytics/latest`        | Latest analytics snapshot                                 |
-| GET    | `/api/topology`                | Live AXL network topology                                 |
-| GET    | `/api/proofs`                  | Proof artifact feed                                       |
-| GET    | `/api/proofs/:runId`           | Proof detail for a specific run                           |
-| GET    | `/api/posts`                   | Outbound post feed                                        |
-| GET    | `/api/posts/:id`               | Post status detail                                        |
-| GET    | `/api/logs`                    | Agent event log feed                                      |
-| GET    | `/api/inft`                    | iNFT metadata and proof summary                           |
-| GET    | `/api/copytrade/account`       | Copytrade account info                                    |
-| GET    | `/api/copytrade/status`        | Copytrade enrollment status                               |
-| GET    | `/api/copytrade/dashboard`     | Copytrade dashboard with positions and PnL                |
-| POST   | `/api/copytrade/prepare`       | Prepare copytrade enrollment                              |
-| POST   | `/api/copytrade/finalize`      | Finalize copytrade enrollment with signature              |
-| PATCH  | `/api/copytrade/risk-settings` | Update copytrade risk settings                            |
-
-### Scheduler and Run Coordination
-
-The `HourlyScheduler` manages automated swarm execution:
-
-- Configurable interval (default: 60 minutes)
-- Persisted last-run timestamp to survive dyno restarts
-- Run lock to prevent concurrent execution
-- Overlap detection and prevention
-- Automatic retry with fresh run ID on failure
-- Optional pause-on-failure behavior
-- Failure notification through Telegram
-
-The `DefaultRunCoordinator` wraps the pipeline with retry logic and failed-run cleanup. If a run fails, the coordinator deletes the partial run cascade from the database and retries with a new run ID (configurable max retries, default: 1).
-
-### Publishing Pipeline
-
-After each swarm run, the pipeline executes a series of publishers:
-
-1. **EventPublisher** -- Persists agent events to the `agent_events` table
-2. **AxlMessageRecorder** -- Persists AXL message envelopes to `axl_messages`
-3. **ZeroGRefRecorder** -- Persists 0G storage references to `zero_g_refs`
-4. **ZeroGPublisher** -- Publishes artifacts to 0G Storage (evidence bundles, state checkpoints)
-5. **EvidenceBundlePublisher** -- Assembles and publishes the evidence bundle
-6. **ReportBundlePublisher** -- Assembles and publishes the signal or intel report bundle
-7. **ComputeProofRecorder** -- Persists 0G Compute proof artifacts
-8. **RunManifestPublisher** -- Builds and publishes the run manifest, anchors on chain
-9. **PostPublisher** -- Formats and posts to X/Twitter through the post worker
-10. **PostProofPublisher** -- Records post payloads and results as proof artifacts
-11. **PostResultRecorder** -- Updates post status after delivery
-
-The post worker implements a state machine (`queued -> formatting -> ready -> posting -> posted/failed`) with rate limiting and error recovery.
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/health` | Health check |
+| GET | `/api/status` | Runtime status and scheduler state |
+| GET | `/api/runs` | Swarm run history |
+| GET | `/api/dashboard/summary` | Latest signal, intel, and post IDs |
+| GET | `/api/dashboard/scheduler` | Scheduler status |
+| GET | `/api/signals` | Signal feed (paginated) |
+| GET | `/api/signals/:id` | Signal detail |
+| GET | `/api/signals/:id/chart` | Chart data for signal visualization |
+| GET | `/api/signals/:id/candles` | OHLCV candle data |
+| GET | `/api/intel` | Intel feed (paginated) |
+| GET | `/api/intel/:id` | Intel detail |
+| GET | `/api/analytics` | Analytics snapshots |
+| GET | `/api/analytics/latest` | Latest analytics |
+| GET | `/api/topology` | Live AXL network topology |
+| GET | `/api/proofs` | Proof artifact feed |
+| GET | `/api/proofs/:runId` | Proofs for a specific run |
+| GET | `/api/posts` | Outbound post feed |
+| GET | `/api/logs` | Agent event log |
+| GET | `/api/inft` | iNFT metadata |
+| GET | `/api/copytrade/account` | Copytrade account info |
+| GET | `/api/copytrade/status` | Enrollment status |
+| GET | `/api/copytrade/dashboard` | Positions, trades, PnL |
+| POST | `/api/copytrade/prepare` | Start enrollment |
+| POST | `/api/copytrade/finalize` | Complete enrollment with signature |
+| PATCH | `/api/copytrade/risk-settings` | Update risk parameters |
 
 ---
 
-## Copytrade System
+## Copytrade
 
-Omen includes a production-grade automated copy-trading system built on Hyperliquid:
+Omen includes automated copy-trading on Hyperliquid.
 
-**Enrollment Flow** -- Users prepare an enrollment by specifying their wallet address, target chain (Mainnet or Testnet), and risk settings. The system generates a dedicated agent wallet, encrypts the private key with AES-256, and stores the enrollment. The user signs an approval nonce, and the system finalizes the enrollment by submitting the agent wallet approval to Hyperliquid.
+**How it works:**
 
-**Signal Monitoring** -- The `SignalMonitorService` polls for new approved signals at a configurable interval (default: 20 seconds). When a new signal is detected, it checks all active copytrade enrollments and determines which trades to execute based on the signal's direction, confidence, and the user's risk settings.
+1. You prepare an enrollment with your wallet address and risk settings
+2. Omen generates a dedicated agent wallet and encrypts the private key (AES-256) before storing it
+3. You sign an approval nonce to authorize the agent wallet
+4. When the swarm approves a signal, the system opens a position on Hyperliquid with your configured leverage and size
+5. Take-profit and stop-loss orders are set automatically
+6. Positions are monitored and closed when targets are hit
 
-**Trade Execution** -- The `CopytradeExecutorService` manages the full trade lifecycle:
+Risk settings are fully configurable: position size (USD), leverage, take-profit percentage, stop-loss percentage, and maximum concurrent positions.
 
-- Opens positions with configurable leverage and position sizing
-- Sets take-profit and stop-loss orders
-- Monitors positions for TP/SL hits
-- Closes positions and records PnL
-- Handles partial fills and execution failures
-
-**Risk Management** -- Each enrollment has configurable risk settings including maximum position size (USD), leverage limits, take-profit percentage, stop-loss percentage, and maximum concurrent positions.
-
-The copytrade system operates on real Hyperliquid infrastructure (Mainnet or Testnet) with no mock or simulated execution.
+The system runs on real Hyperliquid infrastructure. There is no paper trading mode in copytrade.
 
 ---
 
-## Data Sources and Market Intelligence
+## Data Sources
 
-The `@omen/market-data` package integrates with five external data providers:
+The swarm pulls live data from five providers:
 
-**Binance** -- OHLCV candlestick data, 24-hour ticker statistics, order book depth, and recent trades. Used by the research agent for technical price data and by the chart vision agent for chart rendering.
+| Provider | Data | Used By |
+|---|---|---|
+| **Binance** | OHLCV candles, 24h tickers, order book, trades | Research, Chart Vision |
+| **CoinGecko** | Market cap, price changes, volume, supply, dominance | Research |
+| **CoinMarketCap** | Market cap rankings, supply, platform metadata | Research |
+| **Birdeye** | On-chain analytics, holder distribution, liquidity, security | Research |
+| **DeFiLlama** | Protocol TVL, TVL changes, chain distribution | Research |
 
-**CoinGecko** -- Token metadata, market cap rankings, price change percentages, trading volume, circulating supply, and market dominance. Used for fundamental metrics and cross-market context.
+All data clients support API key rotation (multiple keys per provider), request timeouts, and graceful degradation when a provider is down.
 
-**CoinMarketCap (CMC)** -- Market cap rankings, supply metrics, platform metadata, and category classification. Provides supplementary fundamental data and broader market context.
-
-**Birdeye** -- On-chain token analytics for Solana and EVM chains, including holder distribution, liquidity depth, transaction volume, and token security scores. Used for on-chain evidence and DeFi token assessment.
-
-**DeFiLlama** -- Protocol TVL tracking, TVL change rates, chain distribution, and protocol category data. Used for fundamental DeFi protocol analysis and liquidity flow assessment.
-
-The `@omen/indicators` package provides technical analysis:
-
-- **Basic Indicators** -- Moving averages (SMA, EMA), RSI, MACD, Bollinger Bands, volume analysis
-- **Chart Analysis** -- Multi-timeframe chart rendering and pattern recognition through vision models
-
-All data provider clients implement key rotation (multiple API keys per provider), request timeout handling, and graceful degradation when a provider is unavailable.
+Technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands) are computed locally from Binance candle data.
 
 ---
 
-## Database Schema
+## Database
 
-The Supabase PostgreSQL database contains eleven tables:
+PostgreSQL on Supabase. Core tables:
 
-| Table                        | Purpose                                                               |
-| ---------------------------- | --------------------------------------------------------------------- |
-| `runs`                       | Swarm run records with status, mode, market bias, outcome, and timing |
-| `signals`                    | Trading signals with thesis fields, price levels, PnL tracking        |
-| `intels`                     | Intelligence reports with title, body, category, confidence, image    |
-| `agent_nodes`                | Agent node registry with role, transport, status, and peer ID         |
-| `agent_events`               | Timestamped agent lifecycle events with trace payloads                |
-| `axl_messages`               | AXL communication records with sender/receiver and delivery status    |
-| `zero_g_refs`                | 0G Storage/Compute/Chain proof artifact references                    |
-| `outbound_posts`             | Social media post queue with status machine tracking                  |
-| `analytics_snapshots`        | Pre-computed analytics data for dashboard charts                      |
-| `app_config`                 | Runtime configuration with mode, universe, thresholds                 |
-| `copytrade_enrollments`      | Copytrade user enrollments with encrypted agent keys                  |
-| `copytrade_trades`           | Individual copytrade position records with PnL                        |
-| `service_registry_snapshots` | AXL service registry state captures                                   |
+| Table | What It Stores |
+|---|---|
+| `runs` | Swarm run records: status, mode, bias, outcome, timing |
+| `signals` | Trading signals: thesis fields, prices, PnL |
+| `intels` | Intelligence reports: title, body, category, confidence, image |
+| `agent_nodes` | Node registry: role, transport, status, peer ID |
+| `agent_events` | Execution events with trace payloads |
+| `axl_messages` | AXL communication records |
+| `zero_g_refs` | Proof artifact references (storage, compute, chain) |
+| `outbound_posts` | Social media post queue and status |
+| `analytics_snapshots` | Pre-computed analytics data |
+| `copytrade_enrollments` | User enrollments with encrypted agent keys |
+| `copytrade_trades` | Trade positions and PnL records |
+| `service_registry_snapshots` | AXL service registry captures |
+| `app_config` | Runtime configuration |
 
-All tables use UUID-based text primary keys, timestamp columns with timezone, and JSONB columns for flexible structured data. Foreign key constraints enforce referential integrity across runs, signals, intels, agent nodes, and proof references.
+---
+
+## Publishing
+
+### X/Twitter
+
+Signals and intel reports are published to X/Twitter through TwitterAPI.io. The post worker manages a state machine: `queued -> formatting -> ready -> posting -> posted/failed`. Rate limiting prevents API abuse.
+
+Post formats:
+- **Signal alerts** with direction, confidence, prices, and risk/reward
+- **Intel summaries** with title and key insight
+- **Intel threads** for long-form content split across tweets
+
+### Telegram
+
+The Telegram bot sends signal and intel notifications to the configured channel with deep links back to the dashboard.
+
+### Post Proofs
+
+Every published post generates two proof artifacts -- the formatted payload before delivery and the delivery result (post ID, published URL). These are included in the run manifest so anyone can verify that a specific post came from a specific swarm run.
 
 ---
 
@@ -657,47 +476,42 @@ All tables use UUID-based text primary keys, timestamp columns with timezone, an
 ### Frontend (Vercel)
 
 ```bash
-# Root directory: frontend
-# Build command: cd .. && pnpm --filter omen-frontend build
-# Output directory: dist
-# Environment: VITE_API_BASE_URL=https://<backend>.herokuapp.com/api
+# Root: frontend/
+# Build: cd .. && pnpm --filter omen-frontend build
+# Output: dist
+# Set VITE_API_BASE_URL to your backend URL
 ```
 
 ### Backend (Heroku)
 
 ```bash
-heroku create <app-name>
-heroku buildpacks:set heroku/nodejs --app <app-name>
-heroku config:set NODE_ENV=production SCHEDULER_ENABLED=true --app <app-name>
-# Set all environment variables from backend/.env.example
+heroku create omen-backend
+heroku buildpacks:set heroku/nodejs
+heroku config:set NODE_ENV=production SCHEDULER_ENABLED=true
+# Set all env vars from backend/.env.example
 git push heroku main
 ```
 
-The backend runs as a single web dyno with an in-process hourly scheduler. The Procfile runs `pnpm start:backend` which executes the TypeScript source through tsx at runtime.
+Runs as a single web dyno with an in-process scheduler. TypeScript executed at runtime through tsx.
 
-### AXL Nodes (Fly.io)
+### Agent Nodes (Fly.io)
 
-Each AXL role node is deployed as a separate Fly.io application:
+Each role is a separate Fly.io app:
 
 ```bash
 fly apps create omen-axl-<role>
 fly volumes create axl_data --size 1 --region sin --app omen-axl-<role>
-fly secrets set AXL_PRIVATE_KEY_B64=<base64-pem> --app omen-axl-<role>
+fly secrets set AXL_PRIVATE_KEY_B64=<key> --app omen-axl-<role>
 fly deploy -c deploy/fly/axl.fly.toml --app omen-axl-<role>
 ```
 
-### Smart Contract Deployment
+### Contracts
 
 ```bash
-pnpm run contracts:compile          # Compile Solidity with solc
-pnpm run inft:deploy                # Deploy OmenAgentVerifier + OmenAgentINFT
-pnpm run inft:mint                  # Mint the swarm iNFT (requires real 0G memory root)
-```
-
-The `OmenRunRegistry` is deployed separately:
-
-```bash
-pnpm --filter @omen/zero-g deploy:run-registry
+pnpm contracts:compile           # Compile Solidity
+pnpm inft:deploy                 # Deploy Verifier + iNFT contracts
+pnpm inft:mint                   # Mint the swarm iNFT
+pnpm --filter @omen/zero-g deploy:run-registry   # Deploy RunRegistry
 ```
 
 ---
@@ -708,8 +522,6 @@ pnpm --filter @omen/zero-g deploy:run-registry
 
 - Node.js 24
 - pnpm 10
-- PowerShell (for AXL node scripts)
-- Supabase CLI (optional, for local database)
 
 ### Setup
 
@@ -719,363 +531,493 @@ cd omen
 pnpm install
 ```
 
-### Running
+### Run
 
 ```bash
-# Start both frontend and backend in parallel
-pnpm dev
-
-# Or individually
-pnpm frontend    # Vite dev server on port 5173
-pnpm backend     # Express server on port 4001
+pnpm dev                # Frontend + backend in parallel
+pnpm frontend           # Vite dev server (port 5173)
+pnpm backend            # Express server (port 4001)
 ```
 
-### Local AXL Swarm
+### Local Agent Network
 
 ```bash
-# Start all 12 AXL nodes locally
-pnpm run axl:start:demo
-
-# Start core nodes only
-pnpm run axl:start:demo:core
-
-# Stop all local nodes
-pnpm run axl:stop:demo
-
-# Verify A2A communication
-pnpm run axl:verify:a2a
+pnpm axl:start:demo          # Start all 12 nodes locally
+pnpm axl:start:demo:core     # Core nodes only
+pnpm axl:stop:demo           # Stop all nodes
+pnpm axl:verify:a2a          # Verify A2A communication works
 ```
 
 ### Database
 
 ```bash
-pnpm supabase:start     # Start local Supabase
-pnpm supabase:reset     # Reset and reseed database
-pnpm supabase:status    # Check Supabase status
+pnpm supabase:start          # Start local Supabase
+pnpm supabase:reset          # Reset and reseed
 ```
 
-### Testing
+### Quality
 
 ```bash
-pnpm test               # Unit + integration tests
-pnpm test:unit          # Unit tests only
-pnpm test:integration   # Integration tests only
-pnpm test:e2e           # Playwright end-to-end tests
-```
-
-### Code Quality
-
-```bash
-pnpm lint               # ESLint across all packages
-pnpm lint:fix           # Auto-fix lint issues
-pnpm format             # Prettier formatting
-pnpm typecheck          # TypeScript type checking
+pnpm test                    # All tests
+pnpm lint                    # ESLint
+pnpm typecheck               # TypeScript checking
 ```
 
 ---
 
-## Environment Variables
+## Configuration
 
-The system requires environment variables across three scopes. See the example files for complete reference:
+All configuration is through environment variables. See `backend/.env.example` for the full reference.
 
-- `backend/.env.example` -- Backend configuration (127 variables)
-- `frontend/.env.example` -- Frontend configuration
-- `deploy/env/fly.axl.env.example` -- AXL bridge node configuration
+Key groups:
 
-Key variable groups:
-
-| Group          | Variables                                                 | Purpose                       |
-| -------------- | --------------------------------------------------------- | ----------------------------- |
-| Supabase       | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`               | Database access               |
-| OpenAI         | `OPENAI_API_KEY`, `OPENAI_MODEL`                          | Primary LLM provider          |
-| Scanner LLM    | `SCANNER_API_KEY`, `SCANNER_MODEL`                        | Scanner-specific LLM (Grok-4) |
-| AXL            | `AXL_NODE_BASE_URL`, `AXL_*_NODE_ID` (x12)                | AXL peer network              |
-| 0G Storage     | `ZERO_G_INDEXER_URL`, `ZERO_G_KV_NODE_URL`                | Decentralized storage         |
-| 0G Compute     | `ZERO_G_COMPUTE_URL`, `ZERO_G_COMPUTE_API_KEY`            | Verifiable inference          |
-| 0G Chain       | `ZERO_G_RPC_URL`, `ZERO_G_PRIVATE_KEY`, `ZERO_G_CHAIN_ID` | On-chain anchoring            |
-| iNFT           | `OMEN_INFT_*` (x12)                                       | iNFT contract and mint config |
-| Market Data    | `COINGECKO_API_KEY`, `BIRDEYE_API_KEY`, `CMC_API_KEY`     | Data providers                |
-| Twitter        | `TWITTERAPI_API_KEY`, `TWITTERAPI_*`                      | X/Twitter posting             |
-| Telegram       | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`                  | Telegram notifications        |
-| Copytrade      | `FUTURES_ENCRYPTION_KEY`                                  | Agent key encryption          |
-| Image Gen      | `HF_TOKEN` (x17)                                          | Hugging Face inference        |
-| Object Storage | `R2_*`                                                    | Cloudflare R2 for images      |
-
----
-
-## Use of AI Tools
-
-This project was built with significant assistance from AI coding tools, in accordance with the hackathon guidelines on transparency and attribution.
-
-### Tools Used
-
-**Primary Development Assistant** -- OpenAI Codex with GPT-5.5 served as the primary coding assistant throughout the project. It was used extensively across all phases of development, from initial architecture planning and boilerplate scaffolding through to implementation of business logic, debugging, refactoring, and documentation.
-
-### Scope of AI Assistance
-
-AI assistance was integrated into the development workflow continuously rather than being confined to specific files or modules. The nature of working with an AI coding assistant means that its contributions are distributed throughout the codebase in a way that is difficult to isolate to individual files. Rather than generating entire modules wholesale, the assistant was used as a pair-programming partner: proposing implementations that were reviewed, modified, tested, and iterated upon by the team.
-
-Specific areas where AI assistance was particularly active include:
-
-- **Architecture and Design** -- Structuring the monorepo, defining package boundaries, and designing the agent-to-agent communication patterns
-- **Agent Definitions and Prompts** -- Crafting the role-specific prompt templates and defining input/output schemas for each swarm agent
-- **Protocol Integration** -- Implementing the AXL adapter layer, 0G storage/compute/chain integrations, and the proof pipeline
-- **Smart Contracts** -- Developing the ERC-7857 iNFT contract, verifier, and run registry
-- **Frontend Components** -- Building the dashboard UI components, chart integrations, and evidence visualization panels
-- **Pipeline Logic** -- Implementing the swarm execution pipeline, checkpoint system, and publishing side effects
-- **Testing and Debugging** -- Writing test cases, diagnosing runtime issues, and refining error handling
-
-### Team Contributions
-
-The team was responsible for all architectural decisions, product direction, system design, and quality standards. Every AI-generated suggestion was evaluated by team members before integration. The team directed the AI through specific requirements, rejected unsuitable outputs, and made independent design choices that shaped the final system. The AI tool accelerated implementation velocity but did not replace the team's judgment on what to build, how components should interact, or what quality bar the system should meet.
-
-All specification files, planning artifacts, and design documents used to direct the AI are included in the repository under the `specs/` directory and project-level markdown files (`PRODUCT.md`, `DESIGN.md`, `DEPLOYMENT.md`, `AXL_DEMO.md`, `INFT_DEPLOYMENT.md`).
-
----
-
-## Team
-
-**Project** -- Omen
-
-**Hackathon** -- Open Agents Hackathon by ETHGlobal
-
-**Target Prizes:**
-
-- 0G: Best Autonomous Agents, Swarms and iNFT Innovations ($7,500 pool)
-- Gensyn: Best Application of Agent eXchange Layer (AXL) ($5,000 pool)
-
----
-
-## Protocol Features Summary
-
-### 0G Protocol Usage
-
-| Feature              | SDK/API            | Implementation                                           |
-| -------------------- | ------------------ | -------------------------------------------------------- |
-| KV State Store       | 0G TypeScript SDK  | `packages/zero-g/src/storage/zero-g-state-store.ts`      |
-| Log Store            | 0G TypeScript SDK  | `packages/zero-g/src/storage/zero-g-log-store.ts`        |
-| File Store           | 0G TypeScript SDK  | `packages/zero-g/src/storage/zero-g-file-store.ts`       |
-| Storage Adapter      | 0G TypeScript SDK  | `packages/zero-g/src/storage/storage-adapter.ts`         |
-| Storage Namespace    | Custom             | `packages/zero-g/src/storage/namespace.ts`               |
-| Compute Adapter      | 0G Compute API     | `packages/zero-g/src/compute/compute-adapter.ts`         |
-| Compute Adjudication | 0G Compute API     | `packages/zero-g/src/compute/zero-g-adjudication.ts`     |
-| Report Synthesis     | 0G Compute API     | `packages/zero-g/src/compute/zero-g-report-synthesis.ts` |
-| Chain Adapter        | ethers.js + 0G RPC | `packages/zero-g/src/chain/chain-adapter.ts`             |
-| Proof Anchor         | ethers.js + 0G RPC | `packages/zero-g/src/chain/proof-anchor.ts`              |
-| Run Registry ABI     | Solidity ABI       | `packages/zero-g/src/chain/omen-run-registry.ts`         |
-| iNFT ABI             | Solidity ABI       | `packages/zero-g/src/chain/omen-agent-inft.ts`           |
-| Verifier ABI         | Solidity ABI       | `packages/zero-g/src/chain/omen-agent-verifier.ts`       |
-| iNFT Encryption      | Node.js crypto     | `packages/zero-g/src/inft/encryption.ts`                 |
-| Intelligence Bundle  | Custom             | `packages/zero-g/src/inft/omen-agent-intelligence.ts`    |
-| Proof Registry       | Custom             | `packages/zero-g/src/proofs/proof-registry.ts`           |
-| Manifest Builder     | Custom             | `packages/zero-g/src/proofs/run-manifest-builder.ts`     |
-
-### AXL Protocol Usage
-
-| Feature                | Protocol | Implementation                                        |
-| ---------------------- | -------- | ----------------------------------------------------- |
-| A2A Client             | AXL A2A  | `packages/axl/src/a2a/a2a-client.ts`                  |
-| Delegation Contract    | AXL A2A  | `packages/axl/src/a2a/delegation-contract.ts`         |
-| AXL Adapter            | AXL HTTP | `packages/axl/src/adapter/axl-adapter.ts`             |
-| HTTP Adapter           | AXL HTTP | `packages/axl/src/adapter/axl-http-adapter.ts`        |
-| MCP Service Contract   | AXL MCP  | `packages/axl/src/mcp/service-contract.ts`            |
-| MCP Service Registry   | AXL MCP  | `packages/axl/src/mcp/service-registry.ts`            |
-| HTTP Node Client       | AXL HTTP | `packages/axl/src/node-client/http-node-client.ts`    |
-| Message Envelope       | Custom   | `packages/axl/src/message-envelope/omen-message.ts`   |
-| Peer Status            | AXL      | `packages/axl/src/peer-status/peer-status.ts`         |
-| Topology Snapshot      | AXL      | `packages/axl/src/topology/topology-snapshot.ts`      |
-| Orchestrator Delegator | AXL A2A  | `backend/src/nodes/a2a/orchestrator-delegator.ts`     |
-| Response Correlator    | AXL A2A  | `backend/src/nodes/a2a/response-correlator.ts`        |
-| AXL Node Manager       | Custom   | `backend/src/nodes/axl-node-manager.ts`               |
-| AXL Peer Registry      | Custom   | `backend/src/nodes/axl-peer-registry.ts`              |
-| Topology Poller        | AXL      | `backend/src/nodes/topology/topology-poller.ts`       |
-| Service Registry Sync  | AXL      | `backend/src/nodes/topology/service-registry-sync.ts` |
-| Peer Failover          | Custom   | `backend/src/nodes/topology/peer-failover.ts`         |
-
----
-
-## Swarm State Model
-
-The swarm maintains a comprehensive state object (`SwarmState`) that accumulates data as agents execute. The state is immutable between steps -- each agent receives a snapshot and returns a delta that is merged into the next snapshot.
-
-### State Fields
-
-```typescript
-{
-  run: {                          // Run metadata and lifecycle
-    id, mode, status, marketBias, startedAt, completedAt,
-    triggeredBy, activeCandidateCount, currentCheckpointRefId,
-    finalSignalId, finalIntelId, failureReason, outcome
-  },
-  config: {                       // Runtime configuration snapshot
-    mode, marketUniverse, qualityThresholds,
-    providers, postToXEnabled, scanIntervalMinutes
-  },
-  marketBiasReasoning: string,    // Market bias agent reasoning
-  activeCandidates: [{            // Scanner output
-    id, symbol, directionHint, reason, status, dedupeKey, missingDataNotes
-  }],
-  evidenceItems: [{               // Research agent output
-    category, summary, sourceLabel, sourceUrl, structuredData
-  }],
-  chartVisionSummaries: string[], // Chart vision agent summaries
-  thesisDrafts: [{                // Analyst agent output
-    candidateId, asset, direction, confidence, riskReward,
-    orderType, tradingStyle, expectedDuration,
-    currentPrice, entryPrice, targetPrice, stopLoss,
-    whyNow, confluences, uncertaintyNotes, missingDataNotes
-  }],
-  criticReviews: [{               // Critic agent output
-    candidateId, decision, objections,
-    forcedOutcomeReason, repairable, repairInstructions
-  }],
-  intelReports: [{                // Intel agent output
-    topic, title, summary, insight, category,
-    confidence, importanceScore, symbols, imagePrompt
-  }],
-  generatedIntelContents: [{      // Generator agent output
-    topic, tweetText, blogPost, imagePrompt
-  }],
-  intelArticles: [{               // Writer agent output
-    headline, body, sources
-  }],
-  publisherDrafts: [{             // Publisher agent output
-    kind, headline, summary, text, metadata
-  }],
-  proofArtifacts: [],             // Accumulated proof references
-  notes: string[],                // Execution trace notes
-  errors: string[],               // Error messages
-  signalRepairAttempts: number,   // Repair loop counter
-  latestCheckpointRefId: string,  // 0G checkpoint reference
-  activeTradeSymbols: string[],   // Currently traded symbols (copytrade)
-  recentIntelHistory: [],         // Recent intel for dedup
-  recentPostContext: [],          // Recent posts for dedup
-  signalGenerationDisabledReason: string | null
-}
-```
-
-The `mergeSwarmState` function performs a shallow merge of state deltas, preserving all fields not explicitly overridden by the delta. This ensures that downstream agents always receive the complete accumulated context from all upstream agents.
-
----
-
-## Social Publishing
-
-### X/Twitter Integration
-
-The social publishing pipeline uses TwitterAPI.io for posting to X/Twitter. The implementation includes:
-
-**Post Formatter** (`post-formatter.ts`) -- Transforms signals and intel reports into platform-appropriate formats:
-
-- Signal alerts with direction, confidence, entry/target/stop prices, and risk/reward
-- Intel summaries with title and key insight
-- Intel threads with multi-tweet formatting for long-form content
-
-**Post Worker** (`post-worker.ts`) -- Manages the posting lifecycle with a state machine:
-
-1. `queued` -- Post is created and waiting for formatting
-2. `formatting` -- Post content is being prepared
-3. `ready` -- Post is formatted and waiting for delivery
-4. `posting` -- Post is being sent to Twitter API
-5. `posted` -- Post was successfully delivered (with published URL)
-6. `failed` -- Post delivery failed (with error message)
-
-**Rate Limiting** (`rate-limit-store.ts`) -- Tracks posting frequency to avoid API rate limits and content flooding.
-
-**TwitterAPI Client** (`twitterapi-client.ts`) -- Wraps the TwitterAPI.io REST API with authentication, proxy support, cookie-based sessions, and error classification.
-
-### Telegram Integration
-
-The `TelegramService` sends notifications to a configured Telegram channel for both signals and intel reports. Telegram messages include the report title, summary, and a deep link back to the full intel page in the Omen dashboard.
-
-### Post Proof Pipeline
-
-Every social media post generates two proof artifacts:
-
-- `post_payload` -- The formatted post content before delivery
-- `post_result` -- The delivery result including the provider post ID and published URL
-
-These artifacts are included in the run manifest, creating a verifiable link between the swarm's analysis pipeline and its public outputs.
+| Group | Purpose |
+|---|---|
+| `SUPABASE_*` | Database connection |
+| `OPENAI_*` | Primary LLM |
+| `SCANNER_*` | Scanner-specific LLM (Grok-4) |
+| `AXL_*` | Peer network (agent nodes, orchestrator, publisher, and memory service IDs) |
+| `ZERO_G_*` | 0G Storage, Compute, and Chain |
+| `OMEN_INFT_*` | iNFT contract, mint, and automatic intelligence versioning |
+| `COINGECKO_API_KEY`, `BIRDEYE_API_KEY`, `CMC_API_KEY` | Market data |
+| `TWITTERAPI_*` | X/Twitter posting |
+| `TELEGRAM_*` | Telegram notifications |
+| `FUTURES_ENCRYPTION_KEY` | Copytrade agent key encryption |
+| `HF_TOKEN_*` | Hugging Face image generation |
+| `R2_*` | Cloudflare R2 for image storage |
 
 ---
 
 ## Security
 
-### Encryption
+**Agent key encryption** -- Copytrade wallet keys are encrypted with AES-256 before database storage.
 
-- **Copytrade Agent Keys** -- Agent wallet private keys are encrypted with AES-256 using a server-side encryption key (`FUTURES_ENCRYPTION_KEY`) before storage in the database
-- **iNFT Intelligence** -- Swarm intelligence bundles are encrypted with AES-256-GCM, with the symmetric key sealed using the owner's RSA-4096 public key
-- **AXL Communication** -- All inter-agent communication through AXL is end-to-end encrypted by default through the AXL node binary
+**iNFT encryption** -- Intelligence bundles use AES-256-GCM with RSA-4096 key sealing. Only the owner's private key can decrypt.
 
-### API Security
+**AXL encryption** -- All peer-to-peer agent communication is end-to-end encrypted by the AXL node binary.
 
-- **CORS** -- The backend enforces origin-based CORS, allowing requests only from the configured `FRONTEND_ORIGIN`
-- **Helmet** -- Standard HTTP security headers are applied through Helmet middleware
-- **Input Validation** -- All agent inputs and outputs are validated against Zod schemas
-- **Service Role Keys** -- Supabase access uses service role keys with Row Level Security policies
+**API security** -- CORS enforcement, Helmet headers, Zod schema validation on all inputs.
 
-### Contract Security
-
-- **Nonce Replay Protection** -- The `OmenAgentVerifier` rejects proof nonces that have already been consumed
-- **Attestor Trust** -- Only addresses registered as trusted attestors can sign valid ownership proofs
-- **Owner Guards** -- Critical contract functions (mint, set verifier, transfer ownership) are restricted to the contract owner
+**Contract security** -- Nonce replay protection on transfer proofs. Trusted attestor registry. Owner-gated admin functions.
 
 ---
 
-## Verification Checklist
+## AI Tool Attribution
 
-For judges and reviewers, the following verification steps confirm the system's authenticity:
+This project was built with significant assistance from AI coding tools.
 
-### AXL Verification
+**Tool used:** OpenAI Codex with GPT-5.5, used as a continuous pair-programming partner across all development phases -- architecture, implementation, debugging, and documentation.
+
+**How it was used:** The AI assistant proposed implementations that were reviewed, tested, and iterated on by the team. It was not used to generate the project wholesale. The team directed all architectural decisions, product requirements, system design, and quality standards. AI accelerated the implementation but did not replace human judgment on what to build or how.
+
+**What the team owned:** Product direction, architecture decisions, swarm design, quality bar, and all final review. Specification documents (`PRODUCT.md`, `DESIGN.md`, `DEPLOYMENT.md`) were written to direct the AI and are included in the repository.
+
+---
+
+## Deep Dive: Swarm State
+
+The swarm maintains a single state object that grows as agents execute. Each agent receives a read-only snapshot of the current state and returns a delta. The delta is merged into the state before the next agent runs. No agent can modify another agent's output retroactively.
+
+Key fields:
+
+```
+run                        Run ID, mode, status, market bias, outcome, timing
+config                     Runtime settings, market universe, quality thresholds, provider flags
+marketBiasReasoning        The bias agent's full reasoning text
+activeCandidates[]         Scanner's selected candidates with direction hints and status
+evidenceItems[]            Research evidence: category, summary, source, structured data
+chartVisionSummaries[]     Chart vision's consolidated technical summaries
+thesisDrafts[]             Analyst's structured theses with all trade parameters
+criticReviews[]            Critic decisions with objections and repair instructions
+intelReports[]             Intel agent's narrative reports with confidence and category
+generatedIntelContents[]   Generator's publishable content formats
+intelArticles[]            Writer's long-form articles
+publisherDrafts[]          Publisher's formatted social media drafts
+proofArtifacts[]           Accumulated proof references from all steps
+notes[]                    Execution trace notes (human-readable breadcrumbs)
+errors[]                   Error messages from any step
+signalRepairAttempts       Counter for the analyst-critic repair loop
+latestCheckpointRefId      Reference to the most recent 0G checkpoint
+activeTradeSymbols[]       Currently open copytrade symbols (for dedup)
+recentIntelHistory[]       Recent intel reports (for topic dedup)
+signalGenerationDisabledReason   Set when daily signal limit is reached
+```
+
+The state design ensures full traceability. After a run completes, you can inspect exactly what each agent received and produced by walking the checkpoint chain.
+
+---
+
+## Deep Dive: Scheduler
+
+The `HourlyScheduler` manages autonomous execution:
+
+- **Interval**: Configurable, defaults to 60 minutes
+- **Persistence**: Loads the last run timestamp from the database to survive process restarts. If the last run was 45 minutes ago and the interval is 60 minutes, the next run schedules in 15 minutes, not 60.
+- **Overlap protection**: Uses a `RunLock` to prevent concurrent swarm runs. If a tick fires while a run is still active, it logs a warning and skips.
+- **Failure handling**: On task failure, the scheduler optionally pauses itself and sends a notification through Telegram. The `DefaultRunCoordinator` wraps the pipeline with retry logic -- if a run fails, it deletes the partial database records and retries with a fresh run ID.
+- **Graceful startup**: On first boot with no run history, the scheduler fires within 5 seconds rather than waiting the full interval.
+
+The scheduler produces structured `SchedulerTaskContext` objects containing the run ID, trigger type, triggered timestamp, and runtime mode flags that control which external APIs the swarm is allowed to call.
+
+---
+
+## Deep Dive: Publishing Pipeline
+
+After the swarm graph completes, the pipeline runs the finalization publishers in sequence:
+
+| Order | Publisher | What It Does |
+|---|---|---|
+| 1 | `EventPublisher` | Persists agent events to `agent_events` |
+| 2 | `AxlMessageRecorder` | Records AXL envelopes to `axl_messages` |
+| 3 | `ZeroGRefRecorder` | Records 0G references to `zero_g_refs` |
+| 4 | `ZeroGPublisher` | Uploads artifacts to 0G Storage |
+| 5 | `EvidenceBundlePublisher` | Bundles and uploads all research evidence |
+| 6 | `ReportBundlePublisher` | Bundles and uploads the signal or intel report |
+| 7 | `ComputeProofRecorder` | Records 0G Compute adjudication artifacts |
+| 8 | `RunManifestPublisher` | Builds the run manifest and uploads it to 0G Storage |
+| 9 | `ZeroGProofAnchor` | Anchors the manifest root on 0G Chain |
+| 10 | `OmenAgentInftPublisher` | Uploads encrypted run intelligence and appends an iNFT version |
+| 11 | `PostPublisher` | Formats and posts to X/Twitter |
+| 12 | `PostProofPublisher` | Records post payload and delivery result as proofs |
+| 13 | `PostResultRecorder` | Updates the post record with final delivery status |
+
+Each publisher is isolated. If the Twitter post fails, the proof anchoring still completes. If 0G Storage is temporarily unavailable, the run still finishes and the database records are preserved.
+
+---
+
+## Deep Dive: MCP Services
+
+Each agent node and service node exposes capabilities as MCP (Model Context Protocol) tools. These are the actual service definitions that other nodes in the mesh can discover and call:
+
+| Node | MCP Tool | Purpose |
+|---|---|---|
+| Market Bias | `market_bias.generate` | Macro bias assessment |
+| Scanner | `scan.candidates` | Asset scanning |
+| Research | `research.investigate` | Multi-source research |
+| Chart Vision | `chart_vision.analyze` | Technical chart analysis |
+| Analyst | `analyst.synthesize` | Thesis generation |
+| Critic | `critic.review` | Adversarial evaluation |
+| Intel | `intel.synthesize` | Narrative intelligence |
+| Generator | `generator.produce` | Content generation |
+| Writer | `writer.article` | Long-form drafting |
+| Memory Service | `memory.recall`, `memory.store` | Historical context and state persistence |
+| Publisher | `publisher.finalize` | Output routing |
+
+The writer's call to `memory.recall` is the clearest example of peer-to-peer service communication -- it reaches the memory service by peer ID, retrieves historical context, and incorporates it into the article, all without the orchestrator knowing or mediating.
+
+---
+
+## Deep Dive: Agent Thesis Format
+
+When the analyst produces a trading thesis, it follows this exact structure:
+
+```
+candidateId       ID of the scanned candidate
+asset             Token symbol (e.g., $BTC)
+direction         LONG | SHORT | WATCHLIST | NONE
+confidence        0-100 integer
+orderType         market | limit
+tradingStyle      day_trade | swing_trade
+expectedDuration  Human-readable time estimate
+currentPrice      Current market price
+entryPrice        Recommended entry price
+targetPrice       Primary target price
+stopLoss          Stop-loss level
+riskReward        Calculated risk/reward ratio
+whyNow            One paragraph: why this trade, why right now
+confluences       List of supporting factors
+uncertaintyNotes  What the analyst is unsure about
+missingDataNotes  What data was unavailable
+```
+
+The critic evaluates this entire structure against the evidence base and the configured quality thresholds. A thesis with a confidence of 55 when the minimum is 60 gets rejected. A thesis with one confluence when the minimum is two gets rejected. The critic also checks for internal inconsistencies -- a LONG thesis with an entry price above the target price, for example.
+
+---
+
+## Deep Dive: Intel Reports
+
+When the swarm produces narrative intelligence (either because the market is neutral or a signal was rejected), the intel agent generates a structured report:
+
+```
+topic             Subject matter
+title             Report headline
+summary           One-paragraph summary
+insight           Key analytical insight
+category          market_update | narrative_shift | token_watch | macro | opportunity
+confidence        0-100 integer
+importanceScore   0-100 integer
+symbols           Associated token symbols
+imagePrompt       Prompt for generating the cover image
+```
+
+The generator transforms this into publishable content. The writer produces a long-form article. The publisher routes the final output to social platforms.
+
+Intel reports are deduped against recent history. The intel agent receives the last several reports and post texts to avoid producing repetitive content.
+
+Cover images are generated through Hugging Face Inference using carefully constructed prompts that avoid any text, ticker symbols, logos, or brand marks in the generated image.
+
+---
+
+## Deep Dive: Evidence Categories
+
+The research agent produces structured evidence items across eight categories:
+
+| Category | What It Captures |
+|---|---|
+| `market` | Price action, volume, market cap changes, 24h performance |
+| `technical` | Indicator readings (RSI, MACD, moving averages), pattern recognition |
+| `liquidity` | Order book depth, bid/ask spreads, exchange flow data |
+| `funding` | Funding rates, open interest, leverage metrics |
+| `fundamental` | TVL, protocol revenue, tokenomics, supply metrics |
+| `catalyst` | Upcoming events, partnerships, protocol upgrades, narratives |
+| `sentiment` | Social volume, fear/greed indicators, influencer attention |
+| `chart` | Multi-timeframe chart vision analysis summaries |
+
+Each evidence item includes a source label (e.g., "CoinGecko"), a source URL for verification, a human-readable summary, and an optional `structuredData` payload with the raw metrics.
+
+The analyst and critic both receive the full evidence array, ensuring the critic can verify whether the thesis is actually supported by the evidence rather than hallucinated.
+
+---
+
+## File-Level Integration Reference
+
+### 0G Protocol Files
+
+| Component | File |
+|---|---|
+| KV State Store | `packages/zero-g/src/storage/zero-g-state-store.ts` |
+| Log Store | `packages/zero-g/src/storage/zero-g-log-store.ts` |
+| File Store | `packages/zero-g/src/storage/zero-g-file-store.ts` |
+| Storage Adapter | `packages/zero-g/src/storage/storage-adapter.ts` |
+| Compute Adapter | `packages/zero-g/src/compute/compute-adapter.ts` |
+| Adjudication | `packages/zero-g/src/compute/zero-g-adjudication.ts` |
+| Report Synthesis | `packages/zero-g/src/compute/zero-g-report-synthesis.ts` |
+| Chain Adapter | `packages/zero-g/src/chain/chain-adapter.ts` |
+| Proof Anchor | `packages/zero-g/src/chain/proof-anchor.ts` |
+| Run Registry | `packages/zero-g/src/chain/omen-run-registry.ts` |
+| iNFT Client | `packages/zero-g/src/chain/omen-agent-inft.ts` |
+| Verifier Client | `packages/zero-g/src/chain/omen-agent-verifier.ts` |
+| Encryption | `packages/zero-g/src/inft/encryption.ts` |
+| Intelligence Bundle | `packages/zero-g/src/inft/omen-agent-intelligence.ts` |
+| Proof Registry | `packages/zero-g/src/proofs/proof-registry.ts` |
+| Manifest Builder | `packages/zero-g/src/proofs/run-manifest-builder.ts` |
+
+### AXL Protocol Files
+
+| Component | File |
+|---|---|
+| A2A Client | `packages/axl/src/a2a/a2a-client.ts` |
+| Delegation Contract | `packages/axl/src/a2a/delegation-contract.ts` |
+| AXL Adapter | `packages/axl/src/adapter/axl-adapter.ts` |
+| HTTP Adapter | `packages/axl/src/adapter/axl-http-adapter.ts` |
+| MCP Service Contract | `packages/axl/src/mcp/service-contract.ts` |
+| MCP Service Registry | `packages/axl/src/mcp/service-registry.ts` |
+| HTTP Node Client | `packages/axl/src/node-client/http-node-client.ts` |
+| Orchestrator Delegator | `backend/src/nodes/a2a/orchestrator-delegator.ts` |
+| Response Correlator | `backend/src/nodes/a2a/response-correlator.ts` |
+| Topology Poller | `backend/src/nodes/topology/topology-poller.ts` |
+| Service Registry Sync | `backend/src/nodes/topology/service-registry-sync.ts` |
+| Peer Failover | `backend/src/nodes/topology/peer-failover.ts` |
+
+### Agent Definitions
+
+| Component | Definition | MCP Service |
+|---|---|---|
+| Market Bias | `packages/agents/src/definitions/market-bias.ts` | `backend/src/nodes/services/market-bias-mcp.ts` |
+| Scanner | `packages/agents/src/definitions/scanner.ts` | `backend/src/nodes/services/scanner-mcp.ts` |
+| Research | `packages/agents/src/definitions/research.ts` | `backend/src/nodes/services/research-mcp.ts` |
+| Chart Vision | `packages/agents/src/definitions/chart-vision.ts` | `backend/src/nodes/services/chart-vision-mcp.ts` |
+| Analyst | `packages/agents/src/definitions/analyst.ts` | `backend/src/nodes/services/analyst-mcp.ts` |
+| Critic | `packages/agents/src/definitions/critic.ts` | `backend/src/nodes/services/critic-mcp.ts` |
+| Intel | `packages/agents/src/definitions/intel.ts` | `backend/src/nodes/services/intel-mcp.ts` |
+| Generator | `packages/agents/src/definitions/generator.ts` | `backend/src/nodes/services/generator-mcp.ts` |
+| Writer | `packages/agents/src/definitions/writer.ts` | `backend/src/nodes/services/writer-mcp.ts` |
+| Memory Service | `packages/agents/src/definitions/memory.ts` | `backend/src/nodes/services/memory-mcp.ts` |
+| Publisher | `packages/agents/src/definitions/publisher.ts` | `backend/src/nodes/services/publisher-mcp.ts` |
+
+---
+
+## Deep Dive: Runtime Modes
+
+The swarm supports multiple runtime modes that control what external resources it can access:
+
+| Mode | External Reads | External Writes | Description |
+|---|---|---|---|
+| `live` | Yes | Yes | Full production mode: reads market data, posts to X/Twitter |
+| `live_readonly` | Yes | No | Reads real market data but does not post to social platforms |
+| `dry_run` | No | No | Runs the full pipeline with cached/local data only |
+
+Runtime mode is set through the `RUNTIME_MODE` environment variable and propagated through every scheduler context. Each agent receives the mode flags and can adjust its behavior accordingly. Data providers check the `allowsExternalReads` flag before making API calls. The post publisher checks `allowsExternalWrites` before queuing social media posts.
+
+This allows you to test the full swarm pipeline locally without accidentally posting to production social accounts or consuming API rate limits.
+
+---
+
+## Deep Dive: Image Generation
+
+Each intel report gets an AI-generated cover image. The pipeline:
+
+1. The generator agent produces an `imagePrompt` describing the scene
+2. The prompt is sanitized: all ticker symbols (`$BTC`, `$ETH`) are replaced with "an unmarked digital asset"
+3. A strict negative prompt is appended: "no words, no letters, no numbers, no captions, no labels, no logos, no brand marks, no watermarks, no signatures, no ticker symbols, no charts with axes or legends"
+4. The image is generated through Hugging Face Inference
+5. The resulting image is uploaded to Cloudflare R2
+6. The R2 URL is stored with the intel record
+
+The system uses up to 17 Hugging Face API tokens with rotation to handle rate limits across multiple concurrent image generation requests.
+
+Image prompts are carefully constructed to produce cinematic, abstract market illustrations that capture the thesis without any text or identifiable symbols. This prevents issues with AI-generated text artifacts in images.
+
+---
+
+## Deep Dive: Analytics
+
+The analytics system pre-computes dashboard metrics through the `AnalyticsSnapshotsRepository`:
+
+**Activity tracking** -- Counts of signals and intel reports produced per time period, broken down by category and outcome.
+
+**Win rate** -- Calculated from signals that have been resolved (hit target or hit stop). The win rate chart shows the rolling win rate over time.
+
+**PnL tracking** -- Cumulative profit and loss from resolved signals, calculated from the entry price, exit price, and direction.
+
+**Confidence-outcome correlation** -- Maps confidence scores to actual outcomes to measure calibration. A well-calibrated system should see higher win rates at higher confidence levels.
+
+**Token frequency** -- Tracks which tokens the swarm analyzes most frequently, indicating market attention and narrative focus.
+
+**Mindshare** -- Distribution of intel report topics and categories, showing what narratives the swarm is tracking.
+
+**Per-asset performance** -- Win rate, average PnL, and signal count broken down by individual tokens.
+
+Analytics snapshots are computed periodically and stored in the `analytics_snapshots` table. The frontend reads these pre-computed snapshots rather than computing metrics on every page load.
+
+---
+
+## Deep Dive: Copytrade Internals
+
+The copytrade system has three main components:
+
+**CopytradeEnrollmentService** -- Manages the enrollment lifecycle:
+1. `prepare` -- Generates an agent wallet (Ethereum keypair), encrypts the private key with AES-256 using the server's `FUTURES_ENCRYPTION_KEY`, and stores the enrollment record
+2. `finalize` -- Verifies the user's signature, decrypts the agent key, and submits the agent wallet approval to Hyperliquid's L1
+
+**SignalMonitorService** -- Polls the signals table every 20 seconds (configurable via `COPYTRADE_EXECUTOR_INTERVAL_MS`). When a new approved signal appears:
+1. Checks all active enrollments
+2. Filters out enrollments that already have a position in the signal's asset
+3. Filters out enrollments at their maximum concurrent position limit
+4. Queues trade execution for eligible enrollments
+
+**HyperliquidTradeExecutor** -- Executes trades on Hyperliquid:
+1. Calculates position size from the enrollment's USD allocation and the asset's current price
+2. Places a market or limit order with the configured leverage
+3. Attaches take-profit and stop-loss trigger orders
+4. Records the trade in `copytrade_trades` with the signal reference
+5. Monitors for position closure and records final PnL
+
+The executor handles Hyperliquid's order format requirements, including L1 signature generation, price tick rounding, and minimum size constraints.
+
+---
+
+## Deep Dive: Signal Lifecycle
+
+A trading signal goes through multiple states from creation to resolution:
+
+```
+swarm produces thesis
+         |
+    critic reviews
+         |
+    [approved] --> signal created (status: pending)
+                          |
+                   published to X/Twitter and Telegram
+                          |
+                   copytrade opens positions
+                          |
+                   price monitoring begins
+                          |
+              +-----------+-----------+
+              |           |           |
+         hit target   hit stop   signal expires
+              |           |           |
+        status: won  status: lost  status: expired
+              |           |           |
+         PnL recorded  PnL recorded  marked inactive
+```
+
+When a signal is created, it includes:
+
+- **Entry zone** with low and high bounds
+- **Target prices** (up to three, ordered by distance)
+- **Stop loss** as an invalidation zone
+- **Risk/reward ratio** calculated from entry, primary target, and stop
+- **Confidence score** from the analyst, validated by the critic
+- **Expected duration** (e.g., "2-5 days")
+- **Order type** (market for immediate entry, limit for pullback entry)
+
+The dashboard tracks signals in real-time, showing current price relative to entry/target/stop, cumulative PnL, and status badges. The analytics suite uses resolved signals to compute win rate, average PnL, and calibration metrics.
+
+Proof badges on each signal card link to the underlying evidence: the AXL communication trace, the 0G manifest, the compute adjudication result, and the chain anchor transaction. Anyone can follow the chain from a published tweet back to the specific research evidence that produced it.
+
+---
+
+## Deep Dive: Error Handling and Resilience
+
+The system is designed to degrade gracefully rather than fail catastrophically:
+
+**Agent failures** -- If any agent step throws an error, the pipeline records the error in the swarm state, marks the run as failed, and triggers the run coordinator's retry logic. Failed runs are cleaned from the database before retry to prevent partial data.
+
+**Data provider failures** -- All market data clients implement graceful degradation. If CoinGecko is down, the research agent proceeds with data from the remaining providers. The agent explicitly notes missing data sources in its output so the analyst and critic can account for information gaps.
+
+**AXL network failures** -- If a peer node is unresponsive, the `PeerFailover` module routes around it. The orchestrator delegator implements configurable timeouts (default: 5 minutes). Failed A2A delegations fall back to local execution when possible.
+
+**0G Storage failures** -- If 0G Storage is temporarily unavailable, the pipeline still completes. Database records are always written. Storage artifacts are best-effort -- their absence is recorded but does not block the run.
+
+**Post delivery failures** -- Social media posting failures do not affect the signal or proof pipeline. The post worker retries delivery and records the final status regardless of outcome.
+
+**Scheduler resilience** -- The scheduler survives process restarts by persisting the last run timestamp. It calculates the next run time relative to the persisted timestamp, not the current time, preventing schedule drift after deployments.
+
+---
+
+## Verification
+
+If you want to verify that the system is real and not a scripted demo:
+
+### Check the live agent network
 
 ```bash
-# Check live topology from the orchestrator
+# Each of these returns a different peer ID -- proof of separate processes
 curl https://omen-axl-node.fly.dev/topology
-
-# Check a role node has a different peer identity
 curl https://omen-axl-writer.fly.dev/topology
-
-# Run the full A2A verification suite
-pnpm run axl:verify:a2a
+curl https://omen-axl-scanner.fly.dev/topology
 ```
 
-Expected: 12 distinct peer IDs, all 11 role delegations complete with schema-valid responses, writer shows memory peer context.
+You should see 12 distinct peer IDs: the orchestrator, ten agent role nodes including publisher, and the memory service node.
 
-### 0G Verification
+### Run the A2A verification suite
 
 ```bash
-# Check the run registry on 0G Chain explorer
-# https://chainscan-galileo.0g.ai
+# Sends real delegation requests to the agent role nodes and validates responses
+pnpm axl:verify:a2a
 
-# Verify a manifest anchor transaction
-# Transaction hash is recorded in the proof artifacts for each run
+# Or test just the critical path
+pnpm axl:verify:a2a --profile core
 ```
 
-Expected: `RunAnchored` events on 0G Chain with manifest root hashes and storage URIs.
+This sends actual work to each agent node through the AXL mesh and validates that every response matches the production output schema. The writer response includes peer context from the memory service, proving direct peer-to-peer service communication.
 
-### iNFT Verification
+### Inspect on-chain proofs
 
-```bash
-# Check the iNFT on 0G Chain explorer
-# Contract address and token ID are in the INFT_DEPLOYMENT.md
-```
+Visit the [0G Chain Explorer](https://chainscan-galileo.0g.ai) and search for the `OmenRunRegistry` contract address. You will see `RunAnchored` events with manifest root hashes and 0G Storage URIs for each completed run.
 
-Expected: Minted token with non-empty intelligent data hashes and encrypted storage URI.
+### Inspect the iNFT
 
----
+The current `OmenAgentINFT` is `0xAA2c6434C776ae504AB96045Ce867D2E50b779F8`, token ID `1`. You can verify the token exists, inspect its intelligent data hashes and version records, and confirm the encrypted storage URI points to real content on 0G Storage.
 
-## Team
+### View live output
 
-**Project** -- Omen
-
-**Hackathon** -- Open Agents Hackathon by ETHGlobal
-
-**Target Prizes:**
-
-- 0G: Best Autonomous Agents, Swarms and iNFT Innovations ($7,500 pool)
-- Gensyn: Best Application of Agent eXchange Layer (AXL) ($5,000 pool)
+The dashboard at [omen.vercel.app](https://omen.vercel.app) shows live signals, intel reports, and proof badges. The evidence page links directly to 0G Storage artifacts and on-chain transactions.
 
 ---
 
 ## License
 
-This project was built during the Open Agents Hackathon by ETHGlobal.
+Built for the Open Agents Hackathon by ETHGlobal.
