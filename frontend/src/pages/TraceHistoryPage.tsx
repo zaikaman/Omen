@@ -27,6 +27,7 @@ import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useLogs } from '../hooks/useLogs';
 import { useRuns } from '../hooks/useRuns';
+import { useTopology } from '../hooks/useTopology';
 import { cn } from '../lib/utils';
 
 const REFRESH_INTERVAL_MS = 30_000;
@@ -259,6 +260,11 @@ export function TraceHistoryPage() {
     runId: activeRunId,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
   });
+  const topology = useTopology({
+    enabled: Boolean(activeRunId),
+    runId: activeRunId,
+    refreshIntervalMs: REFRESH_INTERVAL_MS,
+  });
 
   useEffect(() => {
     if (queryRunId) {
@@ -314,10 +320,12 @@ export function TraceHistoryPage() {
     });
   }, [query, traceEvents]);
 
-  const axlEvents = events.filter((event) => event.axlMessageId || event.eventType.startsWith('axl')).length;
+  const axlRouteEvents = topology.isVerified
+    ? topology.routes.filter((route) => route.runId === activeRunId).length
+    : 0;
   const proofEvents = events.filter((event) => event.proofRefId || event.eventType.startsWith('zero_g')).length;
   const reasoningEvents = events.filter((event) => getTraceItems(event.payload).length > 0).length;
-  const isRefreshing = runs.isRefreshing || logs.isRefreshing;
+  const isRefreshing = runs.isRefreshing || logs.isRefreshing || topology.isRefreshing;
 
   const selectRun = (runId: string) => {
     setSelectedRunId(runId);
@@ -339,9 +347,13 @@ export function TraceHistoryPage() {
         {isRefreshing && <span className="text-xs text-gray-500">Syncing trace records...</span>}
       </div>
 
-      {(runs.error || logs.error) && (
+      {(runs.error || logs.error || topology.error) && (
         <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
-          {runs.error ? 'Run history is unavailable.' : 'Trace events are unavailable for the selected run.'}
+          {runs.error
+            ? 'Run history is unavailable.'
+            : logs.error
+              ? 'Trace events are unavailable for the selected run.'
+              : 'AXL route evidence is unavailable for the selected run.'}
         </div>
       )}
 
@@ -504,7 +516,7 @@ export function TraceHistoryPage() {
                   {[
                     { label: 'Events', value: events.length, icon: Activity, className: 'text-cyan-300' },
                     { label: 'Reasoning', value: reasoningEvents, icon: MessageSquareText, className: 'text-purple-300' },
-                    { label: 'AXL IDs', value: axlEvents, icon: RadioTower, className: 'text-cyan-300' },
+                    { label: 'AXL routes', value: axlRouteEvents, icon: RadioTower, className: 'text-cyan-300' },
                     { label: '0G refs', value: proofEvents, icon: ShieldCheck, className: 'text-green-300' },
                   ].map((item) => {
                     const Icon = item.icon;
