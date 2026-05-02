@@ -245,10 +245,7 @@ describe("chart vision agent", () => {
         }),
       } as unknown as BinanceMarketService,
       chartImageService: {
-        generateCandlestickChart: async ({}: {
-          symbol: string;
-          timeframe: "15m" | "1h" | "4h";
-        }) => ({
+        generateCandlestickChart: async () => ({
           base64: Buffer.from("chart").toString("base64"),
           mimeType: "image/png" as const,
           width: 1600,

@@ -3,7 +3,7 @@ import { z as zod } from "zod";
 
 import { generatorInputSchema, generatorOutputSchema } from "../contracts/generator.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
-import type { GeneratedIntelContent, IntelReport } from "../framework/state.js";
+import type { GeneratedIntelContent } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
 import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildGeneratorSystemPrompt } from "../prompts/generator/system.js";
@@ -35,44 +35,6 @@ const rawGeneratorContentSchema = zod.object({
   log_message: optionalModelString,
 });
 
-const toDollarSymbol = (symbol: string) => `$${symbol.replace(/^\$/, "").toUpperCase()}`;
-
-const extractTickerText = (report: IntelReport) =>
-  report.symbols.length > 0 ? report.symbols.map(toDollarSymbol).join(" ") : "crypto";
-
-const splitSentences = (value: string) =>
-  value
-    .replace(/\s+/g, " ")
-    .replace(/\bU\.S\./g, "US")
-    .replace(/\bU\.K\./g, "UK")
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-
-const uniqueSentences = (values: string[]) => {
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  for (const value of values) {
-    const key = value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-
-    if (!key || seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    result.push(value);
-  }
-
-  return result;
-};
-
-const lowerProseKeepTickers = (value: string) =>
-  value
-    .split(/(\$[A-Za-z0-9]+)/g)
-    .map((part) => (part.startsWith("$") ? part.toUpperCase() : part.toLowerCase()))
-    .join("");
-
 const GENERATED_TWEET_MAX_LENGTH = 270;
 const X_TWEET_MAX_LENGTH = 280;
 
@@ -99,7 +61,7 @@ const trimLine = (value: string, maxLength: number) => {
     trimmed.lastIndexOf("!"),
     trimmed.lastIndexOf(";"),
     trimmed.lastIndexOf(","),
-    trimmed.lastIndexOf("—"),
+    trimmed.lastIndexOf("\u2014"),
   );
 
   if (sentenceBoundary >= Math.floor(maxLength * 0.55)) {
