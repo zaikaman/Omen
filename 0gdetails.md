@@ -1,39 +1,4 @@
-About
-0G is the intelligent Layer 1 for onchain AI powered by first decentralized AI operating system (dAIOS) that provides the complete infrastructure stack for building AI-powered applications on-chain. Developers can leverage 0G's four core components: 0G Storage, 0G DA (infinitely scalable data availability layer), 0G Compute Network (decentralized AI inference and training), and 0G Chain (EVM-compatible blockchain).
-
-Prizes
-🛠️ Best Agent Framework, Tooling & Core Extensions ⸺ $7,500
-🥇
-1st place
-$2,500
-🥈
-2nd place
-$2,000
-🥉
-3rd place
-$1,500
-🏅
-4th place
-$1,000
-🏅
-5th place
-$500
-This track is strictly for framework-level work.
-
-Build the best core extensions, improvements, forks, or entirely new open agent frameworks inspired by OpenClaw (or alternatives like ZeroClaw, NullClaw, etc.) and deployed on 0G. Focus on advancing how agents are created in 2026 - architectures, developer tooling, and infrastructure primitives that other builders will use.
-
-Ideas to get you started:
-
-🔹 New OpenClaw modules for hierarchical planning, reflection loops, or multi-modal reasoning that natively integrate 0G Compute’s sealed inference (live models like qwen3.6-plus or GLM-5-FP8) 🔹 Self-evolving agent framework that autonomously generates/tests/integrates new skills/tools using persistent 0G Storage memory 🔹 Modular “agent brain” library with easy swapping of memory layers (0G Storage KV/Log), LLM backends, or decision engines 🔹 No-code/low-code visual agent builder with one-click deployment to 0G Compute + Storage
-
-Qualification Requirements
-Submission requirements: 🔹 Project name and a short description 🔹 Contract deployment addresses 🔹 Public GitHub repo (README + setup instructions) 🔹 Demo video & live demo link (keep the video under 3 mins!) 🔹 Explain which protocol features or SDKs you used 🔹 Team member names and contact info (Telegram & X)
-
-You must also include:
-
-🔹 At least one working example agent built using your framework/tooling (include the example code or link in the README) 🔹 Architecture diagram (optional but strongly recommended) showing integration with OpenClaw + 0G Storage/Compute
-
-🤖 Best Autonomous Agents, Swarms & iNFT Innovations ⸺ $7,500
+Best Autonomous Agents, Swarms & iNFT Innovations ⸺ $7,500
 Up to 5 teams will receive $1,500
 This track is strictly for building the actual agents.
 
