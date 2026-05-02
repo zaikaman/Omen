@@ -59,6 +59,11 @@ const docs: DocsPageContent[] = [
         text:
           'The product is built for auditability. A signal is not treated as credible because it appears in the interface. It becomes credible when the route, agent decisions, source evidence, checkpoint artifacts, compute verification, and publication trail can be inspected together.',
       },
+      {
+        type: 'p',
+        text:
+          'Omen should be read as an operational system first and a content system second. The visible signal, article, or social post is only the final surface of a run. The important product contract is that a reviewer can move backward from that output into the run that created it, the agent roles that shaped it, and the infrastructure evidence that proves it was not manually assembled after the fact.',
+      },
       { type: 'h2', text: 'What Omen Produces' },
       {
         type: 'list',
@@ -68,6 +73,16 @@ const docs: DocsPageContent[] = [
           'Trace histories that show which agents participated, what each role returned, and where the run branched.',
           '0G proof records including manifests, artifacts, compute adjudication, and chain anchor metadata when available.',
           'Published outputs for X and Telegram when the publisher role approves the final payload.',
+        ],
+      },
+      { type: 'h2', text: 'What Omen Is Not' },
+      {
+        type: 'list',
+        items: [
+          'It is not a generic trading terminal. The terminal is a review surface for autonomous work, not a manual charting suite.',
+          'It is not a single-agent demo. The core value comes from role separation, AXL routing, and observable coordination.',
+          'It is not a proof-themed mockup. Missing proof data must remain visibly missing until the runtime creates real records.',
+          'It is not designed to force daily trade calls. No-conviction and intel-only outcomes are valid system behavior.',
         ],
       },
       { type: 'h2', text: 'Core Mental Model' },
@@ -92,6 +107,35 @@ const docs: DocsPageContent[] = [
           },
         ],
       },
+      { type: 'h2', text: 'Reviewer Workflow' },
+      {
+        type: 'steps',
+        items: [
+          {
+            title: 'Start from the claim',
+            text: 'Choose a visible signal or intel report and identify its run ID, status, publication state, and attached proof badges.',
+          },
+          {
+            title: 'Inspect the route',
+            text: 'Open trace history to confirm which roles participated, whether any branch was skipped, and whether the result came from signal, repair, or intel fallback flow.',
+          },
+          {
+            title: 'Compare evidence to output',
+            text: 'Read the evidence and role summaries before accepting the final prose. The narrative should be explainable from source context and agent decisions.',
+          },
+          {
+            title: 'Verify persistence',
+            text: 'Use the proof console to confirm that manifests, artifacts, compute review, and anchors exist when the output claims they exist.',
+          },
+        ],
+      },
+      {
+        type: 'callout',
+        tone: 'info',
+        title: 'Audience assumption',
+        text:
+          'These docs are written for builders, judges, and operators who need to understand how Omen behaves under real execution. They intentionally emphasize contracts, evidence, and operational review over marketing copy.',
+      },
       {
         type: 'callout',
         tone: 'proof',
@@ -113,6 +157,11 @@ const docs: DocsPageContent[] = [
         type: 'lead',
         text:
           'Use the dashboard first when you need to understand the system quickly. Use terminal checks when you need to validate AXL topology, proof endpoints, or local development behavior.',
+      },
+      {
+        type: 'p',
+        text:
+          'A good first review should answer three questions: is the swarm currently reachable, did it produce useful intelligence, and can the produced intelligence be traced back to real runtime evidence. The quickstart below is ordered around those questions instead of around implementation layers.',
       },
       { type: 'h2', text: 'Dashboard Review Path' },
       {
@@ -142,6 +191,19 @@ const docs: DocsPageContent[] = [
         language: 'powershell',
         code: 'pnpm install\npnpm run build\npnpm run dev',
       },
+      { type: 'h2', text: 'Repository Orientation' },
+      {
+        type: 'table',
+        headers: ['Path', 'Use It For'],
+        rows: [
+          ['frontend/', 'Dashboard, docs page, proof console, analytics, traces, and product UI.'],
+          ['backend/', 'API server, scheduler, pipeline orchestration, and publication handlers.'],
+          ['packages/agents/', 'Agent role definitions, graph behavior, prompts, and structured output contracts.'],
+          ['packages/axl/', 'AXL adapter, A2A client behavior, topology handling, and MCP service surfaces.'],
+          ['packages/zero-g/', '0G Storage, Compute, Chain, iNFT, and proof integration logic.'],
+          ['packages/db/current_schema.sql', 'Current database reference for product-facing persisted records.'],
+        ],
+      },
       {
         type: 'callout',
         tone: 'info',
@@ -154,6 +216,17 @@ const docs: DocsPageContent[] = [
         language: 'powershell',
         code:
           'Invoke-RestMethod https://omen-axl-node.fly.dev/topology\nInvoke-RestMethod https://omen-axl-writer.fly.dev/topology',
+      },
+      { type: 'h2', text: 'What Good Looks Like' },
+      {
+        type: 'list',
+        items: [
+          'The app shell loads without hiding API failures behind placeholder cards.',
+          'The scheduler metadata shows a real next run or an explicit not scheduled state.',
+          'Signals and intel records include traceable run context when records exist.',
+          'The proof console distinguishes present, pending, failed, and missing proof material.',
+          'AXL topology responses show distinct node identities for the orchestrator and role nodes.',
+        ],
       },
     ],
   },
@@ -169,6 +242,11 @@ const docs: DocsPageContent[] = [
         type: 'lead',
         text:
           'Omen is not a single prompt wrapped in a dashboard. It is a graph of specialized roles, each responsible for a narrow part of the market-intelligence workflow.',
+      },
+      {
+        type: 'p',
+        text:
+          'Role separation is the main design choice. It keeps scanner behavior from bleeding into thesis writing, keeps criticism separate from generation, and makes it possible to inspect which part of the system failed when a run does not produce a signal.',
       },
       { type: 'h2', text: 'Role Map' },
       {
@@ -194,6 +272,19 @@ const docs: DocsPageContent[] = [
         code:
           'Market Bias\n  -> Scanner -> Research -> Chart Vision -> Analyst -> Critic\n  -> if approved: Checkpoint -> Publisher\n  -> if fixable: Analyst revision -> Critic\n  -> if rejected or neutral: Intel -> Generator -> Writer -> Checkpoint -> Publisher',
       },
+      { type: 'h2', text: 'Branching Rules' },
+      {
+        type: 'table',
+        headers: ['Condition', 'Result'],
+        rows: [
+          ['Market bias is neutral', 'Skip signal generation and route into narrative intelligence.'],
+          ['Scanner finds no usable candidate', 'Avoid forcing a trade and preserve context for intel output.'],
+          ['Analyst returns malformed output', 'Reject through schema validation before critic review.'],
+          ['Critic marks thesis fixable', 'Allow one structured repair attempt by the analyst.'],
+          ['Critic rejects thesis definitively', 'Route to intel path instead of publishing a weak setup.'],
+          ['Signal clears gates', 'Checkpoint evidence and pass the approved output to publisher.'],
+        ],
+      },
       {
         type: 'callout',
         tone: 'warn',
@@ -212,6 +303,24 @@ const docs: DocsPageContent[] = [
           'Independent compute verification gives a second model a chance to challenge the output.',
         ],
       },
+      { type: 'h2', text: 'Run State Expectations' },
+      {
+        type: 'list',
+        items: [
+          'Queued means a run has been scheduled but role execution has not begun.',
+          'Starting means the orchestrator is preparing the graph and runtime context.',
+          'Running means one or more roles are actively producing or validating output.',
+          'Completed means the graph reached a terminal state and persisted the expected records for that path.',
+          'Failed means the run could not reach a valid terminal state and should expose enough error context for diagnosis.',
+        ],
+      },
+      {
+        type: 'callout',
+        tone: 'proof',
+        title: 'Trace value',
+        text:
+          'Trace history is not just debugging data. It is the best way to prove that Omen made decisions through a coordinated swarm rather than a hand-authored script.',
+      },
     ],
   },
   {
@@ -227,6 +336,11 @@ const docs: DocsPageContent[] = [
         text:
           'Omen uses Gensyn AXL as the communication layer for the deployed swarm. Each role runs as a separate Fly app with its own AXL node identity, local MCP router, Omen role host, and A2A callback server.',
       },
+      {
+        type: 'p',
+        text:
+          'The deployed network is intentionally split across independent role apps. That split matters because it lets Omen demonstrate inter-node communication and explicit peer targeting instead of replacing AXL with an in-memory queue, job runner, or centralized message bus.',
+      },
       { type: 'h2', text: 'Deployment Topology' },
       {
         type: 'table',
@@ -238,6 +352,25 @@ const docs: DocsPageContent[] = [
           ['Protocol surface', 'MCP services and A2A delegation requests.'],
         ],
       },
+      { type: 'h2', text: 'Peer Inventory' },
+      {
+        type: 'table',
+        headers: ['Role', 'Deployment'],
+        rows: [
+          ['orchestrator', 'omen-axl-node.fly.dev'],
+          ['market_bias', 'omen-axl-market-bias.fly.dev'],
+          ['scanner', 'omen-axl-scanner.fly.dev'],
+          ['research', 'omen-axl-research.fly.dev'],
+          ['chart_vision', 'omen-axl-chart-vision.fly.dev'],
+          ['analyst', 'omen-axl-analyst.fly.dev'],
+          ['critic', 'omen-axl-critic.fly.dev'],
+          ['intel', 'omen-axl-intel.fly.dev'],
+          ['generator', 'omen-axl-generator.fly.dev'],
+          ['writer', 'omen-axl-writer.fly.dev'],
+          ['memory', 'omen-axl-memory.fly.dev'],
+          ['publisher', 'omen-axl-publisher.fly.dev'],
+        ],
+      },
       { type: 'h2', text: 'Why AXL Matters Here' },
       {
         type: 'list',
@@ -247,6 +380,28 @@ const docs: DocsPageContent[] = [
           'Each role exposes independent topology evidence.',
           'The writer role can call the memory role through AXL before returning article output.',
           'Verification checks assert role completion and schema validity across the network.',
+        ],
+      },
+      { type: 'h2', text: 'Delegation Contract' },
+      {
+        type: 'steps',
+        items: [
+          {
+            title: 'Select target role',
+            text: 'The orchestrator chooses a target peer ID for the role that should handle the next unit of work.',
+          },
+          {
+            title: 'Send structured request',
+            text: 'The request is shaped as role-specific A2A work, not as an untyped chat message.',
+          },
+          {
+            title: 'Validate role response',
+            text: 'Returned output must match the production schema for the role before it can update run state.',
+          },
+          {
+            title: 'Record trace evidence',
+            text: 'The route, target role, and response status become part of the inspectable execution trail.',
+          },
         ],
       },
       { type: 'h2', text: 'Verifier' },
@@ -263,6 +418,13 @@ const docs: DocsPageContent[] = [
         text:
           'A healthy verification run reports allOk true, completed role states, schemaOk true, and targetPeerId values matching the delegated AXL peer IDs.',
       },
+      {
+        type: 'callout',
+        tone: 'info',
+        title: 'Core profile',
+        text:
+          'For faster checks, the verifier supports a core profile focused on market_bias, scanner, research, analyst, and critic. The full profile should be used before demos that emphasize AXL depth.',
+      },
     ],
   },
   {
@@ -278,6 +440,11 @@ const docs: DocsPageContent[] = [
         text:
           'The proof layer exists so Omen outputs can be audited after the fact. A run should leave behind enough context to understand what was observed, which agents acted, what they produced, and what was ultimately published.',
       },
+      {
+        type: 'p',
+        text:
+          'Proof records are not decorative badges. They are the persistence layer for confidence: a way to connect a dashboard object back to manifest data, stored artifacts, independent compute review, and chain anchor references. The proof console should make absent data visible instead of smoothing it over.',
+      },
       { type: 'h2', text: 'Proof Objects' },
       {
         type: 'table',
@@ -290,6 +457,32 @@ const docs: DocsPageContent[] = [
           ['Post proof', 'Reference tying a published social output back to the originating run.'],
         ],
       },
+      { type: 'h2', text: 'Proof Lifecycle' },
+      {
+        type: 'steps',
+        items: [
+          {
+            title: 'Collect runtime evidence',
+            text: 'Roles produce structured output, source summaries, chart analysis, and publication payload material during the run.',
+          },
+          {
+            title: 'Create checkpoint',
+            text: 'The checkpoint binds run identity, final state, role outputs, and artifact references into a coherent proof context.',
+          },
+          {
+            title: 'Persist artifacts',
+            text: 'Evidence material is written through the 0G integration layer so reviewers can inspect records outside the transient UI state.',
+          },
+          {
+            title: 'Compute adjudication',
+            text: 'An independent 0G Compute review can challenge the thesis and produce additional verification material.',
+          },
+          {
+            title: 'Anchor references',
+            text: 'When available, chain anchor data gives the run a durable external reference that can be displayed alongside the manifest.',
+          },
+        ],
+      },
       { type: 'h2', text: 'Dashboard Interpretation' },
       {
         type: 'list',
@@ -298,6 +491,18 @@ const docs: DocsPageContent[] = [
           'A compute badge means independent adjudication material is available.',
           'A chain badge means a proof reference has been anchored on-chain.',
           'A post badge means the publication trail can be connected to the originating run.',
+        ],
+      },
+      { type: 'h2', text: 'States To Render Explicitly' },
+      {
+        type: 'table',
+        headers: ['State', 'Meaning'],
+        rows: [
+          ['Present', 'The proof field exists and has enough metadata to inspect or link.'],
+          ['Pending', 'The run reached a stage where proof creation is expected but has not finished yet.'],
+          ['Missing', 'The record does not exist for this run or this proof type.'],
+          ['Failed', 'The proof step was attempted but returned an error or invalid response.'],
+          ['Not applicable', 'The run path did not require this proof type, such as no published post for a rejected signal.'],
         ],
       },
       {
@@ -322,6 +527,11 @@ const docs: DocsPageContent[] = [
         text:
           'A signal is a structured thesis, not a price alert. It should explain direction, setup, risk, confidence, confluence, and invalidation in a format that can be audited against the run trace.',
       },
+      {
+        type: 'p',
+        text:
+          'Signals should be treated as compact research memos. The useful part is not only the direction, but the reasoning that explains why the setup exists, what would invalidate it, and why the critic allowed it to move forward.',
+      },
       { type: 'h2', text: 'Signal Anatomy' },
       {
         type: 'list',
@@ -333,6 +543,20 @@ const docs: DocsPageContent[] = [
           'Risk/reward: summary of whether the setup clears configured thresholds.',
           'Confidence: model and critic assessment of evidence quality.',
           'Confluence: the market, technical, sentiment, and catalyst factors supporting the setup.',
+        ],
+      },
+      { type: 'h2', text: 'Signal Field Guide' },
+      {
+        type: 'table',
+        headers: ['Field', 'Review Guidance'],
+        rows: [
+          ['Asset', 'Confirm the symbol and market context match the evidence assembled by scanner and research.'],
+          ['Direction', 'Check that LONG or SHORT aligns with market bias and chart structure.'],
+          ['Entry', 'Read as a planned execution area, not as proof that execution occurred.'],
+          ['Targets', 'Targets should be staged and consistent with the stated risk/reward profile.'],
+          ['Stop loss', 'The invalidation level should be close enough to make the thesis falsifiable.'],
+          ['Confidence', 'Use confidence as a summary signal, then inspect confluence and critic comments.'],
+          ['Proof badges', 'Use badges to jump from the rendered signal into the run evidence.'],
         ],
       },
       { type: 'h2', text: 'Approval Logic' },
@@ -357,6 +581,18 @@ const docs: DocsPageContent[] = [
           },
         ],
       },
+      { type: 'h2', text: 'Reasons A Signal May Not Publish' },
+      {
+        type: 'list',
+        items: [
+          'Market bias was neutral and the run routed directly into intel mode.',
+          'Scanner did not find a candidate that matched the configured universe and bias.',
+          'Research or chart vision returned insufficient evidence for a thesis.',
+          'Analyst output failed schema validation or omitted required risk fields.',
+          'Critic rejected the setup as low confidence, low confluence, or poor risk/reward.',
+          'Daily signal limits or publisher constraints prevented public distribution.',
+        ],
+      },
       {
         type: 'callout',
         tone: 'warn',
@@ -379,6 +615,11 @@ const docs: DocsPageContent[] = [
         text:
           'Intel reports give the swarm a useful output path when the market does not justify a trade, or when the broader narrative matters more than a single entry.',
       },
+      {
+        type: 'p',
+        text:
+          'A strong intel report should explain why the topic matters now, what changed, which evidence the swarm considered, and what a reader should watch next. It should not be a rewritten social feed or a generic market recap.',
+      },
       { type: 'h2', text: 'Report Structure' },
       {
         type: 'list',
@@ -388,6 +629,17 @@ const docs: DocsPageContent[] = [
           'Asset relevance: why the covered topic matters now.',
           'Evidence summary: the data sources and agent findings that shaped the report.',
           'Operational conclusion: what the swarm decided to publish and why.',
+        ],
+      },
+      { type: 'h2', text: 'Intel Run Modes' },
+      {
+        type: 'table',
+        headers: ['Mode', 'When It Happens'],
+        rows: [
+          ['Neutral market intel', 'Market bias does not support a directional signal but context is still worth publishing.'],
+          ['Rejected signal fallback', 'Signal path failed critic review and the run converts evidence into narrative intelligence.'],
+          ['Scheduled narrative', 'The system produces periodic market context even when no immediate trade setup exists.'],
+          ['Article extension', 'Writer expands generated intel into longer-form content with memory context.'],
         ],
       },
       { type: 'h2', text: 'Writer And Memory' },
@@ -401,6 +653,17 @@ const docs: DocsPageContent[] = [
         language: 'json',
         code:
           '{\n  "peerContext": {\n    "service": "memory",\n    "method": "memory.recall"\n  }\n}',
+      },
+      { type: 'h2', text: 'Quality Checklist' },
+      {
+        type: 'list',
+        items: [
+          'The report names the market condition it is responding to.',
+          'Claims are grounded in evidence from the run rather than broad crypto commentary.',
+          'The conclusion is useful without pretending to be a guaranteed forecast.',
+          'If memory context is used, the trace should make the writer-to-memory request visible.',
+          'Publication payloads should preserve the core thesis when condensed for social channels.',
+        ],
       },
     ],
   },
@@ -418,6 +681,11 @@ const docs: DocsPageContent[] = [
           'The dashboard is organized around the way a reviewer investigates the system: current run state, produced outputs, proof records, analytics, and agent trace history.',
       },
       {
+        type: 'p',
+        text:
+          'Every surface should answer one operational question. Mission Control answers what the system is doing now. Signals and Intel answer what the swarm produced. Proof Console answers what can be verified. Trace History answers how the agents reached the result.',
+      },
+      {
         type: 'table',
         headers: ['Route', 'Purpose'],
         rows: [
@@ -428,6 +696,28 @@ const docs: DocsPageContent[] = [
           ['/app/analytics', 'System Analytics for signal outcomes, activity, market views, and performance.'],
           ['/app/evidence', 'Proof Console for manifests, artifacts, compute proof, anchors, and iNFT evidence.'],
           ['/app/traces', 'Agent Trace History for run timelines, role participation, and AXL routing inspection.'],
+        ],
+      },
+      { type: 'h2', text: 'Navigation Patterns' },
+      {
+        type: 'list',
+        items: [
+          'Use the sidebar when switching between product domains during a review.',
+          'Use proof badges inside cards as direct evidence shortcuts instead of hunting through the proof console manually.',
+          'Use trace detail when an output looks surprising, incomplete, or too confident.',
+          'Use analytics for aggregate behavior, not for proving an individual signal.',
+          'Use copytrade views only after confirming that the underlying signal is approved and traceable.',
+        ],
+      },
+      { type: 'h2', text: 'Empty And Loading States' },
+      {
+        type: 'table',
+        headers: ['State', 'Expected Behavior'],
+        rows: [
+          ['Loading', 'Show skeleton or explicit loading state without implying records exist.'],
+          ['Empty', 'Explain the real absence, such as no approved signals yet or no proof anchor for this run.'],
+          ['Error', 'Show the failing domain and preserve navigation so the reviewer can inspect other areas.'],
+          ['Partial', 'Render available records and label missing proof or telemetry fields individually.'],
         ],
       },
       {
@@ -453,6 +743,11 @@ const docs: DocsPageContent[] = [
           'The frontend consumes REST API families organized around dashboard domains: runs, signals, intel, proofs, topology, logs, analytics, posts, inFT, and copytrade.',
       },
       {
+        type: 'p',
+        text:
+          'The API contract should keep product records linked by stable identifiers. A signal without a run reference, a proof without artifact metadata, or a trace without role state makes the dashboard harder to audit even if the individual endpoint technically responds.',
+      },
+      {
         type: 'table',
         headers: ['Client Module', 'Domain'],
         rows: [
@@ -465,6 +760,19 @@ const docs: DocsPageContent[] = [
           ['lib/api/copytrade.ts', 'Execution-oriented copytrade state.'],
         ],
       },
+      { type: 'h2', text: 'Domain Contracts' },
+      {
+        type: 'table',
+        headers: ['Domain', 'Should Include'],
+        rows: [
+          ['Runs', 'Run ID, mode, status, started timestamp, completed timestamp, scheduler context, and latest active state.'],
+          ['Signals', 'Asset, direction, thesis, risk fields, confidence, run ID, publication state, and proof references.'],
+          ['Intel', 'Title, summary, body or excerpt, run ID, generated formats, publication state, and proof references.'],
+          ['Proofs', 'Manifest data, artifact list, compute proof, anchor metadata, status, and external reference fields.'],
+          ['Topology', 'Peer IDs, service labels, online state, last seen time, and route metadata when available.'],
+          ['Analytics', 'Aggregated counts and outcomes that can be derived from persisted records.'],
+        ],
+      },
       { type: 'h2', text: 'Payload Expectations' },
       {
         type: 'list',
@@ -473,6 +781,16 @@ const docs: DocsPageContent[] = [
           'Timestamps should be ISO strings and displayed with user-locale formatting in the frontend.',
           'Proof references should be nullable when absent, never replaced with fake values.',
           'Status values should be explicit strings that can be rendered with labels and icons.',
+        ],
+      },
+      { type: 'h2', text: 'Client Behavior' },
+      {
+        type: 'list',
+        items: [
+          'Fetch functions should surface real errors instead of silently returning fabricated empty arrays.',
+          'UI code should decide how to render empty states, while API clients should preserve the server response shape.',
+          'Polling intervals should be used only for operational state that changes during active review.',
+          'Dates should be parsed at the display edge so raw API contracts remain stable.',
         ],
       },
     ],
@@ -490,11 +808,28 @@ const docs: DocsPageContent[] = [
         text:
           'Omen stores product-facing records in PostgreSQL while proof artifacts and decentralized evidence are handled through the 0G integration layer.',
       },
+      {
+        type: 'p',
+        text:
+          'The separation is intentional. PostgreSQL gives the dashboard fast, queryable state. 0G gives Omen durable proof material and external verification surfaces. The two layers should cross-reference each other without pretending to be the same storage system.',
+      },
       { type: 'h2', text: 'Database Source Of Truth' },
       {
         type: 'p',
         text:
           'The current database schema is tracked in packages/db/current_schema.sql. Treat it as the reference for app-facing records when making backend or dashboard changes.',
+      },
+      { type: 'h2', text: 'Record Relationships' },
+      {
+        type: 'table',
+        headers: ['Record', 'Connects To'],
+        rows: [
+          ['Run', 'Signals, intel reports, traces, proof manifests, artifacts, logs, and publication outputs.'],
+          ['Signal', 'Run, asset context, proof badges, critic output, and optional copytrade execution state.'],
+          ['Intel report', 'Run, generated social payloads, article output, proof badges, and publication state.'],
+          ['Trace event', 'Run, role, status, timestamps, target peer, and response summary.'],
+          ['Proof manifest', 'Run, artifact references, compute proof, chain anchor, and post proof.'],
+        ],
       },
       { type: 'h2', text: 'Data Boundaries' },
       {
@@ -504,6 +839,17 @@ const docs: DocsPageContent[] = [
           '0G Storage: proof artifacts, manifests, logs, and durable evidence records.',
           '0G Compute: independent adjudication output for thesis review.',
           '0G Chain: anchor references for proofs and iNFT-related registry state.',
+        ],
+      },
+      { type: 'h2', text: 'Schema Change Rules' },
+      {
+        type: 'list',
+        items: [
+          'Add fields only when a real runtime producer can populate them.',
+          'Prefer nullable fields for genuinely optional proof references instead of fake default values.',
+          'Keep run linkage explicit so dashboard records remain traceable across pages.',
+          'Update API clients and UI empty states in the same change when schema behavior changes.',
+          'Do not infer proof completion from visual status alone; persist an explicit source field.',
         ],
       },
       {
@@ -529,6 +875,11 @@ const docs: DocsPageContent[] = [
           'Omen is deployed across multiple surfaces: the frontend dashboard, backend API, AXL role apps, database, proof infrastructure, and publishing integrations.',
       },
       {
+        type: 'p',
+        text:
+          'A production-grade deployment review should validate both availability and evidence quality. It is not enough for the dashboard to render. The deployed AXL network must be reachable, role delegation must validate, and proof surfaces must show real persisted records or explicit missing states.',
+      },
+      {
         type: 'table',
         headers: ['Layer', 'Deployment Surface'],
         rows: [
@@ -538,6 +889,19 @@ const docs: DocsPageContent[] = [
           ['Database', 'Supabase PostgreSQL.'],
           ['Proof layer', '0G Storage, 0G Compute, and 0G Chain integrations.'],
           ['Publishing', 'TwitterAPI.io and Telegram Bot API.'],
+        ],
+      },
+      { type: 'h2', text: 'Environment Categories' },
+      {
+        type: 'table',
+        headers: ['Category', 'Examples'],
+        rows: [
+          ['API routing', 'Frontend API base URL, backend public URL, CORS origin configuration.'],
+          ['AXL routing', 'AXL node base URL and role peer IDs for deployed role apps.'],
+          ['Model providers', 'Provider keys and model configuration for role execution.'],
+          ['0G proof layer', 'Storage, compute, chain, and contract configuration.'],
+          ['Publishing', 'TwitterAPI.io and Telegram bot credentials.'],
+          ['Database', 'Supabase connection strings and service credentials.'],
         ],
       },
       { type: 'h2', text: 'Pre-Demo Checklist' },
@@ -550,6 +914,17 @@ const docs: DocsPageContent[] = [
           'A2A verifier passes for the intended profile.',
           'Proof Console shows real manifest or missing-state records without placeholders.',
           'Publishing credentials are configured only in the runtime environment.',
+        ],
+      },
+      { type: 'h2', text: 'Release Expectations' },
+      {
+        type: 'list',
+        items: [
+          'Build and typecheck the frontend before deploying UI changes.',
+          'Run backend and package tests relevant to any changed runtime logic.',
+          'Validate AXL topology from the public entrypoint before presenting the deployed swarm.',
+          'Confirm that proof records are either real or clearly missing, with no synthetic fallback data.',
+          'Review social publishing outputs in a non-destructive path before enabling scheduled posting changes.',
         ],
       },
     ],
@@ -566,6 +941,11 @@ const docs: DocsPageContent[] = [
         type: 'lead',
         text:
           'Most issues can be isolated by deciding which layer failed first: scheduler, backend API, AXL route, agent schema, proof persistence, or publisher output.',
+      },
+      {
+        type: 'p',
+        text:
+          'Start with the earliest failing boundary. If the dashboard has no data, do not debug proof rendering yet. If AXL delegation fails, do not tune agent prompts yet. If schema validation fails, do not treat the publisher as the source of truth.',
       },
       { type: 'h2', text: 'Common Checks' },
       {
@@ -593,12 +973,36 @@ const docs: DocsPageContent[] = [
           },
         ],
       },
+      { type: 'h2', text: 'Symptom Matrix' },
+      {
+        type: 'table',
+        headers: ['Symptom', 'Likely Layer', 'First Check'],
+        rows: [
+          ['Docs or dashboard route shows blank page', 'Frontend', 'Browser console, build output, and React route wiring.'],
+          ['Mission Control shows stale run state', 'Backend or scheduler', 'Run status endpoint and scheduler next-run metadata.'],
+          ['Trace stops at one role', 'Agent or AXL', 'Role response status, target peer ID, and schema validation error.'],
+          ['Proof badge missing for completed run', 'Proof persistence', 'Checkpoint step and proof console API response.'],
+          ['Social output absent', 'Publisher', 'Publication eligibility, credentials, and publisher role result.'],
+          ['Analytics disagree with visible records', 'Aggregation', 'Source query, date filters, and status inclusion rules.'],
+        ],
+      },
       { type: 'h2', text: 'Useful Commands' },
       {
         type: 'code',
         language: 'powershell',
         code:
           'pnpm run typecheck\npnpm run build\nInvoke-RestMethod https://omen-axl-node.fly.dev/topology\npnpm run axl:verify:a2a',
+      },
+      { type: 'h2', text: 'Escalation Notes' },
+      {
+        type: 'list',
+        items: [
+          'Capture the run ID before changing code or retrying a failed path.',
+          'Preserve the raw role error when a schema failure occurs; it is more useful than the rendered UI message.',
+          'Check whether a missing proof record is valid for the run path before treating it as a bug.',
+          'Separate public deployment failures from local development failures; the AXL sponsor demo path uses deployed Fly nodes.',
+          'Avoid adding fallback values to make the UI look complete. The fix should restore real data or show the real absence.',
+        ],
       },
     ],
   },
