@@ -12,6 +12,7 @@ import { SignalAnalytics } from "./pages/analytics/SignalAnalytics";
 import { EvidencePage } from "./pages/EvidencePage";
 import { CopytradePage } from "./pages/CopytradePage";
 import { TraceHistoryPage } from "./pages/TraceHistoryPage";
+import { DocsPage } from "./pages/DocsPage";
 
 export default function App() {
   return (
@@ -63,7 +64,8 @@ export default function App() {
             <TraceHistoryPage />
           </DashboardLayout>
         } />
-        <Route path="/docs" element={<Home />} />
+        <Route path="/docs" element={<DocsPage />} />
+        <Route path="/docs/:slug" element={<DocsPage />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </BrowserRouter>
