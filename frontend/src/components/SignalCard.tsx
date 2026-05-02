@@ -10,7 +10,6 @@ import {
   Maximize2,
   TrendingUp,
   TrendingDown,
-  Crosshair,
   Clock3,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -253,8 +252,8 @@ export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardPro
                 <Maximize2 className="w-4 h-4 mr-2" /> View Full Analysis
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-gray-900 border-gray-800 text-white w-[calc(100vw-2rem)] max-w-6xl max-h-[88vh] overflow-y-auto p-0">
-              <DialogHeader className="border-b border-gray-800 px-5 py-4 sm:px-6">
+            <DialogContent className="bg-gray-950 border-gray-800 text-white w-[calc(100vw-2rem)] max-w-[1120px] max-h-[calc(100vh-3rem)] overflow-hidden p-0 shadow-2xl shadow-black/70">
+              <DialogHeader className="border-b border-gray-800 bg-gray-950 px-5 py-3 sm:px-6">
                 <div className="flex flex-col gap-3 pr-8 md:flex-row md:items-start md:justify-between">
                   <div>
                     <DialogTitle className="flex flex-wrap items-center gap-3 text-2xl font-bold">
@@ -278,8 +277,42 @@ export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardPro
                 </div>
               </DialogHeader>
 
-              <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.45fr)_360px]">
-                <div className="space-y-4">
+              <div className="space-y-4 bg-gray-950 p-4 sm:p-5">
+                <div className="grid gap-2 rounded-lg border border-gray-800 bg-gray-900/35 p-2.5 md:grid-cols-[1fr_1fr_1fr_1.2fr]">
+                  <div className="flex items-center justify-between rounded-md border border-gray-800 bg-gray-950/80 px-2.5 py-2">
+                    <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                      <ArrowUpRight className="h-3 w-3" /> Entry
+                    </span>
+                    <span className="font-mono text-sm text-gray-100">{formatPriceValue(entry_price)}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border border-cyan-500/25 bg-cyan-950/35 px-2.5 py-2">
+                    <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-cyan-200/80">
+                      <Target className="h-3 w-3" /> Take Profit
+                    </span>
+                    <span className="font-mono text-sm text-cyan-300">{formatPriceValue(target_price)}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border border-red-500/25 bg-red-950/30 px-2.5 py-2">
+                    <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-red-200/80">
+                      <ShieldAlert className="h-3 w-3" /> Stop Loss
+                    </span>
+                    <span className="font-mono text-sm text-red-300">{formatPriceValue(stop_loss)}</span>
+                  </div>
+                  <div className="rounded-md border border-gray-800 bg-gray-950/80 px-2.5 py-2">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wider text-gray-500">Confidence</span>
+                      <span className="font-mono text-xs text-cyan-300">{confidenceScore}/100</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-800">
+                      <div
+                        className="h-full bg-cyan-400"
+                        style={{ width: `${confidenceScore}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_340px] lg:items-stretch">
+                  <div className="min-w-0 lg:min-h-[500px]">
                   <SignalTradeChart
                     signalId={signal.id}
                     symbol={token?.symbol}
@@ -287,80 +320,43 @@ export function SignalCard({ signal, isLoading, error, isLatest }: SignalCardPro
                     entry={entry_price}
                     target={target_price}
                     stopLoss={stop_loss}
+                    compact
+                    className="h-full"
                   />
+                  </div>
 
-                  <div className="rounded-xl border border-gray-800 bg-gray-950/80 p-4">
-                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                  <div className="flex min-h-0 flex-col gap-3">
+                    <div className="rounded-lg border border-gray-800 bg-gray-900/35 p-3">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-gray-500">Current</div>
+                          <div className="mt-0.5 font-mono text-gray-200">{formatPriceValue(current_price)}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-gray-500">P&L</div>
+                          <div className={`mt-0.5 font-mono ${pnlColor}`}>
+                            {pnl_percent !== undefined ? `${pnl_percent > 0 ? '+' : ''}${pnl_percent.toFixed(2)}R` : 'TBD'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-gray-500">Direction</div>
+                          <div className="mt-0.5 font-mono text-gray-200">{tradeDirection}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-gray-500">Published</div>
+                          <div className="mt-0.5 font-mono text-gray-200">{date}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 rounded-lg border border-gray-800 bg-gray-900/35 p-3">
+                    <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
                       <Activity className="w-4 h-4 text-cyan-400" />
                       Signal Analysis
                     </h3>
-                    <p className="max-w-[72ch] whitespace-pre-wrap text-sm leading-7 text-gray-300">
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-gray-300">
                       {analysis || 'Signal report is pending final analysis.'}
                     </p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-4">
-                    <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
-                      <Crosshair className="h-4 w-4 text-cyan-400" />
-                      Execution Levels
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3">
-                        <span className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wider text-gray-500">
-                          <ArrowUpRight className="h-3 w-3" /> Entry
-                        </span>
-                        <span className="font-mono text-lg text-gray-100">{formatPriceValue(entry_price)}</span>
-                      </div>
-                      <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/10 p-3">
-                        <span className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wider text-cyan-200/80">
-                          <Target className="h-3 w-3" /> Take Profit
-                        </span>
-                        <span className="font-mono text-lg text-cyan-300">{formatPriceValue(target_price)}</span>
-                      </div>
-                      <div className="rounded-lg border border-red-500/25 bg-red-500/10 p-3">
-                        <span className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wider text-red-200/80">
-                          <ShieldAlert className="h-3 w-3" /> Stop Loss
-                        </span>
-                        <span className="font-mono text-lg text-red-300">{formatPriceValue(stop_loss)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-4">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-sm text-gray-400">Confidence Score</span>
-                      <span className="font-mono text-sm text-cyan-300">{confidenceScore}/100</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-gray-800">
-                      <div
-                        className="h-full bg-gradient-to-r from-cyan-500 to-purple-500"
-                        style={{ width: `${confidenceScore}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-4">
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wider text-gray-500">Current</div>
-                        <div className="mt-1 font-mono text-gray-200">{formatPriceValue(current_price)}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wider text-gray-500">P&L</div>
-                        <div className={`mt-1 font-mono ${pnlColor}`}>
-                          {pnl_percent !== undefined ? `${pnl_percent > 0 ? '+' : ''}${pnl_percent.toFixed(2)}R` : 'TBD'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wider text-gray-500">Direction</div>
-                        <div className="mt-1 font-mono text-gray-200">{tradeDirection}</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wider text-gray-500">Published</div>
-                        <div className="mt-1 font-mono text-gray-200">{date}</div>
-                      </div>
                     </div>
                   </div>
                 </div>

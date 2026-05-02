@@ -21,6 +21,63 @@ import {
 } from '../lib/api/signals';
 
 const TIMEFRAMES: SignalChartTimeframe[] = ['15m', '1h', '4h'];
+const CANDLE_CACHE_TTL_MS = 60_000;
+
+type CandleCacheEntry = {
+  candles: SignalCandle[];
+  cachedAt: number;
+};
+
+const candleCache = new Map<string, CandleCacheEntry>();
+const candleRequests = new Map<string, Promise<SignalCandle[]>>();
+
+const getCandleCacheKey = (signalId: string, timeframe: SignalChartTimeframe) =>
+  `${signalId}:${timeframe}`;
+
+const readCachedCandles = (signalId: string, timeframe: SignalChartTimeframe) => {
+  const entry = candleCache.get(getCandleCacheKey(signalId, timeframe));
+
+  if (!entry) {
+    return null;
+  }
+
+  return entry.candles;
+};
+
+const shouldRefreshCachedCandles = (
+  signalId: string,
+  timeframe: SignalChartTimeframe,
+) => {
+  const entry = candleCache.get(getCandleCacheKey(signalId, timeframe));
+  return !entry || Date.now() - entry.cachedAt > CANDLE_CACHE_TTL_MS;
+};
+
+const loadCachedSignalCandles = (
+  signalId: string,
+  timeframe: SignalChartTimeframe,
+) => {
+  const cacheKey = getCandleCacheKey(signalId, timeframe);
+  const existingRequest = candleRequests.get(cacheKey);
+
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = getSignalCandles(signalId, timeframe)
+    .then((response) => {
+      candleCache.set(cacheKey, {
+        candles: response.candles,
+        cachedAt: Date.now(),
+      });
+      return response.candles;
+    })
+    .finally(() => {
+      candleRequests.delete(cacheKey);
+    });
+
+  candleRequests.set(cacheKey, request);
+  return request;
+};
 
 const toChartTime = (timestamp: string) =>
   Math.floor(new Date(timestamp).getTime() / 1000) as UTCTimestamp;
@@ -47,6 +104,8 @@ type TradeBoxInput = {
 type SignalTradeChartProps = TradeBoxInput & {
   signalId: string;
   symbol?: string;
+  compact?: boolean;
+  className?: string;
 };
 
 type LoadedChartState = {
@@ -140,6 +199,8 @@ export function SignalTradeChart({
   entry,
   target,
   stopLoss,
+  compact = false,
+  className = '',
 }: SignalTradeChartProps) {
   const [timeframe, setTimeframe] = useState<SignalChartTimeframe>('15m');
   const [state, setState] = useState<LoadedChartState>({
@@ -152,17 +213,32 @@ export function SignalTradeChart({
 
   useEffect(() => {
     let isActive = true;
+    const cachedCandles = readCachedCandles(signalId, timeframe);
 
-    setState((current) => ({ ...current, isLoading: true, error: null }));
+    if (cachedCandles) {
+      setState({
+        candles: cachedCandles,
+        isLoading: false,
+        error: null,
+      });
+    } else {
+      setState((current) => ({ ...current, isLoading: true, error: null }));
+    }
 
-    getSignalCandles(signalId, timeframe)
+    if (!shouldRefreshCachedCandles(signalId, timeframe)) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    loadCachedSignalCandles(signalId, timeframe)
       .then((response) => {
         if (!isActive) {
           return;
         }
 
         setState({
-          candles: response.candles,
+          candles: response,
           isLoading: false,
           error: null,
         });
@@ -173,9 +249,13 @@ export function SignalTradeChart({
         }
 
         setState({
-          candles: [],
+          candles: cachedCandles ?? [],
           isLoading: false,
-          error: error instanceof Error ? error.message : 'Unable to load chart candles.',
+          error: cachedCandles
+            ? null
+            : error instanceof Error
+              ? error.message
+              : 'Unable to load chart candles.',
         });
       });
 
@@ -183,6 +263,28 @@ export function SignalTradeChart({
       isActive = false;
     };
   }, [signalId, timeframe]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const preload = async () => {
+      await Promise.allSettled(
+        TIMEFRAMES.map(async (option) => {
+          if (!isActive || !shouldRefreshCachedCandles(signalId, option)) {
+            return;
+          }
+
+          await loadCachedSignalCandles(signalId, option);
+        }),
+      );
+    };
+
+    void preload();
+
+    return () => {
+      isActive = false;
+    };
+  }, [signalId]);
 
   const candleData = useMemo<CandlestickData<UTCTimestamp>[]>(
     () =>
@@ -322,8 +424,8 @@ export function SignalTradeChart({
   }, [candleData, direction, entry, stopLoss, target, volumeData]);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950">
-      <div className="flex flex-col gap-3 border-b border-gray-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-950 ${className}`}>
+      <div className="flex flex-col gap-3 border-b border-gray-800 bg-gray-950 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-cyan-400" />
           <span className="text-sm font-semibold text-gray-200">Trade Map</span>
@@ -331,7 +433,7 @@ export function SignalTradeChart({
             {symbol ? `${symbol}/USDT` : 'Signal'} candles
           </span>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border border-gray-800 bg-gray-900/70 p-1">
+        <div className="flex items-center gap-1 rounded-md border border-gray-800 bg-gray-900/70 p-1">
           {TIMEFRAMES.map((option) => (
             <button
               key={option}
@@ -349,7 +451,7 @@ export function SignalTradeChart({
         </div>
       </div>
 
-      <div className="relative h-[360px] bg-gray-900 sm:h-[460px]">
+      <div className={`relative min-h-0 bg-gray-900 ${compact ? 'h-[330px] flex-1 lg:h-auto' : 'h-[360px] sm:h-[460px]'}`}>
         <div ref={containerRef} className="absolute inset-0" />
         <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 z-10 h-full w-full" />
         {state.isLoading && (
