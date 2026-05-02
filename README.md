@@ -136,7 +136,7 @@ Signals do not get published unless they pass multiple gates:
 - **Adversarial critic review** -- the critic agent is specifically prompted to find weaknesses
 - **Repair loop** -- one structured revision attempt when the thesis is close but flawed
 - **Independent compute verification** -- an entirely separate model on 0G Compute reviews the thesis as a second opinion
-- **Daily signal limit** -- prevents overproduction; when the limit is reached, the swarm produces intel reports only
+- **Daily signal limit** -- prevents overproduction; `OMEN_DAILY_SIGNAL_LIMIT` defaults to 3 published signals per rolling 24h window, and when the limit is reached, the swarm produces intel reports only
 
 ---
 

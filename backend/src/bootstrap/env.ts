@@ -153,6 +153,11 @@ const parsePort = (value: string | undefined, defaultValue: number) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
 };
 
+const parseNonNegativeInteger = (value: string | undefined, defaultValue: number) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : defaultValue;
+};
+
 const parseNumber = (value: string | undefined, defaultValue: number) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : defaultValue;
@@ -259,7 +264,7 @@ export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendE
       minRiskReward: parseNumber(env.OMEN_MIN_RISK_REWARD, 2),
       minConfluences: parsePort(env.OMEN_MIN_CONFLUENCES, 2),
     },
-    signalDailyLimit: parsePort(env.OMEN_DAILY_SIGNAL_LIMIT, 3),
+    signalDailyLimit: parseNonNegativeInteger(env.OMEN_DAILY_SIGNAL_LIMIT, 3),
     supabase: {
       url: env.SUPABASE_URL ?? null,
       anonKey: env.SUPABASE_ANON_KEY ?? null,
