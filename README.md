@@ -4,7 +4,7 @@
 
 Omen is a multi-agent system that scans the crypto market, researches opportunities, generates trading signals and long-form intelligence reports, and publishes them -- all without human intervention. Ten specialized role agents coordinate through a decentralized peer-to-peer network with an orchestrator and a dedicated memory service. Every piece of analysis they produce is backed by verifiable proof stored on decentralized infrastructure.
 
-[Live Dashboard](https://omen.vercel.app) -- [X/Twitter](https://x.com/omenswarm) -- [Telegram Channel](https://t.me/omenswarm)
+[Live Dashboard](https://omen-agents.vercel.app) -- [X/Twitter](https://x.com/RealOmenAgent) -- [Telegram Channel](https://t.me/omenagents)
 
 ---
 
@@ -85,6 +85,24 @@ Omen is not a single AI model. It is a coordinated swarm: one orchestrator, ten 
 
 Each agent runs as a separate process with its own network identity. The memory service is also a separate peer process, but it is infrastructure: it exposes recall and persistence tools rather than making autonomous analytical decisions. Agents do not share memory directly; they communicate through encrypted peer-to-peer messages.
 
+**LLM configuration** -- Agents use different models depending on their role and complexity:
+
+| Agent | Primary Model | Fallback Model |
+|---|---|---|
+| Scanner | Grok-4-fast | Grok-4.1 |
+| Research | Gemini-3.1-flash-lite | GPT-5-nano |
+| Chart Vision | Gemini-3.1-flash-lite | GPT-5-nano |
+| Analyst | Grok-4-fast | Grok-4.1 |
+| Critic | Grok-4-fast | Grok-4.1 |
+| Intel | Gemini-3.1-flash-lite | GPT-5-nano |
+| Generator | Gemini-3.1-flash-lite | GPT-5-nano |
+| Writer | Gemini-3.1-flash-lite | GPT-5-nano |
+| Market Bias | Grok-4-fast | Grok-4.1 |
+| Publisher | Gemini-3.1-flash-lite | GPT-5-nano |
+| Adjudication (0G Compute) | Qwen 2.5 7B Instruct | -- |
+
+Fallbacks are automatic. If the primary model returns an error or times out, the agent retries with the fallback model before marking the step as failed.
+
 ### Execution Flow
 
 The swarm graph is not a fixed linear pipeline. It branches based on what the agents discover:
@@ -154,7 +172,7 @@ Signals do not get published unless they pass multiple gates:
                                          |
                                 +--------+---------+
                                 |    PostgreSQL    |
-                                |   (Supabase)    |
+                                |   (Supabase)     |
                                 +------------------+
 ```
 
@@ -184,7 +202,7 @@ omen/
 |---|---|
 | Runtime | Node.js 24, TypeScript 5.8 |
 | Agent Framework | LangGraph.js (directed graph with conditional edges) |
-| LLM Providers | OpenAI GPT-5-nano, Grok-4 (scanner), 0G Compute (adjudication) |
+| LLM Providers | Grok-4-fast / Grok-4.1, Gemini-3.1-flash-lite / GPT-5-nano, 0G Compute (adjudication) |
 | Agent Network | Gensyn AXL (peer-to-peer encrypted communication) |
 | Proof Storage | 0G Storage (KV, Log, File) |
 | Proof Compute | 0G Compute (independent model verification) |
@@ -337,7 +355,7 @@ On-chain registry for swarm run manifests. Stores the run ID, manifest root hash
 
 ## Dashboard
 
-The web dashboard at `omen.vercel.app` provides real-time visibility into everything the swarm does.
+The web dashboard at `omen-agents.vercel.app` provides real-time visibility into everything the swarm does.
 
 **Home** -- System status, latest signal, latest intel report, and a live terminal log of agent activity. Refreshes every 30 seconds.
 
@@ -459,7 +477,6 @@ Signals and intel reports are published to X/Twitter through TwitterAPI.io. The 
 Post formats:
 - **Signal alerts** with direction, confidence, prices, and risk/reward
 - **Intel summaries** with title and key insight
-- **Intel threads** for long-form content split across tweets
 
 ### Telegram
 
@@ -526,8 +543,8 @@ pnpm --filter @omen/zero-g deploy:run-registry   # Deploy RunRegistry
 ### Setup
 
 ```bash
-git clone https://github.com/<org>/omen.git
-cd omen
+git clone https://github.com/zaikaman/Omen.git
+cd Omen
 pnpm install
 ```
 
@@ -575,7 +592,7 @@ Key groups:
 |---|---|
 | `SUPABASE_*` | Database connection |
 | `OPENAI_*` | Primary LLM |
-| `SCANNER_*` | Scanner-specific LLM (Grok-4) |
+| `SCANNER_*` | Scanner-specific LLM (Grok-4.1) |
 | `AXL_*` | Peer network (agent nodes, orchestrator, publisher, and memory service IDs) |
 | `ZERO_G_*` | 0G Storage, Compute, and Chain |
 | `OMEN_INFT_*` | iNFT contract, mint, and automatic intelligence versioning |
@@ -604,13 +621,60 @@ Key groups:
 
 ## AI Tool Attribution
 
-This project was built with significant assistance from AI coding tools.
+This project was built with significant assistance from AI coding tools, as permitted by the hackathon guidelines. This section documents where and how AI tools were used across the codebase.
 
-**Tool used:** OpenAI Codex with GPT-5.5, used as a continuous pair-programming partner across all development phases -- architecture, implementation, debugging, and documentation.
+### Tool
 
-**How it was used:** The AI assistant proposed implementations that were reviewed, tested, and iterated on by the team. It was not used to generate the project wholesale. The team directed all architectural decisions, product requirements, system design, and quality standards. AI accelerated the implementation but did not replace human judgment on what to build or how.
+OpenAI Codex with GPT-5.5, used as a continuous pair-programming partner throughout the project.
 
-**What the team owned:** Product direction, architecture decisions, swarm design, quality bar, and all final review. Specification documents (`PRODUCT.md`, `DESIGN.md`, `DEPLOYMENT.md`) were written to direct the AI and are included in the repository.
+### How It Was Used
+
+The AI assistant operated as an interactive coding partner, not as a batch code generator. The typical workflow was: the team described what needed to be built (often through specification documents), the AI proposed an implementation, the team reviewed and tested it, and then iterated through corrections and refinements. Every piece of AI-generated code was reviewed by the team before being committed.
+
+### What the Team Owned
+
+All product direction, architecture decisions, system design, agent role definitions, quality thresholds, prompt engineering strategy, deployment topology, and the decision of which sponsor technologies (AXL, 0G) to integrate and how deeply. 
+
+### Specific AI-Assisted Areas
+
+**Backend pipeline** (`backend/src/pipelines/live-swarm-pipeline.ts`) -- The ~3,000-line pipeline orchestrating the full swarm run was built collaboratively. The team specified the step ordering, checkpoint strategy, and publishing sequence. The AI assisted with the implementation of each step handler, AXL delegation wiring, 0G storage calls, and error handling patterns.
+
+**Agent definitions** (`packages/agents/src/definitions/*.ts`) -- Each agent's prompt template, input/output Zod schema, and LLM configuration was developed with AI assistance. The team defined the role responsibilities, quality criteria, and data flow contracts. The AI helped translate those into working TypeScript definitions and schema declarations.
+
+**Swarm graph** (`packages/agents/src/framework/omen-swarm-graph.ts`) -- The LangGraph-based execution graph with conditional branching logic was co-developed. The team designed the graph topology and branching rules (neutral market skips scanner, repairable rejections loop back). The AI implemented the `resolveNextOmenNodeKey`, `buildOmenNodeInput`, and `applyOmenNodeOutput` functions.
+
+**AXL integration** (`packages/axl/src/**/*.ts`) -- The A2A client, HTTP adapter, MCP service contracts, and topology modules were built with AI assistance. The team studied the AXL documentation, designed the delegation protocol, and specified the peer topology. The AI implemented the adapter code, message serialization, and service registry sync.
+
+**0G integration** (`packages/zero-g/src/**/*.ts`) -- The storage adapters (KV, Log, File), compute adjudication module, chain adapter, proof anchor, iNFT encryption, and manifest builder were built with AI assistance. The team designed the proof pipeline architecture and chose which 0G services to use. The AI implemented the SDK integration code.
+
+**Smart contracts** (`contracts/*.sol`) -- `OmenAgentINFT.sol`, `OmenAgentVerifier.sol`, and `OmenRunRegistry.sol` were developed with AI assistance. The team specified the ERC-7857 requirements, the proof verification logic, and the on-chain anchoring pattern. The AI drafted the Solidity implementations, which were reviewed for correctness and security.
+
+**Frontend components** (`frontend/src/**/*.tsx`) -- Dashboard pages, signal/intel cards, chart integrations, analytics visualizations, proof badge system, and copytrade UI were built with AI assistance. The team designed the UI layout and interaction patterns. The AI implemented the React components, hook logic, and API integration.
+
+**MCP service hosts** (`backend/src/nodes/services/*-mcp.ts`) -- The eleven MCP tool definitions for AXL service discovery were built with AI assistance based on the agent definition contracts.
+
+**Database repositories** (`packages/db/src/repositories/*.ts`) -- Supabase query builders for all tables were AI-assisted.
+
+**Market data clients** (`packages/market-data/src/**/*.ts`) -- Binance, CoinGecko, CMC, Birdeye, and DeFiLlama API clients were built with AI assistance. The team selected the providers, specified the data requirements, and designed the key rotation scheme.
+
+**Publishing pipeline** (`backend/src/publishers/*.ts`) -- All thirteen publishers in the post-run finalization sequence were AI-assisted.
+
+**Scheduler** (`backend/src/scheduler/*.ts`) -- The hourly scheduler with persistence, overlap protection, and failure handling was AI-assisted.
+
+**Post formatter and worker** (`backend/src/services/x/*.ts`) -- The Twitter post formatting, state machine, and rate limiting were AI-assisted.
+
+**Copytrade system** (`backend/src/services/copytrade/*.ts`) -- The enrollment flow, signal monitoring, and Hyperliquid trade execution were AI-assisted.
+
+**Deployment scripts** (`scripts/axl/*.ps1`, `deploy/**`) -- AXL node launcher scripts and Fly.io deployment configs were AI-assisted.
+
+**Documentation** -- This `README.md`, `DEPLOYMENT.md`, `AXL_DEMO.md`, and `INFT_DEPLOYMENT.md` were drafted with AI assistance from the team's specifications and notes.
+
+### Assets Not Generated by AI
+
+- **AXL node binary** -- Provided by Gensyn (third-party dependency)
+- **0G TypeScript SDK** -- Provided by 0G Labs (third-party dependency)
+- **LangGraph.js framework** -- Vendored open-source dependency
+- **Agent prompt content and strategy** -- Directed by the team; the AI helped with syntax and structure but the analytical methodology, quality thresholds, and risk management philosophy were team decisions
 
 ---
 
@@ -1006,7 +1070,7 @@ This sends actual work to each agent node through the AXL mesh and validates tha
 
 ### Inspect on-chain proofs
 
-Visit the [0G Chain Explorer](https://chainscan-galileo.0g.ai) and search for the `OmenRunRegistry` contract address. You will see `RunAnchored` events with manifest root hashes and 0G Storage URIs for each completed run.
+Open the `OmenRunRegistry` address directly on 0G Chain Scan: [0x6DAEE6bb260D6a31e73Ff87DB8e0f41c4dc9186D](https://chainscan-galileo.0g.ai/address/0x6DAEE6bb260D6a31e73Ff87DB8e0f41c4dc9186D). Do not search for the contract name; the explorer only resolves hex addresses and transaction hashes. The dashboard proof cards also link directly to the chain anchor transaction for each completed run.
 
 ### Inspect the iNFT
 
@@ -1014,7 +1078,7 @@ The current `OmenAgentINFT` is `0xAA2c6434C776ae504AB96045Ce867D2E50b779F8`, tok
 
 ### View live output
 
-The dashboard at [omen.vercel.app](https://omen.vercel.app) shows live signals, intel reports, and proof badges. The evidence page links directly to 0G Storage artifacts and on-chain transactions.
+The dashboard at [omen-agents.vercel.app](https://omen-agents.vercel.app) shows live signals, intel reports, and proof badges. The evidence page links directly to 0G Storage artifacts and on-chain transactions.
 
 ---
 
