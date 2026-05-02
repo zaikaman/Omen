@@ -52,9 +52,9 @@ Every hour, Omen wakes up and does the following:
 
 1. **Reads the market** -- Determines the macro directional bias (bullish, bearish, or neutral) from current conditions
 2. **Finds opportunities** -- Scans a curated universe of crypto assets for candidates that match the bias
-3. **Researches deeply** -- Pulls live data from Binance, CoinGecko, CoinMarketCap, Birdeye, and DeFiLlama
+3. **Researches deeply** -- Gathers focused narrative, catalyst, fundamental, and sentiment context for the selected candidate
 4. **Analyzes charts** -- Generates multi-timeframe technical analysis using vision-capable models
-5. **Builds a thesis** -- Synthesizes all evidence into a structured trade thesis with entry, targets, stop loss, and risk/reward
+5. **Builds a thesis** -- Enriches the evidence with live Binance, CoinGecko, and CoinMarketCap data, then synthesizes a structured trade thesis with entry, targets, stop loss, and risk/reward
 6. **Challenges itself** -- An adversarial critic agent reviews the thesis against quality thresholds and rejects weak signals
 7. **Writes intelligence** -- Produces a narrative report explaining the market context, regardless of whether a signal was approved
 8. **Publishes everywhere** -- Posts approved signals and reports to X/Twitter, Telegram, and the Omen dashboard
@@ -74,9 +74,9 @@ Omen is not a single AI model. It is a coordinated swarm: one orchestrator, ten 
 |---|---|
 | **Market Bias** | Reads macro conditions and sets the directional bias (LONG / SHORT / NEUTRAL) |
 | **Scanner** | Scans the asset universe for candidates aligned with the bias |
-| **Research** | Pulls live market data from five providers and assembles structured evidence |
+| **Research** | Gathers narrative, catalyst, fundamental, and sentiment evidence without calling local market-data providers |
 | **Chart Vision** | Renders candlestick charts and analyzes them through a vision model |
-| **Analyst** | Synthesizes all evidence into a structured trading thesis |
+| **Analyst** | Enriches candidate evidence with live Binance, CoinGecko, and CoinMarketCap data, then synthesizes a structured trading thesis |
 | **Critic** | Adversarial review -- rejects weak theses, requests repairs, or approves |
 | **Intel** | Synthesizes a narrative intelligence report from all available context |
 | **Generator** | Transforms the intel report into publishable content formats |
@@ -188,7 +188,7 @@ omen/
     axl/                   AXL adapter, A2A client, MCP services, topology
     zero-g/                0G Storage, Compute, Chain, iNFT, proofs
     db/                    Database client and repositories
-    market-data/           Binance, CoinGecko, CMC, Birdeye, DeFiLlama
+    market-data/           Binance, CoinGecko, CMC, Birdeye, DeFiLlama clients
     indicators/            Technical indicators and chart analysis
     shared/                Shared types and schemas
     execution/             Execution engine interfaces
@@ -229,7 +229,7 @@ The AXL network runs twelve peer deployments on Fly.io: one orchestrator, ten ag
 | Orchestrator | `omen-axl-node` | Coordinates the swarm, delegates work to role nodes |
 | Market Bias | `omen-axl-market-bias` | Macro bias assessment |
 | Scanner | `omen-axl-scanner` | Asset scanning and candidate selection |
-| Research | `omen-axl-research` | Multi-source data gathering |
+| Research | `omen-axl-research` | Narrative, catalyst, fundamental, and sentiment research |
 | Chart Vision | `omen-axl-chart-vision` | Technical chart analysis |
 | Analyst | `omen-axl-analyst` | Thesis generation |
 | Critic | `omen-axl-critic` | Adversarial review |
@@ -279,7 +279,7 @@ Omen uses three types of 0G Storage:
 
 **Log Entries** -- Immutable, append-only records written at each checkpoint. Creates a tamper-evident history of the run that cannot be retroactively modified.
 
-**File Artifacts** -- Larger documents published as files: evidence bundles (all research data from a run), report bundles (the full signal or intel report), and manifests (the root document linking everything together).
+**File Artifacts** -- Larger documents published as files: evidence bundles (all agent-generated evidence from a run), report bundles (the full signal or intel report), and manifests (the root document linking everything together).
 
 ### Compute Verification
 
@@ -306,7 +306,7 @@ Every run produces these proof layers:
 |---|---|---|
 | Agent Events | Step-by-step execution trace | PostgreSQL |
 | AXL Messages | Inter-agent communication records | PostgreSQL |
-| Evidence Bundle | All research data and sources | 0G Storage |
+| Evidence Bundle | All agent-generated evidence and sources | 0G Storage |
 | Report Bundle | Final signal or intel report | 0G Storage |
 | State Checkpoints | Swarm state at milestone steps | 0G KV Store |
 | Compute Proofs | Independent adjudication results | 0G Storage |
@@ -430,15 +430,15 @@ The system runs on real Hyperliquid infrastructure and supports both **mainnet**
 
 ## Data Sources
 
-The swarm pulls live data from five providers:
+The swarm uses market-data providers in different parts of the pipeline:
 
 | Provider | Data | Used By |
 |---|---|---|
-| **Binance** | OHLCV candles, 24h tickers, order book, trades | Research, Chart Vision |
-| **CoinGecko** | Market cap, price changes, volume, supply, dominance | Research |
-| **CoinMarketCap** | Market cap rankings, supply, platform metadata | Research |
-| **Birdeye** | On-chain analytics, holder distribution, liquidity, security | Research |
-| **DeFiLlama** | Protocol TVL, TVL changes, chain distribution | Research |
+| **Binance** | Live futures snapshot and OHLCV candles | Analyst enrichment, local technical analysis |
+| **CoinGecko** | Price, volume, 24h change, trending tokens, top movers | Analyst enrichment, Intel market discovery |
+| **CoinMarketCap** | Live quote and 24h change | Analyst enrichment |
+| **Birdeye** | Trending-token discovery leads | Intel market discovery |
+| **DeFiLlama** | Protocol stats, yield pools, chain TVL | Intel DeFi discovery |
 
 All data clients support API key rotation (multiple keys per provider), request timeouts, and graceful degradation when a provider is down. Hugging Face image-generation token rotation persists its cursor in `hf_token_rotation_state`.
 
@@ -690,7 +690,7 @@ run                        Run ID, mode, status, market bias, outcome, timing
 config                     Runtime settings, market universe, quality thresholds, provider flags
 marketBiasReasoning        The bias agent's full reasoning text
 activeCandidates[]         Scanner's selected candidates with direction hints and status
-evidenceItems[]            Research evidence: category, summary, source, structured data
+evidenceItems[]            Swarm evidence: category, summary, source, structured data
 chartVisionSummaries[]     Chart vision's consolidated technical summaries
 thesisDrafts[]             Analyst's structured theses with all trade parameters
 criticReviews[]            Critic decisions with objections and repair instructions
@@ -736,7 +736,7 @@ After the swarm graph completes, the pipeline runs the finalization publishers i
 | 2 | `AxlMessageRecorder` | Records AXL envelopes to `axl_messages` |
 | 3 | `ZeroGRefRecorder` | Records 0G references to `zero_g_refs` |
 | 4 | `ZeroGPublisher` | Uploads artifacts to 0G Storage |
-| 5 | `EvidenceBundlePublisher` | Bundles and uploads all research evidence |
+| 5 | `EvidenceBundlePublisher` | Bundles and uploads all swarm evidence |
 | 6 | `ReportBundlePublisher` | Bundles and uploads the signal or intel report |
 | 7 | `ComputeProofRecorder` | Records 0G Compute adjudication artifacts |
 | 8 | `RunManifestPublisher` | Builds the run manifest and uploads it to 0G Storage |
@@ -758,7 +758,7 @@ Each agent node and service node exposes capabilities as MCP (Model Context Prot
 |---|---|---|
 | Market Bias | `market_bias.generate` | Macro bias assessment |
 | Scanner | `scan.candidates` | Asset scanning |
-| Research | `research.investigate` | Multi-source research |
+| Research | `research.investigate` | Narrative, catalyst, fundamental, and sentiment research |
 | Chart Vision | `chart_vision.analyze` | Technical chart analysis |
 | Analyst | `analyst.synthesize` | Thesis generation |
 | Critic | `critic.review` | Adversarial evaluation |
@@ -825,7 +825,7 @@ Cover images are generated through Hugging Face Inference using carefully constr
 
 ## Deep Dive: Evidence Categories
 
-The research agent produces structured evidence items across eight categories:
+The swarm produces structured evidence items across eight categories. Research contributes narrative, fundamental, catalyst, and sentiment evidence; Chart Vision contributes chart evidence; Analyst enrichment contributes market and technical evidence from live provider data; Intel can contribute broader market and DeFi discovery evidence when the run routes to the intel path.
 
 | Category | What It Captures |
 |---|---|
@@ -1020,7 +1020,7 @@ When a signal is created, it includes:
 
 The dashboard tracks signals in real-time, showing current price relative to entry/target/stop, cumulative PnL, and status badges. The analytics suite uses resolved signals to compute win rate, average PnL, and calibration metrics.
 
-Proof badges on each signal card link to the underlying evidence: the AXL communication trace, the 0G manifest, the compute adjudication result, and the chain anchor transaction. Anyone can follow the chain from a published tweet back to the specific research evidence that produced it.
+Proof badges on each signal card link to the underlying evidence: the AXL communication trace, the 0G manifest, the compute adjudication result, and the chain anchor transaction. Anyone can follow the chain from a published tweet back to the specific evidence that produced it.
 
 ---
 
@@ -1030,7 +1030,7 @@ The system is designed to degrade gracefully rather than fail catastrophically:
 
 **Agent failures** -- If any agent step throws an error, the pipeline records the error in the swarm state, marks the run as failed, and triggers the run coordinator's retry logic. Failed runs are cleaned from the database before retry to prevent partial data.
 
-**Data provider failures** -- All market data clients implement graceful degradation. If CoinGecko is down, the research agent proceeds with data from the remaining providers. The agent explicitly notes missing data sources in its output so the analyst and critic can account for information gaps.
+**Data provider failures** -- All market data clients implement graceful degradation. If CoinGecko, Binance, or CoinMarketCap is down during signal generation, the analyst records missing-data notes and continues with the remaining evidence where possible. If Birdeye or DeFiLlama is unavailable during intel generation, the intel path continues with the remaining market leads.
 
 **AXL network failures** -- If a peer node is unresponsive, the `PeerFailover` module routes around it. The orchestrator delegator implements configurable timeouts (default: 5 minutes). Failed A2A delegations fall back to local execution when possible.
 
