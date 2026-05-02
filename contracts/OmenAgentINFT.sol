@@ -8,10 +8,24 @@ struct IntelligentData {
     bytes32 dataHash;
 }
 
+struct IntelligenceVersion {
+    uint256 version;
+    string runId;
+    string encryptedURI;
+    bytes32 encryptedDataHash;
+    bytes32 memoryRootHash;
+    bytes32 proofManifestHash;
+    uint256 updatedAt;
+    uint256 blockNumber;
+}
+
 interface IERC7857Metadata {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
     function intelligentDataOf(uint256 tokenId) external view returns (IntelligentData[] memory);
+    function intelligenceVersionCountOf(uint256 tokenId) external view returns (uint256);
+    function intelligenceVersionOf(uint256 tokenId, uint256 version) external view returns (IntelligenceVersion memory);
+    function latestIntelligenceVersionOf(uint256 tokenId) external view returns (IntelligenceVersion memory);
 }
 
 interface IERC7857 {
@@ -56,6 +70,7 @@ contract OmenAgentINFT is IERC7857, IERC7857Metadata {
     mapping(uint256 => address[]) private _authorizedUsers;
     mapping(uint256 => mapping(address => bool)) private _isAuthorizedUser;
     mapping(uint256 => IntelligentData[]) private _intelligentData;
+    mapping(uint256 => IntelligenceVersion[]) private _intelligenceVersions;
     mapping(uint256 => string) private _encryptedTokenURIs;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed nextOwner);
@@ -64,6 +79,15 @@ contract OmenAgentINFT is IERC7857, IERC7857Metadata {
         address indexed to,
         string encryptedURI,
         bytes32 indexed primaryDataHash
+    );
+    event IntelligenceUpdated(
+        uint256 indexed tokenId,
+        uint256 indexed version,
+        string runId,
+        string encryptedURI,
+        bytes32 indexed primaryDataHash,
+        bytes32 memoryRootHash,
+        bytes32 proofManifestHash
     );
     event EncryptedURIUpdated(uint256 indexed tokenId, string encryptedURI);
 
@@ -148,6 +172,46 @@ contract OmenAgentINFT is IERC7857, IERC7857Metadata {
         return _intelligentData[tokenId];
     }
 
+    function intelligenceVersionCountOf(uint256 tokenId)
+        external
+        view
+        override
+        tokenExists(tokenId)
+        returns (uint256)
+    {
+        return _intelligenceVersions[tokenId].length;
+    }
+
+    function intelligenceVersionOf(uint256 tokenId, uint256 version)
+        external
+        view
+        override
+        tokenExists(tokenId)
+        returns (IntelligenceVersion memory)
+    {
+        if (version == 0 || version > _intelligenceVersions[tokenId].length) {
+            revert("VERSION_NOT_FOUND");
+        }
+
+        return _intelligenceVersions[tokenId][version - 1];
+    }
+
+    function latestIntelligenceVersionOf(uint256 tokenId)
+        external
+        view
+        override
+        tokenExists(tokenId)
+        returns (IntelligenceVersion memory)
+    {
+        uint256 versionCount = _intelligenceVersions[tokenId].length;
+
+        if (versionCount == 0) {
+            revert("VERSION_NOT_FOUND");
+        }
+
+        return _intelligenceVersions[tokenId][versionCount - 1];
+    }
+
     function authorizedUsersOf(uint256 tokenId)
         external
         view
@@ -218,15 +282,10 @@ contract OmenAgentINFT is IERC7857, IERC7857Metadata {
         _encryptedTokenURIs[tokenId] = encryptedURI;
 
         for (uint256 i = 0; i < data.length; i++) {
-            if (data[i].dataHash == bytes32(0)) {
-                revert("DATA_HASH_REQUIRED");
-            }
-            if (bytes(data[i].dataDescription).length == 0) {
-                revert("DATA_DESCRIPTION_REQUIRED");
-            }
-
-            _intelligentData[tokenId].push(data[i]);
+            _pushValidatedData(tokenId, data[i]);
         }
+
+        _recordIntelligenceVersion(tokenId, "", encryptedURI, data);
 
         emit Transfer(address(0), to, tokenId);
         emit Transferred(tokenId, address(0), to);
@@ -234,6 +293,53 @@ contract OmenAgentINFT is IERC7857, IERC7857Metadata {
 
         if (sealedKeys.length > 0) {
             emit PublishedSealedKey(to, tokenId, sealedKeys);
+        }
+    }
+
+    function updateIntelligence(
+        uint256 tokenId,
+        string calldata runId,
+        string calldata encryptedURI,
+        IntelligentData[] calldata data,
+        bytes[] calldata sealedKeys
+    ) external onlyOwner tokenExists(tokenId) {
+        if (bytes(runId).length == 0) {
+            revert("RUN_ID_REQUIRED");
+        }
+        if (data.length == 0) {
+            revert("INTELLIGENT_DATA_REQUIRED");
+        }
+        if (bytes(encryptedURI).length == 0) {
+            revert("ENCRYPTED_URI_REQUIRED");
+        }
+
+        delete _intelligentData[tokenId];
+        _encryptedTokenURIs[tokenId] = encryptedURI;
+
+        for (uint256 i = 0; i < data.length; i++) {
+            _pushValidatedData(tokenId, data[i]);
+        }
+
+        IntelligenceVersion memory version = _recordIntelligenceVersion(
+            tokenId,
+            runId,
+            encryptedURI,
+            data
+        );
+
+        emit EncryptedURIUpdated(tokenId, encryptedURI);
+        emit IntelligenceUpdated(
+            tokenId,
+            version.version,
+            runId,
+            encryptedURI,
+            data[0].dataHash,
+            version.memoryRootHash,
+            version.proofManifestHash
+        );
+
+        if (sealedKeys.length > 0) {
+            emit PublishedSealedKey(ownerOf(tokenId), tokenId, sealedKeys);
         }
     }
 
@@ -287,6 +393,9 @@ contract OmenAgentINFT is IERC7857, IERC7857Metadata {
             if (outputs[i].oldDataHash != _intelligentData[tokenId][i].dataHash) {
                 revert("DATA_HASH_MISMATCH");
             }
+            if (outputs[i].newDataHash == bytes32(0)) {
+                revert("NEW_DATA_HASH_REQUIRED");
+            }
 
             _intelligentData[newTokenId].push(
                 IntelligentData({
@@ -296,6 +405,8 @@ contract OmenAgentINFT is IERC7857, IERC7857Metadata {
             );
             sealedKeys[i] = outputs[i].sealedKey;
         }
+
+        _recordStoredIntelligenceVersion(newTokenId, "", _encryptedTokenURIs[newTokenId]);
 
         emit Transfer(address(0), to, newTokenId);
         emit Transferred(newTokenId, address(0), to);
@@ -370,19 +481,10 @@ contract OmenAgentINFT is IERC7857, IERC7857Metadata {
     }
 
     function transferFrom(address from, address to, uint256 tokenId) external tokenExists(tokenId) {
-        if (!_isApprovedOrOwner(msg.sender, tokenId)) {
-            revert("NOT_APPROVED");
-        }
-        if (ownerOf(tokenId) != from) {
-            revert("FROM_NOT_OWNER");
-        }
-        if (to == address(0)) {
-            revert("RECIPIENT_REQUIRED");
-        }
-
-        _clearAuthorization(tokenId);
-        _transferToken(from, to, tokenId);
-        emit Transferred(tokenId, from, to);
+        from;
+        to;
+        tokenId;
+        revert("USE_ITRANSFER");
     }
 
     function _verifyAndUpdateData(
@@ -408,6 +510,63 @@ contract OmenAgentINFT is IERC7857, IERC7857Metadata {
             _intelligentData[tokenId][i].dataHash = outputs[i].newDataHash;
             sealedKeys[i] = outputs[i].sealedKey;
         }
+    }
+
+    function _pushValidatedData(uint256 tokenId, IntelligentData calldata data) private {
+        if (data.dataHash == bytes32(0)) {
+            revert("DATA_HASH_REQUIRED");
+        }
+        if (bytes(data.dataDescription).length == 0) {
+            revert("DATA_DESCRIPTION_REQUIRED");
+        }
+
+        _intelligentData[tokenId].push(data);
+    }
+
+    function _recordIntelligenceVersion(
+        uint256 tokenId,
+        string memory runId,
+        string memory encryptedURI,
+        IntelligentData[] calldata data
+    ) private returns (IntelligenceVersion memory version) {
+        bytes32 memoryRootHash = data.length > 1 ? data[1].dataHash : bytes32(0);
+        bytes32 proofManifestHash = data.length > 2 ? data[2].dataHash : bytes32(0);
+
+        version = IntelligenceVersion({
+            version: _intelligenceVersions[tokenId].length + 1,
+            runId: runId,
+            encryptedURI: encryptedURI,
+            encryptedDataHash: data[0].dataHash,
+            memoryRootHash: memoryRootHash,
+            proofManifestHash: proofManifestHash,
+            updatedAt: block.timestamp,
+            blockNumber: block.number
+        });
+
+        _intelligenceVersions[tokenId].push(version);
+    }
+
+    function _recordStoredIntelligenceVersion(
+        uint256 tokenId,
+        string memory runId,
+        string memory encryptedURI
+    ) private returns (IntelligenceVersion memory version) {
+        uint256 dataLength = _intelligentData[tokenId].length;
+        bytes32 memoryRootHash = dataLength > 1 ? _intelligentData[tokenId][1].dataHash : bytes32(0);
+        bytes32 proofManifestHash = dataLength > 2 ? _intelligentData[tokenId][2].dataHash : bytes32(0);
+
+        version = IntelligenceVersion({
+            version: _intelligenceVersions[tokenId].length + 1,
+            runId: runId,
+            encryptedURI: encryptedURI,
+            encryptedDataHash: _intelligentData[tokenId][0].dataHash,
+            memoryRootHash: memoryRootHash,
+            proofManifestHash: proofManifestHash,
+            updatedAt: block.timestamp,
+            blockNumber: block.number
+        });
+
+        _intelligenceVersions[tokenId].push(version);
     }
 
     function _transferToken(address from, address to, uint256 tokenId) private {

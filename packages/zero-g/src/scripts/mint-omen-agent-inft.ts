@@ -80,7 +80,9 @@ const main = async () => {
   const chainId = optionalEnv("ZERO_G_CHAIN_ID") ?? "16602";
   const explorerBaseUrl = optionalEnv("ZERO_G_CHAIN_EXPLORER_BASE_URL");
   const inftAddress = getAddress(requireEnv("OMEN_INFT_CONTRACT_ADDRESS"));
-  const recipient = getAddress(optionalEnv("OMEN_INFT_RECIPIENT_ADDRESS") ?? new Wallet(privateKey).address);
+  const recipient = getAddress(
+    optionalEnv("OMEN_INFT_RECIPIENT_ADDRESS") ?? new Wallet(privateKey).address,
+  );
   const ownerPublicKeyPem = await loadPublicKeyPem({
     publicKeyPem: optionalEnv("OMEN_INFT_OWNER_PUBLIC_KEY_PEM"),
     publicKeyPath: optionalEnv("OMEN_INFT_OWNER_PUBLIC_KEY_PATH")
@@ -141,6 +143,7 @@ const main = async () => {
   const promptManifestHash = sha256Hex(
     canonicalJson(bundle.prompts.map((prompt) => ({ path: prompt.path, sha256: prompt.sha256 }))),
   );
+  const proofManifestHash = sha256Hex(proofManifestUri ?? memoryRoot);
   const intelligentData = [
     {
       dataDescription: `encrypted-swarm-intelligence:${uploaded.value.locator}`,
@@ -151,16 +154,17 @@ const main = async () => {
       dataHash: keccak256Utf8(memoryRoot),
     },
     {
+      dataDescription: `proof-manifest:${proofManifestUri ?? memoryRoot}`,
+      dataHash: id(proofManifestHash),
+    },
+    {
       dataDescription: `prompt-manifest:${promptManifestHash}`,
       dataHash: id(promptManifestHash),
     },
   ];
-  const mintTx = await inft.mint(
-    recipient,
-    uploaded.value.locator,
-    intelligentData,
-    [encrypted.encryption.sealedKey],
-  );
+  const mintTx = await inft.mint(recipient, uploaded.value.locator, intelligentData, [
+    encrypted.encryption.sealedKey,
+  ]);
   const receipt = await mintTx.wait();
   const tokenId = parseMintedTokenId(receipt?.logs ?? [], inft);
 

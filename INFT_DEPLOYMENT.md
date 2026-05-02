@@ -5,7 +5,7 @@ Omen can mint an ERC-7857-style iNFT that represents the whole autonomous swarm.
 ## What Gets Minted
 
 - `OmenAgentVerifier`: verifier contract for ERC-7857 transfer validity proofs.
-- `OmenAgentINFT`: iNFT contract with `iTransfer`, `iClone`, `authorizeUsage`, `revokeAuthorization`, `delegateAccess`, `authorizedUsersOf`, and `intelligentDataOf`.
+- `OmenAgentINFT`: iNFT contract with `iTransfer`, `iClone`, `authorizeUsage`, `revokeAuthorization`, `delegateAccess`, `authorizedUsersOf`, `intelligentDataOf`, and versioned intelligence records.
 - One iNFT whose encrypted metadata bundle contains:
   - the Omen swarm role graph,
   - all checked-in agent prompt source files,
@@ -72,6 +72,21 @@ pnpm run inft:mint
 ```
 
 The script prints the contract address, token ID, transaction explorer URL, encrypted 0G Storage locator, memory root, and on-chain data hashes. Use those fields in the hackathon submission as the proof that the iNFT contains encrypted intelligence and memory.
+
+## Automatic Per-Run Intelligence Versions
+
+After the first iNFT is minted, configure the backend with `OMEN_INFT_CONTRACT_ADDRESS`, `OMEN_INFT_TOKEN_ID`, and either `OMEN_INFT_OWNER_PUBLIC_KEY_PATH` or `OMEN_INFT_OWNER_PUBLIC_KEY_PEM`. When a live swarm run completes and its 0G run manifest is published, the backend uploads a fresh encrypted intelligence bundle to 0G Storage and calls `OmenAgentINFT.updateIntelligence(...)`.
+
+Each update records a new on-chain intelligence version with:
+
+- the completed run ID
+- the encrypted 0G Storage URI
+- the encrypted payload hash
+- the memory root hash
+- the proof manifest hash
+- the update block and timestamp
+
+Plain `transferFrom` is disabled for the iNFT contract. Ownership transfer must use `iTransfer` with transfer validity proofs so encrypted intelligence hashes and sealed keys are updated through the verifier path.
 
 ## Transfer Proof Model
 

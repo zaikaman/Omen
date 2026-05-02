@@ -70,6 +70,8 @@ export type BackendEnv = {
     proofManifestUri: string | null;
     latestRunId: string | null;
     mintTransactionHash: string | null;
+    ownerPublicKeyPem: string | null;
+    ownerPublicKeyPath: string | null;
   };
   providers: {
     openaiApiKey: string | null;
@@ -307,6 +309,8 @@ export const createBackendEnv = (env: NodeJS.ProcessEnv = process.env): BackendE
       proofManifestUri: env.OMEN_INFT_PROOF_MANIFEST_URI ?? null,
       latestRunId: env.OMEN_INFT_LATEST_RUN_ID ?? null,
       mintTransactionHash: env.OMEN_INFT_MINT_TRANSACTION_HASH ?? null,
+      ownerPublicKeyPem: env.OMEN_INFT_OWNER_PUBLIC_KEY_PEM ?? null,
+      ownerPublicKeyPath: env.OMEN_INFT_OWNER_PUBLIC_KEY_PATH ?? null,
     },
     providers: {
       openaiApiKey: env.OPENAI_API_KEY ?? null,

@@ -143,24 +143,24 @@ omen/
 
 ### Technology Stack
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js 24, TypeScript 5.8 |
-| Agent Framework | LangGraph.js (directed graph with conditional edges) |
-| LLM Providers | OpenAI (GPT-5-nano default), Grok-4 (scanner), 0G Compute (adjudication) |
-| Agent Communication | Gensyn AXL (A2A protocol, MCP services, peer-to-peer encryption) |
-| Decentralized Storage | 0G Storage (KV state, Log entries, File artifacts) |
-| Verifiable Compute | 0G Compute (independent adjudication inference) |
-| On-Chain Proofs | 0G Chain (OmenRunRegistry, OmenAgentINFT, OmenAgentVerifier) |
-| Database | Supabase (PostgreSQL with Row Level Security) |
-| Frontend | React 19, Vite 5, TailwindCSS 3, Recharts, Lightweight Charts |
-| Backend | Express 5, Helmet, CORS, Morgan |
-| Image Generation | Hugging Face Inference (intel report cover images) |
-| Social Publishing | TwitterAPI.io (X/Twitter posts), Telegram Bot API |
-| Deployment | Vercel (frontend), Heroku (backend), Fly.io (AXL nodes) |
-| Package Manager | pnpm 10 with Turborepo |
-| Smart Contracts | Solidity 0.8.24 |
-| Trading | Hyperliquid SDK (copytrade execution) |
+| Layer                 | Technology                                                               |
+| --------------------- | ------------------------------------------------------------------------ |
+| Runtime               | Node.js 24, TypeScript 5.8                                               |
+| Agent Framework       | LangGraph.js (directed graph with conditional edges)                     |
+| LLM Providers         | OpenAI (GPT-5-nano default), Grok-4 (scanner), 0G Compute (adjudication) |
+| Agent Communication   | Gensyn AXL (A2A protocol, MCP services, peer-to-peer encryption)         |
+| Decentralized Storage | 0G Storage (KV state, Log entries, File artifacts)                       |
+| Verifiable Compute    | 0G Compute (independent adjudication inference)                          |
+| On-Chain Proofs       | 0G Chain (OmenRunRegistry, OmenAgentINFT, OmenAgentVerifier)             |
+| Database              | Supabase (PostgreSQL with Row Level Security)                            |
+| Frontend              | React 19, Vite 5, TailwindCSS 3, Recharts, Lightweight Charts            |
+| Backend               | Express 5, Helmet, CORS, Morgan                                          |
+| Image Generation      | Hugging Face Inference (intel report cover images)                       |
+| Social Publishing     | TwitterAPI.io (X/Twitter posts), Telegram Bot API                        |
+| Deployment            | Vercel (frontend), Heroku (backend), Fly.io (AXL nodes)                  |
+| Package Manager       | pnpm 10 with Turborepo                                                   |
+| Smart Contracts       | Solidity 0.8.24                                                          |
+| Trading               | Hyperliquid SDK (copytrade execution)                                    |
 
 ---
 
@@ -250,20 +250,20 @@ Omen uses Gensyn AXL as the sole communication layer for inter-agent coordinatio
 
 The production swarm is deployed as twelve separate Fly.io applications:
 
-| Role | Fly App | AXL Peer ID |
-|---|---|---|
-| orchestrator | `omen-axl-node` | `5a0c250776116d3c...ddf239` |
-| market_bias | `omen-axl-market-bias` | `f49cc2cf8f293c41...b6bf1` |
-| scanner | `omen-axl-scanner` | `75f01a9f5b3403b6...f1f9d8` |
-| research | `omen-axl-research` | `26525371a3622...a9a09ed` |
-| chart_vision | `omen-axl-chart-vision` | `394005c77faf...c90d04` |
-| analyst | `omen-axl-analyst` | `9926348dd39a...121d1c` |
-| critic | `omen-axl-critic` | `62070e8c1099...cddebc` |
-| intel | `omen-axl-intel` | `ea5590d48048...ba237b` |
-| generator | `omen-axl-generator` | `17e9e6c75f85...255989` |
-| writer | `omen-axl-writer` | `5d138fdd6e4b...d40a7ca6` |
-| memory | `omen-axl-memory` | `b9c37993dbe7...e026e8` |
-| publisher | `omen-axl-publisher` | `14d3925be85c...91b373` |
+| Role         | Fly App                 | AXL Peer ID                 |
+| ------------ | ----------------------- | --------------------------- |
+| orchestrator | `omen-axl-node`         | `5a0c250776116d3c...ddf239` |
+| market_bias  | `omen-axl-market-bias`  | `f49cc2cf8f293c41...b6bf1`  |
+| scanner      | `omen-axl-scanner`      | `75f01a9f5b3403b6...f1f9d8` |
+| research     | `omen-axl-research`     | `26525371a3622...a9a09ed`   |
+| chart_vision | `omen-axl-chart-vision` | `394005c77faf...c90d04`     |
+| analyst      | `omen-axl-analyst`      | `9926348dd39a...121d1c`     |
+| critic       | `omen-axl-critic`       | `62070e8c1099...cddebc`     |
+| intel        | `omen-axl-intel`        | `ea5590d48048...ba237b`     |
+| generator    | `omen-axl-generator`    | `17e9e6c75f85...255989`     |
+| writer       | `omen-axl-writer`       | `5d138fdd6e4b...d40a7ca6`   |
+| memory       | `omen-axl-memory`       | `b9c37993dbe7...e026e8`     |
+| publisher    | `omen-axl-publisher`    | `14d3925be85c...91b373`     |
 
 Each deployed application runs five processes: the AXL node binary for peer-to-peer networking, a public HTTP proxy for external access, an MCP router for service discovery, an Omen MCP role host exposing the agent's capabilities as MCP tools, and an A2A callback server for receiving delegated work from the orchestrator.
 
@@ -372,14 +372,14 @@ The chain adapter (`chain-adapter.ts`) handles wallet configuration, transaction
 
 ### iNFT (ERC-7857)
 
-Omen can mint an ERC-7857-style intelligent NFT that represents the entire autonomous swarm. The iNFT embeds encrypted swarm intelligence on 0G Storage and stores verifiable data hashes on 0G Chain. The intelligence bundle contains:
+Omen can mint an ERC-7857-compatible intelligent NFT that represents the entire autonomous swarm. After minting, completed swarm runs can append versioned encrypted intelligence records to the same token. The iNFT references encrypted swarm intelligence on 0G Storage and stores verifiable data hashes on 0G Chain. The intelligence bundle contains:
 
 - The Omen swarm role graph definition
 - All checked-in agent prompt source files
 - The 0G Compute model used for adjudication
 - A required 0G memory root or manifest root from a real swarm run
 
-The mint process requires a real `OMEN_INFT_MEMORY_ROOT` from a completed 0G-backed run. The script refuses to mint placeholder intelligence, ensuring every minted iNFT is backed by genuine swarm execution evidence.
+The mint process requires a real `OMEN_INFT_MEMORY_ROOT` from a completed 0G-backed run. The script refuses to mint placeholder intelligence, ensuring every minted iNFT is backed by genuine swarm execution evidence. When `OMEN_INFT_CONTRACT_ADDRESS`, `OMEN_INFT_TOKEN_ID`, and the owner public key are configured in the backend, each completed live run uploads a fresh encrypted bundle and records a new on-chain intelligence version.
 
 The intelligence bundle is encrypted with AES-256-GCM, and the symmetric key is sealed with the owner's RSA-4096 public key. This ensures that only the private key holder can decrypt and inspect the embedded intelligence.
 
@@ -413,8 +413,9 @@ Three Solidity contracts are deployed on 0G Chain (Galileo testnet):
 
 `contracts/OmenAgentINFT.sol` -- The primary iNFT contract implementing the ERC-7857 standard for intelligent NFTs. Key capabilities:
 
-- **mint** -- Creates a new iNFT with encrypted intelligence data, sealed keys, and verifiable data hashes. Requires non-empty intelligent data and encrypted URI.
-- **iTransfer** -- Transfers an iNFT with re-encryption proofs. The verifier validates transfer validity proofs before updating data hashes and ownership.
+- **mint** -- Creates a new iNFT with encrypted intelligence data, sealed keys, an initial intelligence version, and verifiable data hashes. Requires non-empty intelligent data and encrypted URI.
+- **updateIntelligence** -- Appends a new run-specific intelligence version with encrypted 0G URI, memory root hash, proof manifest hash, timestamp, and block number.
+- **iTransfer** -- Transfers an iNFT with re-encryption proofs. The verifier validates transfer validity proofs before updating data hashes and ownership. Plain `transferFrom` is disabled so transfers cannot bypass the proof path.
 - **iClone** -- Creates a copy of an iNFT with new data hashes for the recipient, preserving the original.
 - **authorizeUsage** -- Grants usage rights to a specific address without transferring ownership.
 - **revokeAuthorization** -- Removes previously granted usage rights.
@@ -467,12 +468,14 @@ The frontend is a React 19 application built with Vite 5 and TailwindCSS, design
 **Intel Page** (`/app/intel`) -- Feed of market intelligence reports with category badges, confidence scores, and AI-generated cover images. Each report expands to a full blog-style view with rich markdown content. The page supports deep linking to individual reports.
 
 **Analytics Page** (`/app/analytics`) -- Multi-tab analytics suite with four sub-pages:
+
 - **Overview** -- High-level metrics dashboard with signal count, win rate, and activity charts
 - **Performance** -- PnL tracking, asset performance table, and confidence-outcome correlation
 - **Market** -- Token frequency analysis and mindshare distribution
 - **Signals** -- Signal confidence distribution, direction breakdown, and status tracking
 
 **Evidence Page** (`/app/evidence`) -- Comprehensive proof visualization for each swarm run. Displays:
+
 - Run manifest panels with artifact counts and storage locators
 - Chain anchor cards with transaction hashes and explorer links
 - Compute proof cards with model identifiers and adjudication results
@@ -517,34 +520,34 @@ The backend is an Express 5 server that serves the REST API, orchestrates the sw
 
 ### API Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/health` | Health check |
-| GET | `/api/status` | Runtime status with scheduler state |
-| GET | `/api/runs` | List of swarm runs with status and outcome |
-| GET | `/api/dashboard/summary` | Dashboard summary with latest signal, intel, and post IDs |
-| GET | `/api/dashboard/scheduler` | Scheduler status (enabled, running, next run, last run) |
-| GET | `/api/signals` | Signal feed with pagination |
-| GET | `/api/signals/:id` | Signal detail with full thesis and evidence |
-| GET | `/api/signals/:id/chart` | Signal chart data for Lightweight Charts |
-| GET | `/api/signals/:id/candles` | OHLCV candle data for signal charting |
-| GET | `/api/intel` | Intel feed with pagination |
-| GET | `/api/intel/:id` | Intel detail with full body and metadata |
-| GET | `/api/analytics` | Analytics snapshot feed |
-| GET | `/api/analytics/latest` | Latest analytics snapshot |
-| GET | `/api/topology` | Live AXL network topology |
-| GET | `/api/proofs` | Proof artifact feed |
-| GET | `/api/proofs/:runId` | Proof detail for a specific run |
-| GET | `/api/posts` | Outbound post feed |
-| GET | `/api/posts/:id` | Post status detail |
-| GET | `/api/logs` | Agent event log feed |
-| GET | `/api/inft` | iNFT metadata and proof summary |
-| GET | `/api/copytrade/account` | Copytrade account info |
-| GET | `/api/copytrade/status` | Copytrade enrollment status |
-| GET | `/api/copytrade/dashboard` | Copytrade dashboard with positions and PnL |
-| POST | `/api/copytrade/prepare` | Prepare copytrade enrollment |
-| POST | `/api/copytrade/finalize` | Finalize copytrade enrollment with signature |
-| PATCH | `/api/copytrade/risk-settings` | Update copytrade risk settings |
+| Method | Path                           | Description                                               |
+| ------ | ------------------------------ | --------------------------------------------------------- |
+| GET    | `/api/health`                  | Health check                                              |
+| GET    | `/api/status`                  | Runtime status with scheduler state                       |
+| GET    | `/api/runs`                    | List of swarm runs with status and outcome                |
+| GET    | `/api/dashboard/summary`       | Dashboard summary with latest signal, intel, and post IDs |
+| GET    | `/api/dashboard/scheduler`     | Scheduler status (enabled, running, next run, last run)   |
+| GET    | `/api/signals`                 | Signal feed with pagination                               |
+| GET    | `/api/signals/:id`             | Signal detail with full thesis and evidence               |
+| GET    | `/api/signals/:id/chart`       | Signal chart data for Lightweight Charts                  |
+| GET    | `/api/signals/:id/candles`     | OHLCV candle data for signal charting                     |
+| GET    | `/api/intel`                   | Intel feed with pagination                                |
+| GET    | `/api/intel/:id`               | Intel detail with full body and metadata                  |
+| GET    | `/api/analytics`               | Analytics snapshot feed                                   |
+| GET    | `/api/analytics/latest`        | Latest analytics snapshot                                 |
+| GET    | `/api/topology`                | Live AXL network topology                                 |
+| GET    | `/api/proofs`                  | Proof artifact feed                                       |
+| GET    | `/api/proofs/:runId`           | Proof detail for a specific run                           |
+| GET    | `/api/posts`                   | Outbound post feed                                        |
+| GET    | `/api/posts/:id`               | Post status detail                                        |
+| GET    | `/api/logs`                    | Agent event log feed                                      |
+| GET    | `/api/inft`                    | iNFT metadata and proof summary                           |
+| GET    | `/api/copytrade/account`       | Copytrade account info                                    |
+| GET    | `/api/copytrade/status`        | Copytrade enrollment status                               |
+| GET    | `/api/copytrade/dashboard`     | Copytrade dashboard with positions and PnL                |
+| POST   | `/api/copytrade/prepare`       | Prepare copytrade enrollment                              |
+| POST   | `/api/copytrade/finalize`      | Finalize copytrade enrollment with signature              |
+| PATCH  | `/api/copytrade/risk-settings` | Update copytrade risk settings                            |
 
 ### Scheduler and Run Coordination
 
@@ -589,6 +592,7 @@ Omen includes a production-grade automated copy-trading system built on Hyperliq
 **Signal Monitoring** -- The `SignalMonitorService` polls for new approved signals at a configurable interval (default: 20 seconds). When a new signal is detected, it checks all active copytrade enrollments and determines which trades to execute based on the signal's direction, confidence, and the user's risk settings.
 
 **Trade Execution** -- The `CopytradeExecutorService` manages the full trade lifecycle:
+
 - Opens positions with configurable leverage and position sizing
 - Sets take-profit and stop-loss orders
 - Monitors positions for TP/SL hits
@@ -628,21 +632,21 @@ All data provider clients implement key rotation (multiple API keys per provider
 
 The Supabase PostgreSQL database contains eleven tables:
 
-| Table | Purpose |
-|---|---|
-| `runs` | Swarm run records with status, mode, market bias, outcome, and timing |
-| `signals` | Trading signals with thesis fields, price levels, PnL tracking |
-| `intels` | Intelligence reports with title, body, category, confidence, image |
-| `agent_nodes` | Agent node registry with role, transport, status, and peer ID |
-| `agent_events` | Timestamped agent lifecycle events with trace payloads |
-| `axl_messages` | AXL communication records with sender/receiver and delivery status |
-| `zero_g_refs` | 0G Storage/Compute/Chain proof artifact references |
-| `outbound_posts` | Social media post queue with status machine tracking |
-| `analytics_snapshots` | Pre-computed analytics data for dashboard charts |
-| `app_config` | Runtime configuration with mode, universe, thresholds |
-| `copytrade_enrollments` | Copytrade user enrollments with encrypted agent keys |
-| `copytrade_trades` | Individual copytrade position records with PnL |
-| `service_registry_snapshots` | AXL service registry state captures |
+| Table                        | Purpose                                                               |
+| ---------------------------- | --------------------------------------------------------------------- |
+| `runs`                       | Swarm run records with status, mode, market bias, outcome, and timing |
+| `signals`                    | Trading signals with thesis fields, price levels, PnL tracking        |
+| `intels`                     | Intelligence reports with title, body, category, confidence, image    |
+| `agent_nodes`                | Agent node registry with role, transport, status, and peer ID         |
+| `agent_events`               | Timestamped agent lifecycle events with trace payloads                |
+| `axl_messages`               | AXL communication records with sender/receiver and delivery status    |
+| `zero_g_refs`                | 0G Storage/Compute/Chain proof artifact references                    |
+| `outbound_posts`             | Social media post queue with status machine tracking                  |
+| `analytics_snapshots`        | Pre-computed analytics data for dashboard charts                      |
+| `app_config`                 | Runtime configuration with mode, universe, thresholds                 |
+| `copytrade_enrollments`      | Copytrade user enrollments with encrypted agent keys                  |
+| `copytrade_trades`           | Individual copytrade position records with PnL                        |
+| `service_registry_snapshots` | AXL service registry state captures                                   |
 
 All tables use UUID-based text primary keys, timestamp columns with timezone, and JSONB columns for flexible structured data. Foreign key constraints enforce referential integrity across runs, signals, intels, agent nodes, and proof references.
 
@@ -780,22 +784,22 @@ The system requires environment variables across three scopes. See the example f
 
 Key variable groups:
 
-| Group | Variables | Purpose |
-|---|---|---|
-| Supabase | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Database access |
-| OpenAI | `OPENAI_API_KEY`, `OPENAI_MODEL` | Primary LLM provider |
-| Scanner LLM | `SCANNER_API_KEY`, `SCANNER_MODEL` | Scanner-specific LLM (Grok-4) |
-| AXL | `AXL_NODE_BASE_URL`, `AXL_*_NODE_ID` (x12) | AXL peer network |
-| 0G Storage | `ZERO_G_INDEXER_URL`, `ZERO_G_KV_NODE_URL` | Decentralized storage |
-| 0G Compute | `ZERO_G_COMPUTE_URL`, `ZERO_G_COMPUTE_API_KEY` | Verifiable inference |
-| 0G Chain | `ZERO_G_RPC_URL`, `ZERO_G_PRIVATE_KEY`, `ZERO_G_CHAIN_ID` | On-chain anchoring |
-| iNFT | `OMEN_INFT_*` (x12) | iNFT contract and mint config |
-| Market Data | `COINGECKO_API_KEY`, `BIRDEYE_API_KEY`, `CMC_API_KEY` | Data providers |
-| Twitter | `TWITTERAPI_API_KEY`, `TWITTERAPI_*` | X/Twitter posting |
-| Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram notifications |
-| Copytrade | `FUTURES_ENCRYPTION_KEY` | Agent key encryption |
-| Image Gen | `HF_TOKEN` (x17) | Hugging Face inference |
-| Object Storage | `R2_*` | Cloudflare R2 for images |
+| Group          | Variables                                                 | Purpose                       |
+| -------------- | --------------------------------------------------------- | ----------------------------- |
+| Supabase       | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`               | Database access               |
+| OpenAI         | `OPENAI_API_KEY`, `OPENAI_MODEL`                          | Primary LLM provider          |
+| Scanner LLM    | `SCANNER_API_KEY`, `SCANNER_MODEL`                        | Scanner-specific LLM (Grok-4) |
+| AXL            | `AXL_NODE_BASE_URL`, `AXL_*_NODE_ID` (x12)                | AXL peer network              |
+| 0G Storage     | `ZERO_G_INDEXER_URL`, `ZERO_G_KV_NODE_URL`                | Decentralized storage         |
+| 0G Compute     | `ZERO_G_COMPUTE_URL`, `ZERO_G_COMPUTE_API_KEY`            | Verifiable inference          |
+| 0G Chain       | `ZERO_G_RPC_URL`, `ZERO_G_PRIVATE_KEY`, `ZERO_G_CHAIN_ID` | On-chain anchoring            |
+| iNFT           | `OMEN_INFT_*` (x12)                                       | iNFT contract and mint config |
+| Market Data    | `COINGECKO_API_KEY`, `BIRDEYE_API_KEY`, `CMC_API_KEY`     | Data providers                |
+| Twitter        | `TWITTERAPI_API_KEY`, `TWITTERAPI_*`                      | X/Twitter posting             |
+| Telegram       | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`                  | Telegram notifications        |
+| Copytrade      | `FUTURES_ENCRYPTION_KEY`                                  | Agent key encryption          |
+| Image Gen      | `HF_TOKEN` (x17)                                          | Hugging Face inference        |
+| Object Storage | `R2_*`                                                    | Cloudflare R2 for images      |
 
 ---
 
@@ -836,6 +840,7 @@ All specification files, planning artifacts, and design documents used to direct
 **Hackathon** -- Open Agents Hackathon by ETHGlobal
 
 **Target Prizes:**
+
 - 0G: Best Autonomous Agents, Swarms and iNFT Innovations ($7,500 pool)
 - Gensyn: Best Application of Agent eXchange Layer (AXL) ($5,000 pool)
 
@@ -845,47 +850,47 @@ All specification files, planning artifacts, and design documents used to direct
 
 ### 0G Protocol Usage
 
-| Feature | SDK/API | Implementation |
-|---|---|---|
-| KV State Store | 0G TypeScript SDK | `packages/zero-g/src/storage/zero-g-state-store.ts` |
-| Log Store | 0G TypeScript SDK | `packages/zero-g/src/storage/zero-g-log-store.ts` |
-| File Store | 0G TypeScript SDK | `packages/zero-g/src/storage/zero-g-file-store.ts` |
-| Storage Adapter | 0G TypeScript SDK | `packages/zero-g/src/storage/storage-adapter.ts` |
-| Storage Namespace | Custom | `packages/zero-g/src/storage/namespace.ts` |
-| Compute Adapter | 0G Compute API | `packages/zero-g/src/compute/compute-adapter.ts` |
-| Compute Adjudication | 0G Compute API | `packages/zero-g/src/compute/zero-g-adjudication.ts` |
-| Report Synthesis | 0G Compute API | `packages/zero-g/src/compute/zero-g-report-synthesis.ts` |
-| Chain Adapter | ethers.js + 0G RPC | `packages/zero-g/src/chain/chain-adapter.ts` |
-| Proof Anchor | ethers.js + 0G RPC | `packages/zero-g/src/chain/proof-anchor.ts` |
-| Run Registry ABI | Solidity ABI | `packages/zero-g/src/chain/omen-run-registry.ts` |
-| iNFT ABI | Solidity ABI | `packages/zero-g/src/chain/omen-agent-inft.ts` |
-| Verifier ABI | Solidity ABI | `packages/zero-g/src/chain/omen-agent-verifier.ts` |
-| iNFT Encryption | Node.js crypto | `packages/zero-g/src/inft/encryption.ts` |
-| Intelligence Bundle | Custom | `packages/zero-g/src/inft/omen-agent-intelligence.ts` |
-| Proof Registry | Custom | `packages/zero-g/src/proofs/proof-registry.ts` |
-| Manifest Builder | Custom | `packages/zero-g/src/proofs/run-manifest-builder.ts` |
+| Feature              | SDK/API            | Implementation                                           |
+| -------------------- | ------------------ | -------------------------------------------------------- |
+| KV State Store       | 0G TypeScript SDK  | `packages/zero-g/src/storage/zero-g-state-store.ts`      |
+| Log Store            | 0G TypeScript SDK  | `packages/zero-g/src/storage/zero-g-log-store.ts`        |
+| File Store           | 0G TypeScript SDK  | `packages/zero-g/src/storage/zero-g-file-store.ts`       |
+| Storage Adapter      | 0G TypeScript SDK  | `packages/zero-g/src/storage/storage-adapter.ts`         |
+| Storage Namespace    | Custom             | `packages/zero-g/src/storage/namespace.ts`               |
+| Compute Adapter      | 0G Compute API     | `packages/zero-g/src/compute/compute-adapter.ts`         |
+| Compute Adjudication | 0G Compute API     | `packages/zero-g/src/compute/zero-g-adjudication.ts`     |
+| Report Synthesis     | 0G Compute API     | `packages/zero-g/src/compute/zero-g-report-synthesis.ts` |
+| Chain Adapter        | ethers.js + 0G RPC | `packages/zero-g/src/chain/chain-adapter.ts`             |
+| Proof Anchor         | ethers.js + 0G RPC | `packages/zero-g/src/chain/proof-anchor.ts`              |
+| Run Registry ABI     | Solidity ABI       | `packages/zero-g/src/chain/omen-run-registry.ts`         |
+| iNFT ABI             | Solidity ABI       | `packages/zero-g/src/chain/omen-agent-inft.ts`           |
+| Verifier ABI         | Solidity ABI       | `packages/zero-g/src/chain/omen-agent-verifier.ts`       |
+| iNFT Encryption      | Node.js crypto     | `packages/zero-g/src/inft/encryption.ts`                 |
+| Intelligence Bundle  | Custom             | `packages/zero-g/src/inft/omen-agent-intelligence.ts`    |
+| Proof Registry       | Custom             | `packages/zero-g/src/proofs/proof-registry.ts`           |
+| Manifest Builder     | Custom             | `packages/zero-g/src/proofs/run-manifest-builder.ts`     |
 
 ### AXL Protocol Usage
 
-| Feature | Protocol | Implementation |
-|---|---|---|
-| A2A Client | AXL A2A | `packages/axl/src/a2a/a2a-client.ts` |
-| Delegation Contract | AXL A2A | `packages/axl/src/a2a/delegation-contract.ts` |
-| AXL Adapter | AXL HTTP | `packages/axl/src/adapter/axl-adapter.ts` |
-| HTTP Adapter | AXL HTTP | `packages/axl/src/adapter/axl-http-adapter.ts` |
-| MCP Service Contract | AXL MCP | `packages/axl/src/mcp/service-contract.ts` |
-| MCP Service Registry | AXL MCP | `packages/axl/src/mcp/service-registry.ts` |
-| HTTP Node Client | AXL HTTP | `packages/axl/src/node-client/http-node-client.ts` |
-| Message Envelope | Custom | `packages/axl/src/message-envelope/omen-message.ts` |
-| Peer Status | AXL | `packages/axl/src/peer-status/peer-status.ts` |
-| Topology Snapshot | AXL | `packages/axl/src/topology/topology-snapshot.ts` |
-| Orchestrator Delegator | AXL A2A | `backend/src/nodes/a2a/orchestrator-delegator.ts` |
-| Response Correlator | AXL A2A | `backend/src/nodes/a2a/response-correlator.ts` |
-| AXL Node Manager | Custom | `backend/src/nodes/axl-node-manager.ts` |
-| AXL Peer Registry | Custom | `backend/src/nodes/axl-peer-registry.ts` |
-| Topology Poller | AXL | `backend/src/nodes/topology/topology-poller.ts` |
-| Service Registry Sync | AXL | `backend/src/nodes/topology/service-registry-sync.ts` |
-| Peer Failover | Custom | `backend/src/nodes/topology/peer-failover.ts` |
+| Feature                | Protocol | Implementation                                        |
+| ---------------------- | -------- | ----------------------------------------------------- |
+| A2A Client             | AXL A2A  | `packages/axl/src/a2a/a2a-client.ts`                  |
+| Delegation Contract    | AXL A2A  | `packages/axl/src/a2a/delegation-contract.ts`         |
+| AXL Adapter            | AXL HTTP | `packages/axl/src/adapter/axl-adapter.ts`             |
+| HTTP Adapter           | AXL HTTP | `packages/axl/src/adapter/axl-http-adapter.ts`        |
+| MCP Service Contract   | AXL MCP  | `packages/axl/src/mcp/service-contract.ts`            |
+| MCP Service Registry   | AXL MCP  | `packages/axl/src/mcp/service-registry.ts`            |
+| HTTP Node Client       | AXL HTTP | `packages/axl/src/node-client/http-node-client.ts`    |
+| Message Envelope       | Custom   | `packages/axl/src/message-envelope/omen-message.ts`   |
+| Peer Status            | AXL      | `packages/axl/src/peer-status/peer-status.ts`         |
+| Topology Snapshot      | AXL      | `packages/axl/src/topology/topology-snapshot.ts`      |
+| Orchestrator Delegator | AXL A2A  | `backend/src/nodes/a2a/orchestrator-delegator.ts`     |
+| Response Correlator    | AXL A2A  | `backend/src/nodes/a2a/response-correlator.ts`        |
+| AXL Node Manager       | Custom   | `backend/src/nodes/axl-node-manager.ts`               |
+| AXL Peer Registry      | Custom   | `backend/src/nodes/axl-peer-registry.ts`              |
+| Topology Poller        | AXL      | `backend/src/nodes/topology/topology-poller.ts`       |
+| Service Registry Sync  | AXL      | `backend/src/nodes/topology/service-registry-sync.ts` |
+| Peer Failover          | Custom   | `backend/src/nodes/topology/peer-failover.ts`         |
 
 ---
 
@@ -960,11 +965,13 @@ The `mergeSwarmState` function performs a shallow merge of state deltas, preserv
 The social publishing pipeline uses TwitterAPI.io for posting to X/Twitter. The implementation includes:
 
 **Post Formatter** (`post-formatter.ts`) -- Transforms signals and intel reports into platform-appropriate formats:
+
 - Signal alerts with direction, confidence, entry/target/stop prices, and risk/reward
 - Intel summaries with title and key insight
 - Intel threads with multi-tweet formatting for long-form content
 
 **Post Worker** (`post-worker.ts`) -- Manages the posting lifecycle with a state machine:
+
 1. `queued` -- Post is created and waiting for formatting
 2. `formatting` -- Post content is being prepared
 3. `ready` -- Post is formatted and waiting for delivery
@@ -983,6 +990,7 @@ The `TelegramService` sends notifications to a configured Telegram channel for b
 ### Post Proof Pipeline
 
 Every social media post generates two proof artifacts:
+
 - `post_payload` -- The formatted post content before delivery
 - `post_result` -- The delivery result including the provider post ID and published URL
 
@@ -1062,6 +1070,7 @@ Expected: Minted token with non-empty intelligent data hashes and encrypted stor
 **Hackathon** -- Open Agents Hackathon by ETHGlobal
 
 **Target Prizes:**
+
 - 0G: Best Autonomous Agents, Swarms and iNFT Innovations ($7,500 pool)
 - Gensyn: Best Application of Agent eXchange Layer (AXL) ($5,000 pool)
 
@@ -1070,5 +1079,3 @@ Expected: Minted token with non-empty intelligent data hashes and encrypted stor
 ## License
 
 This project was built during the Open Agents Hackathon by ETHGlobal.
-
-

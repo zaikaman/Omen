@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 
 import {
   analystInputSchema,
@@ -40,6 +41,7 @@ import {
   type ZeroGAdapterConfig,
   ZeroGClientAdapter,
   ZeroGAdjudication,
+  OmenAgentInftPublisher,
   ZeroGProofAnchor,
 } from "@omen/zero-g";
 import { TRADEABLE_SYMBOLS } from "@omen/shared";
@@ -212,6 +214,26 @@ const hasZeroGStorageConfig = (env: BackendEnv) =>
 const hasZeroGComputeConfig = (env: BackendEnv) =>
   Boolean(env.zeroG.computeUrl && env.zeroG.computeApiKey);
 
+const isConfiguredValue = (value: string | null | undefined) =>
+  Boolean(value && !value.includes("your_") && !value.includes("0xyour") && !value.includes("<"));
+
+const hasInftUpdateConfig = (env: BackendEnv) =>
+  Boolean(
+    isConfiguredValue(env.inft.contractAddress) &&
+    isConfiguredValue(env.inft.tokenId) &&
+    (isConfiguredValue(env.inft.ownerPublicKeyPem) ||
+      isConfiguredValue(env.inft.ownerPublicKeyPath)),
+  );
+
+const resolveRepoRoot = () => {
+  const cwd = process.cwd();
+
+  return path.basename(cwd) === "backend" ? path.resolve(cwd, "..") : cwd;
+};
+
+const resolveRepoPath = (repoRoot: string, value: string | null) =>
+  value ? path.resolve(repoRoot, value) : null;
+
 const toPersistableLinkedRecordIds = () => ({
   signalId: null as string | null,
   intelId: null as string | null,
@@ -244,10 +266,8 @@ const buildProofFinalization = (input: {
   completedAt: string | null;
   error: string | null;
 }): ProofFinalization => {
-  const manifestRef =
-    input.artifacts.find((artifact) => artifact.refType === "manifest") ?? null;
-  const chainRef =
-    input.artifacts.find((artifact) => artifact.refType === "chain_proof") ?? null;
+  const manifestRef = input.artifacts.find((artifact) => artifact.refType === "manifest") ?? null;
+  const chainRef = input.artifacts.find((artifact) => artifact.refType === "chain_proof") ?? null;
 
   return {
     status: input.status,
@@ -856,6 +876,8 @@ class LivePipelineExecutionContext {
 
   private readonly zeroGProofAnchor: ZeroGProofAnchor | null;
 
+  private readonly inftPublisher: OmenAgentInftPublisher | null;
+
   private readonly postProofPublisher: PostProofPublisher | null;
 
   private readonly postPublisher: PostPublisher | null;
@@ -990,6 +1012,21 @@ class LivePipelineExecutionContext {
       this.reportBundlePublisher = new ReportBundlePublisher(zeroGConfig);
       this.runManifestPublisher = new RunManifestPublisher(zeroGConfig);
       this.zeroGProofAnchor = new ZeroGProofAnchor(zeroGConfig.chain);
+      this.inftPublisher =
+        zeroGConfig.chain && hasInftUpdateConfig(input.env)
+          ? new OmenAgentInftPublisher({
+              zeroG: zeroGConfig,
+              repoRoot: resolveRepoRoot(),
+              contractAddress: input.env.inft.contractAddress!,
+              tokenId: input.env.inft.tokenId!,
+              ownerPublicKeyPem: input.env.inft.ownerPublicKeyPem,
+              ownerPublicKeyPath: resolveRepoPath(
+                resolveRepoRoot(),
+                input.env.inft.ownerPublicKeyPath,
+              ),
+              computeModel: input.env.zeroG.computeModel,
+            })
+          : null;
       this.postProofPublisher = new PostProofPublisher(zeroGConfig);
     } else {
       this.zeroGStateStore = null;
@@ -1000,6 +1037,7 @@ class LivePipelineExecutionContext {
       this.reportBundlePublisher = null;
       this.runManifestPublisher = null;
       this.zeroGProofAnchor = null;
+      this.inftPublisher = null;
       this.postProofPublisher = null;
     }
   }
@@ -2574,17 +2612,70 @@ class LivePipelineExecutionContext {
             }
           }
         }
+
+        if (manifestArtifact && this.inftPublisher) {
+          try {
+            const inftArtifact = await this.inftPublisher.publishRunIntelligence({
+              runId: finalState.run.id,
+              signalId: finalState.run.finalSignalId,
+              intelId: finalState.run.finalIntelId,
+              memoryRoot: deriveManifestAnchorRoot(manifestArtifact),
+              proofManifestUri: manifestArtifact.locator,
+              memoryDescription:
+                "Latest durable Omen swarm run manifest and state evidence on 0G Storage.",
+            });
+
+            if (inftArtifact.ok) {
+              await appendRecordedArtifacts([inftArtifact.value]);
+            } else {
+              const message = inftArtifact.error.message;
+              publishErrors.push(`iNFT intelligence update: ${message}`);
+              this.logger.warn("iNFT intelligence update failed.", inftArtifact.error);
+
+              if (this.eventPublisher) {
+                await this.safePublishEvent(
+                  createRunLifecycleEvent({
+                    runId: finalState.run.id,
+                    timestamp: new Date().toISOString(),
+                    summary: `iNFT intelligence version was not recorded: ${message}`,
+                    status: "warning",
+                    payload: {
+                      provider: "0g-chain",
+                      error: message,
+                      manifestArtifactId: manifestArtifact.id,
+                    },
+                  }),
+                );
+              }
+            }
+          } catch (error) {
+            const message = errorMessage(error, "iNFT intelligence update failed.");
+            publishErrors.push(`iNFT intelligence update: ${message}`);
+            this.logger.warn("iNFT intelligence update failed.", error);
+
+            if (this.eventPublisher) {
+              await this.safePublishEvent(
+                createRunLifecycleEvent({
+                  runId: finalState.run.id,
+                  timestamp: new Date().toISOString(),
+                  summary: `iNFT intelligence version was not recorded: ${message}`,
+                  status: "warning",
+                  payload: {
+                    provider: "0g-chain",
+                    error: message,
+                    manifestArtifactId: manifestArtifact.id,
+                  },
+                }),
+              );
+            }
+          }
+        }
       }
 
       const completedAt = new Date().toISOString();
-      const manifestRecorded = finalArtifacts.some(
-        (artifact) => artifact.refType === "manifest",
-      );
-      const chainConfigured =
-        this.zeroGProofAnchor?.requireConfiguredAdapter().ok ?? false;
-      const chainRecorded = finalArtifacts.some(
-        (artifact) => artifact.refType === "chain_proof",
-      );
+      const manifestRecorded = finalArtifacts.some((artifact) => artifact.refType === "manifest");
+      const chainConfigured = this.zeroGProofAnchor?.requireConfiguredAdapter().ok ?? false;
+      const chainRecorded = finalArtifacts.some((artifact) => artifact.refType === "chain_proof");
       const proofStatus: ProofFinalization["status"] = !manifestRecorded
         ? "failed"
         : publishErrors.length > 0 || (chainConfigured && !chainRecorded)

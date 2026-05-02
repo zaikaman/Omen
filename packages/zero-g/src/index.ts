@@ -7,6 +7,7 @@ export * from "./compute/compute-adapter.js";
 export * from "./compute/zero-g-adjudication.js";
 export * from "./compute/zero-g-report-synthesis.js";
 export * from "./inft/encryption.js";
+export * from "./inft/omen-agent-inft-publisher.js";
 export * from "./inft/omen-agent-intelligence.js";
 export * from "./proofs/proof-registry.js";
 export * from "./proofs/run-manifest-builder.js";
