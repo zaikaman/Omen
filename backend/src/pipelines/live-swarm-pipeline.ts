@@ -80,17 +80,15 @@ const DEFAULT_MARKET_UNIVERSE = TRADEABLE_SYMBOLS;
 const DEFAULT_SCAN_INTERVAL_MINUTES = 60;
 const ZERO_G_MILESTONE_CHECKPOINT_STEPS = new Set(["checkpoint-node", "publisher-agent"]);
 
-const getUtcDayWindow = (value: string) => {
+const getRollingSignalLimitWindow = (value: string) => {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     throw new Error(`Invalid scheduler timestamp for daily signal limit: ${value}`);
   }
 
-  const start = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const end = date;
+  const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
 
   return {
     startAt: start.toISOString(),
@@ -1116,7 +1114,7 @@ class LivePipelineExecutionContext {
       throw new Error("Signal daily limit requires signal persistence to be configured.");
     }
 
-    const window = getUtcDayWindow(this.input.request.triggeredAt);
+    const window = getRollingSignalLimitWindow(this.input.request.triggeredAt);
     const publishedCount = await this.signalsRepository.countPublishedSignalsBetween(window);
 
     if (!publishedCount.ok) {
@@ -1127,7 +1125,7 @@ class LivePipelineExecutionContext {
       return null;
     }
 
-    return `Daily signal cap reached: ${publishedCount.value.toString()}/${limit.toString()} signals already published for ${window.startAt.slice(0, 10)} UTC.`;
+    return `Daily signal cap reached: ${publishedCount.value.toString()}/${limit.toString()} signals already published in the rolling 24h window from ${window.startAt} to ${window.endAt}.`;
   }
 
   async prepareRun(run: SwarmState["run"]) {
