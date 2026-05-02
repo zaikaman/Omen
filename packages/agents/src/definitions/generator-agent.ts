@@ -3,7 +3,7 @@ import { z as zod } from "zod";
 
 import { generatorInputSchema, generatorOutputSchema } from "../contracts/generator.js";
 import type { RuntimeNodeDefinition } from "../framework/agent-runtime.js";
-import type { GeneratedIntelContent } from "../framework/state.js";
+import type { GeneratedIntelContent, IntelReport } from "../framework/state.js";
 import { OpenAiCompatibleJsonClient } from "../llm/openai-compatible-client.js";
 import { resolveModelProfileForRole } from "../llm/model-routing.js";
 import { buildGeneratorSystemPrompt } from "../prompts/generator/system.js";

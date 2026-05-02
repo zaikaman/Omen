@@ -29,8 +29,8 @@ export class WriterAgentFactory {
   }
 
   createDefinition(): RuntimeNodeDefinition<
-    z.input<typeof writerInputSchema>,
-    z.input<typeof writerOutputSchema>
+    zod.input<typeof writerInputSchema>,
+    zod.input<typeof writerOutputSchema>
   > {
     return {
       key: "writer-agent",
@@ -41,7 +41,7 @@ export class WriterAgentFactory {
     };
   }
 
-  private async writeArticle(input: z.input<typeof writerInputSchema>, state: SwarmState) {
+  private async writeArticle(input: zod.input<typeof writerInputSchema>, state: SwarmState) {
     void state;
     const parsed = writerInputSchema.parse(input);
 
