@@ -128,7 +128,7 @@ CREATE TABLE public.copytrade_trades (
   execution_metadata jsonb,
   CONSTRAINT copytrade_trades_pkey PRIMARY KEY (id),
   CONSTRAINT copytrade_trades_enrollment_id_fkey FOREIGN KEY (enrollment_id) REFERENCES public.copytrade_enrollments(id),
-  CONSTRAINT copytrade_trades_signal_id_fkey FOREIGN KEY (signal_id) REFERENCES public.signals(id)
+  CONSTRAINT copytrade_trades_signal_id_fkey FOREIGN KEY (signal_id) REFERENCES public.signals(id) ON DELETE SET NULL
 );
 CREATE TABLE public.intels (
   id text NOT NULL DEFAULT (gen_random_uuid())::text,

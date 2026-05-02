@@ -126,7 +126,6 @@ export const TRADEABLE_TOKENS: TradeableToken[] = [
   { symbol: "LAYER", coingeckoId: "layer-ai", category: "ecosystem", binanceSymbol: "LAYERUSDT", hyperliquidSymbol: "LAYER" },
   { symbol: "NOT", coingeckoId: "notcoin", category: "ecosystem", binanceSymbol: "NOTUSDT", hyperliquidSymbol: "NOT" },
   { symbol: "ZRO", coingeckoId: "layerzero", category: "ecosystem", binanceSymbol: "ZROUSDT", hyperliquidSymbol: "ZRO" },
-  { symbol: "AXL", coingeckoId: "axelar", category: "ecosystem", binanceSymbol: "AXLUSDT", hyperliquidSymbol: "AXL" },
   { symbol: "NTRN", coingeckoId: "neutron-3", category: "ecosystem", binanceSymbol: "NTRNUSDT", hyperliquidSymbol: "NTRN" },
   { symbol: "ORDI", coingeckoId: "ordinals", category: "other", binanceSymbol: "ORDIUSDT", hyperliquidSymbol: "ORDI" },
   { symbol: "BLUR", coingeckoId: "blur", category: "other", binanceSymbol: "BLURUSDT", hyperliquidSymbol: "BLUR" },
