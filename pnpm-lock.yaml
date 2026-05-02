@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      lightweight-charts:
+        specifier: 5.2.0
+        version: 5.2.0
       omen-backend:
         specifier: workspace:*
         version: link:backend
