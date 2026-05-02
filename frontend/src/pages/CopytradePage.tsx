@@ -68,6 +68,22 @@ const DEFAULT_RISK_SETTINGS: CopytradeRiskSettings = {
   copyShorts: true,
 };
 const TRADE_HISTORY_PAGE_SIZE = 20;
+const COPYTRADE_NETWORK_STORAGE_KEY = 'omen.copytrade.hyperliquidChain';
+const HYPERLIQUID_CHAINS = ['Mainnet', 'Testnet'] as const satisfies readonly HyperliquidChain[];
+const DEFAULT_HYPERLIQUID_CHAIN = HYPERLIQUID_CHAINS[0];
+
+const isHyperliquidChain = (value: unknown): value is HyperliquidChain =>
+  HYPERLIQUID_CHAINS.some((network) => network === value);
+
+const getStoredHyperliquidChain = (): HyperliquidChain => {
+  try {
+    const storedChain = window.localStorage.getItem(COPYTRADE_NETWORK_STORAGE_KEY);
+
+    return isHyperliquidChain(storedChain) ? storedChain : DEFAULT_HYPERLIQUID_CHAIN;
+  } catch {
+    return DEFAULT_HYPERLIQUID_CHAIN;
+  }
+};
 
 const buildApprovalAction = (enrollment: CopytradeEnrollment): HyperliquidApproveAgentAction => ({
   type: 'approveAgent',
@@ -557,7 +573,7 @@ function CopytradeDashboardView({
 export function CopytradePage() {
   const [walletAddress, setWalletAddress] = useState<`0x${string}` | null>(null);
   const [chainId, setChainId] = useState<`0x${string}` | null>(null);
-  const [hyperliquidChain, setHyperliquidChain] = useState<HyperliquidChain>('Mainnet');
+  const [hyperliquidChain, setHyperliquidChain] = useState<HyperliquidChain>(getStoredHyperliquidChain);
   const [riskSettings, setRiskSettings] = useState<CopytradeRiskSettings>(DEFAULT_RISK_SETTINGS);
   const [account, setAccount] = useState<CopytradeAccount | null>(null);
   const [enrollment, setEnrollment] = useState<CopytradeEnrollment | null>(null);
@@ -588,6 +604,14 @@ export function CopytradePage() {
     hyperliquidChain === 'Testnet'
       ? 'https://app.hyperliquid-testnet.xyz/'
       : 'https://app.hyperliquid.xyz/';
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COPYTRADE_NETWORK_STORAGE_KEY, hyperliquidChain);
+    } catch {
+      // Persisting the UI preference is best-effort; the selected tab still works for this session.
+    }
+  }, [hyperliquidChain]);
 
   useEffect(() => {
     const provider = window.ethereum;
@@ -994,7 +1018,7 @@ export function CopytradePage() {
                 <div className="mt-1 text-xs text-gray-500">Approval is signed on your current EVM chain and submitted to Hyperliquid.</div>
               </div>
               <div className="inline-flex rounded-lg border border-gray-800 bg-gray-950 p-1">
-                {(['Mainnet', 'Testnet'] as const).map((network) => (
+                {HYPERLIQUID_CHAINS.map((network) => (
                   <button
                     key={network}
                     type="button"
